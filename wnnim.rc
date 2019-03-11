@@ -1,0 +1,15 @@
+#include <os2.h>
+#include "ids.h"
+
+ICON    ID_ICON  app.ico
+
+MENU IDM_POPUP
+BEGIN
+    MENUITEM "~Always on top",  IDM_FLOAT
+    MENUITEM "~About...",       IDM_ABOUT
+    MENUITEM SEPARATOR
+    MENUITEM "~Close",          IDM_CLOSE
+END
+
+RCINCLUDE "wnnim.dlg"
+

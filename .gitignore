@@ -7,6 +7,10 @@
 *.obj
 *.elf
 
+# Other build files
+*.res
+*.xqs
+
 # Linker output
 *.ilk
 *.map

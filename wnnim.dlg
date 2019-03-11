@@ -1,0 +1,19 @@
+#ifndef OS2_INCLUDED
+   #include <os2.h>
+#endif
+DLGINCLUDE 1 "ids.h"
+
+DLGTEMPLATE DLG_ABOUT LOADONCALL MOVEABLE DISCARDABLE
+BEGIN
+    DIALOG  "", DLG_ABOUT, 5, 4, 187, 93, WS_VISIBLE, FCF_SYSMENU |
+            FCF_TITLEBAR
+    BEGIN
+        DEFPUSHBUTTON   "OK", ID_ICON, 40, 2, 40, 12
+        ICON            ID_ICON, 201, 8, 52, 16, 15, WS_GROUP
+        LTEXT           "FreeWnn IME (J)", -1, 40, 81, 129, 8
+        LTEXT           "", IDD_VERSION, 40, 71, 128, 8
+        MLE             "", IDD_NOTICES, 40, 18, 143, 49, MLS_READONLY |
+                        MLS_WORDWRAP | MLS_VSCROLL | WS_GROUP
+                        PRESPARAMS PP_BACKGROUNDCOLOR, 0x00CCCCCCL
+    END
+END

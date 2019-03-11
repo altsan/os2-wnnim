@@ -1,0 +1,10 @@
+LIBRARY WNNHOOK INITGLOBAL
+DESCRIPTION "PM Hook for WnnIM"
+
+DATA SINGLE SHARED
+
+EXPORTS
+    WnnHookInit
+    WnnHookTerm
+    WnnGlobalData
+
