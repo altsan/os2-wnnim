@@ -31,7 +31,6 @@
 
 #include "wnnhook.h"
 #include "codepage.h"
-#include "fonts.h"
 #include "ids.h"
 
 
@@ -152,7 +151,7 @@ void ProcessCharacter( HWND hwnd, USHORT usChar, HWND hwndSource )
 /*
      - if romaji is valid sequence
        - convert
-       - add to clause buffer
+       - if CJK conversion active, add to clause buffer, otherwise send to source window
      - else if romaji is known-invalid sequence or length is max and romaji is unknown sequence
        - send to source window
      - else return
