@@ -21,7 +21,7 @@
 #define INCL_WIN
 #define INCL_GPI
 #define INCL_DOSEXCEPTIONS
-//#define INCL_DOSMODULEMGR
+#define INCL_DOSMODULEMGR
 #define INCL_DOSPROCESS
 #include <os2.h>
 #include <stdio.h>
@@ -40,6 +40,7 @@
 
 #define SZ_VERSION      "0.1"
 #define MAX_VERSTRZ     32
+#define MAX_STATUSZ     64
 
 #define MAX_CHAR_BUF    7
 #define MAX_KANA_BUF    4
@@ -83,25 +84,23 @@ PFNWP pfnTxtProc;
 /* ------------------------------------------------------------------------- *
  * SendCharacter                                                             *
  *                                                                           *
- * Send the converted character value(s) to the source window.  Typically    *
+ * Send the contents of the character buffer to the source window. Typically *
  * this will cause the character to be inserted at the current position,     *
  * but in practice it's up to the application to decide what to do with it.  *
  *                                                                           *
  * ------------------------------------------------------------------------- */
-void SendCharacter( HWND hwndSource )
+void SendCharacter( HWND hwndSource, PSZ pszBuffer, MPARAM mp1 )
 {
     USHORT i,
            usLen,
-           usChar,
-           fsFlags = KC_CHAR;
+           usChar;
 
-    usLen = strlen( global.szKana );
+    usLen = strlen( pszBuffer );
     for ( i = 0; i < usLen; i++ ) {
         usChar = (USHORT) global.szKana[ i ];
-//        if ( IsDBCSLeadByte( global.szKana[ i ], global.dbcs ))
-//            usChar |= ( global.szKana[ ++i ] << 0x8 );
-        WinSendMsg( hwndSource, WM_CHAR, MPFROM2SHORT( fsFlags, 0 ),
-                    MPFROM2SHORT( usChar, 0 ));
+        if ( IsDBCSLeadByte( global.szKana[ i ], global.dbcs ))
+            usChar |= ( global.szKana[ ++i ] << 0x8 );
+        WinSendMsg( hwndSource, WM_CHAR, mp1, MPFROM2SHORT( usChar, 0 ));
     }
     memset( global.szKana, 0, MAX_KANA_BUF );
 }
@@ -121,9 +120,9 @@ void SendCharacter( HWND hwndSource )
  * ------------------------------------------------------------------------- */
 BOOL ConvertCharacter( void )
 {
-    // temp for testing
-    global.szKana[ 0 ] = '‚';
-    global.szKana[ 1 ] = ' ';
+    // temp for testing (0x82a0 is Japanese 'A' hiragana)
+    global.szKana[ 0 ] = 0x82;
+    global.szKana[ 1 ] = 0xA0;
     global.szKana[ 2 ] = 0;
 
     memset( global.szRomaji, 0, MAX_CHAR_BUF );
@@ -139,33 +138,37 @@ BOOL ConvertCharacter( void )
  * active; here we determine whether the character is valid for the current  *
  * input mode and existing buffer contents, and process it accordingly.      *
  *                                                                           *
+ * The romaji buffer can basically be in four states at any given time:      *
+ *  - empty                                                                  *
+ *  - complete (contains valid romaji sequence ready for conversion)         *
+ *  - incomplete (contains a partial sequence which is potentially valid)    *
+ *  - invalid (contains a sequence that is not nor could ever become valid)  *
  * ------------------------------------------------------------------------- */
-void ProcessCharacter( HWND hwnd, USHORT usChar, HWND hwndSource )
+void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
 {
     UCHAR szChar[ 2 ];
-    szChar[ 0 ] = (UCHAR) usChar;
+    szChar[ 0 ] = (UCHAR) SHORT1FROMMP( mp2 );
     szChar[ 1 ] = 0;
     strncat( global.szRomaji, szChar, MAX_CHAR_BUF-1 );
 
-    // temp for testing
-    // ultimately we will pass the character to the romkan function to see if the current sequence is valid
-    if ( strlen( global.szRomaji ) > 1 ) {
-        ConvertCharacter();
-        memset( global.szRomaji, 0, MAX_CHAR_BUF );
-        // temp - if CJK conversion is active we should add it to the clause buffer
-        SendCharacter( hwndSource );
-    }
-/*
-     - if romaji is valid sequence
-       - convert
-       - if CJK conversion active, add to clause buffer, otherwise send to source window
-     - else if romaji is known-invalid sequence or length is max and romaji is unknown sequence
-       - send to source window
-     - else return
+    if ( strlen( global.szRomaji ) > 1 ) {          // temp logic for testing
+    // TODO (eventual logic):
+    //   - check if szRomaji contains value romaji sequence (probably by calling romkan API)
+    //   - do the following if valid:
 
-     - clear romaji
-     - clear kana
-*/
+        ConvertCharacter(); // may not be necessary if romkan API has already done it??
+
+        memset( global.szRomaji, 0, MAX_CHAR_BUF );     // clear romaji buffer
+
+        // TODO: if CJK conversion is active, add szKana to the clause buffer; else:
+        SendCharacter( hwndSource, global.szKana, mp1 );
+    }
+    // TODO:
+    // - else if (romaji is invalid) OR (romaji state is incomplete AND length is max)
+    //   - SendCharacter( hwndSource, global.szRomaji );
+    //   - clear romaji buffer
+    //   - clear kana buffer
+    // - else return (keep current buffers and be ready for next character)
 
 }
 
@@ -408,6 +411,77 @@ void SetupWindow( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
+ * Set the status text to show the current mode.                             *
+ * ------------------------------------------------------------------------- */
+void UpdateStatus( HWND hwnd )
+{
+    CHAR szText[ MAX_STATUSZ ] = {0};
+    USHORT usLang = pShared->fsMode & 0xF00,
+           usMode = pShared->fsMode & 0xFF;
+
+    switch ( usLang ) {
+        case MODE_JP:
+            switch ( usMode ) {
+                case MODE_HIRAGANA:
+                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
+                    sprintf( szText,
+                             pShared->fsMode & MODE_CJK? "Hiragana - Kanji": "Hiragana");
+                    break;
+                case MODE_KATAKANA:
+                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
+                    sprintf( szText,
+                             pShared->fsMode & MODE_CJK? "Katagana - Kanji": "Katakana");
+                    break;
+                case MODE_HALFWIDTH:
+                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
+                    sprintf( szText,
+                             pShared->fsMode & MODE_CJK? "Halfwidth - Kanji": "Halfwidth Katakana");
+                    break;
+                case MODE_FULLWIDTH:
+                    // Fullwidth mode doesn't support CJK
+                    WinEnableControl( hwnd, IDD_KANJI, FALSE );
+                    sprintf( szText, "Fullwidth ASCII");
+                    break;
+                case MODE_NONE:
+                    WinEnableControl( hwnd, IDD_KANJI, FALSE );
+                    sprintf( szText, "No conversion");      // neither does None, obviously
+                    break;
+            }
+            break;
+    }
+    WinSetDlgItemText( hwnd, IDD_STATUS, szText );
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * Toggle kanji (CJK) conversion on or off                                   *
+ * ------------------------------------------------------------------------- */
+void SetKanjiMode( HWND hwnd )
+{
+    if ( pShared->fsMode & MODE_CJK )
+        pShared->fsMode &= ~MODE_CJK;
+    else
+        pShared->fsMode |= MODE_CJK;
+    UpdateStatus( hwnd );
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * Change the current romaji conversion mode                                 *
+ * ------------------------------------------------------------------------- */
+void SetConversionMode( HWND hwnd )
+{
+    BYTE bInputMode = pShared->fsMode & 0xFF;
+    // temp: for now just toggle between mode 0/1
+    if ( bInputMode )
+        pShared->fsMode &= 0xFF00;          // temp: turn off all
+    else
+        pShared->fsMode |= MODE_HIRAGANA;   // temp: turn on mode 1
+    UpdateStatus( hwnd );
+}
+
+
+/* ------------------------------------------------------------------------- *
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
@@ -439,6 +513,14 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
         case WM_COMMAND:
             switch( COMMANDMSG(&msg)->cmd ) {
+
+                case IDD_MODE:
+                    SetConversionMode( hwnd );
+                    break;
+
+                case IDD_KANJI:
+                    SetKanjiMode( hwnd );
+                    break;
 
                 case IDM_FLOAT:
                     SetTopmost( hwnd, hwndMenu );
@@ -477,9 +559,8 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
         default:                    // if this is our custom msg
             if ( msg == pShared->wmAddChar ) {
-                //ProcessCharacter( hwnd, SHORT1FROMMP( mp1 ), (HWND) mp2 );
-                WinSendMsg( (HWND)mp2, WM_CHAR, MPFROM2SHORT( KC_CHAR, 0 ),
-                            MPFROM2SHORT( SHORT1FROMMP( mp1 ) & ~0x20, 0 ));
+                ProcessCharacter( hwnd, pShared->hwndSource, mp1, mp2 );
+                //WinSendMsg( pShared->hwndSource, WM_CHAR, mp1, MPFROM2SHORT( SHORT1FROMMP( mp2 ) & ~0x20, 0 ));
                 return 0;
             }
             break;
@@ -504,13 +585,23 @@ void SetupDBCSLanguage( USHORT usLangMode )
             break;
 
         case MODE_KR:
+            cc.country  = 82;       // Korea
+            cc.codepage = 949;      // Korean KS-Code
+            break;
+
         case MODE_CN:
+            cc.country  = 86;       // China PRC
+            cc.codepage = 1386;     // Chinese GBK
+            break;
+
         case MODE_TW:
+            cc.country  = 88;       // Taiwan
+            cc.codepage = 950;      // Chinese Big-5
             break;
     }
     DosQueryDBCSEnv( sizeof( global.dbcs ), &cc, global.dbcs );
 
-    pShared->fsMode = usLangMode | 1;   // default mode for this language
+    pShared->fsMode = usLangMode;   // no conversion, will set later
 }
 
 
@@ -550,16 +641,17 @@ int main( int argc, char **argv )
                                            "FreeWnnIME", 0L, 0, ID_ICON, &global.hwndClient );
     SetupWindow( global.hwndClient );
 
-    SetupDBCSLanguage( MODE_JP );       // for now
+    SetupDBCSLanguage( MODE_JP );                       // for now
+    SetConversionMode( global.hwndClient );
 
     // Now do our stuff
-    DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );     // increment the DLL use counter for safety
+//    DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );     // increment the DLL use counter for safety
     if ( WnnHookInit( global.hwndClient )) {
         while ( WinGetMsg( hab, &qmsg, NULLHANDLE, 0, 0 ))
             WinDispatchMsg( hab, &qmsg );
         WnnHookTerm();
     }
-    if ( hm ) DosFreeModule( hm );
+//    if ( hm ) DosFreeModule( hm );
 
     WinDestroyWindow( global.hwndFrame );
     WinDestroyMsgQueue( hmq );

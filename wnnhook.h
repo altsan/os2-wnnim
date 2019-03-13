@@ -1,6 +1,6 @@
 
 // Uncomment to restrict hook to client window
-#define TESTHOOK 1
+// #define TESTHOOK 1
 
 
 //#define USE_EXCEPTQ 1
@@ -27,19 +27,21 @@
 
 // TBD Does Chinese support purely phonetic modes, e.g. non-converted Pinyin?
 
-// Convert to Kanji/Hanzi/Hanja (build clause buffer and convert on accept command)
-#define MODE_CJK        0x10
-
 // High byte: language mode
 #define MODE_JP         0x100
 #define MODE_KR         0x200
 #define MODE_CN         0x400
 #define MODE_TW         0x800
 
+// Convert to Kanji/Hanzi/Hanja (build clause buffer and convert on accept command)
+#define MODE_CJK        0x1000
+
+
 // Global data shared between DLL and app
 typedef struct _Wnn_Global_Data {
-    USHORT fsMode;
-    ATOM   wmAddChar;
+    USHORT fsMode;              // current input language & mode
+    HWND   hwndSource;          // HWND of window whose message was just intercepted
+    ATOM   wmAddChar;           // custom message ID
 //    CHAR   szRomaji[ MAX_CHAR_BUF ];
 //    CHAR   szKana[ MAX_KANA_BUF ];
 //    CHAR   szAddChar[ 40 ];

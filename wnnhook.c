@@ -63,9 +63,8 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
             if (( fsFlags & KC_CHAR ) && !( fsFlags & KC_KEYUP )) {
                 c = (CHAR)( SHORT1FROMMP( pQmsg->mp2 ) & 0xFF );
                 if (( global.fsMode & 0xFF ) && ( c >= 0x20 && c <= 0x7E )) {
-                    WinPostMsg( g_hwndClient, global.wmAddChar,
-                                MPFROMSHORT( SHORT1FROMMP( pQmsg->mp2 )),
-                                (MPARAM) pQmsg->hwnd );
+                    global.hwndSource = pQmsg->hwnd;
+                    WinPostMsg( g_hwndClient, global.wmAddChar, pQmsg->mp1, pQmsg->mp2 );
                     return TRUE;
                 }
             }
