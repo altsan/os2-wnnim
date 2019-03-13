@@ -98,8 +98,11 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer, MPARAM mp1 )
     usLen = strlen( pszBuffer );
     for ( i = 0; i < usLen; i++ ) {
         usChar = (USHORT) global.szKana[ i ];
-        if ( IsDBCSLeadByte( global.szKana[ i ], global.dbcs ))
-            usChar |= ( global.szKana[ ++i ] << 0x8 );
+
+        // Hmm, some apps don't seem able to cope with this.
+        // Better to just use a separate message for each byte.
+        //if ( IsDBCSLeadByte( global.szKana[ i ], global.dbcs )) usChar |= ( global.szKana[ ++i ] << 0x8 );
+
         WinSendMsg( hwndSource, WM_CHAR, mp1, MPFROM2SHORT( usChar, 0 ));
     }
     memset( global.szKana, 0, MAX_KANA_BUF );
