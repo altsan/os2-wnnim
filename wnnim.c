@@ -38,8 +38,11 @@
 // CONSTANTS
 //
 
-#define MAX_VERSTRZ     32
 #define SZ_VERSION      "0.1"
+#define MAX_VERSTRZ     32
+
+#define MAX_CHAR_BUF    7
+#define MAX_KANA_BUF    4
 
 #define SZ_DEFAULTFONT  "8.Helv"
 
@@ -56,6 +59,8 @@ typedef struct _WnnClientData {
     HWND  hwndFrame,            // our frame
           hwndClient;           // our client window
     BYTE  dbcs[ 12 ];           // DBCS information vector (byte-ranges)
+    CHAR  szRomaji[ MAX_CHAR_BUF ];
+    CHAR  szKana[ MAX_KANA_BUF ];
 } IMCLIENTDATA, *PIMCLIENTDATA;
 
 
@@ -90,14 +95,15 @@ void SendCharacter( HWND hwndSource )
            usChar,
            fsFlags = KC_CHAR;
 
-    usLen = strlen( pShared->szKana );
+    usLen = strlen( global.szKana );
     for ( i = 0; i < usLen; i++ ) {
-        usChar = (USHORT) pShared->szKana[ i ];
-        if ( IsDBCSLeadByte( pShared->szKana[ i ], global.dbcs ))
-            usChar |= ( pShared->szKana[ ++i ] << 0x8 );
+        usChar = (USHORT) global.szKana[ i ];
+//        if ( IsDBCSLeadByte( global.szKana[ i ], global.dbcs ))
+//            usChar |= ( global.szKana[ ++i ] << 0x8 );
         WinSendMsg( hwndSource, WM_CHAR, MPFROM2SHORT( fsFlags, 0 ),
                     MPFROM2SHORT( usChar, 0 ));
     }
+    memset( global.szKana, 0, MAX_KANA_BUF );
 }
 
 
@@ -116,9 +122,11 @@ void SendCharacter( HWND hwndSource )
 BOOL ConvertCharacter( void )
 {
     // temp for testing
-    pShared->szKana[ 0 ] = '‚';
-    pShared->szKana[ 1 ] = ' ';
-    pShared->szKana[ 2 ] = 0;
+    global.szKana[ 0 ] = '‚';
+    global.szKana[ 1 ] = ' ';
+    global.szKana[ 2 ] = 0;
+
+    memset( global.szRomaji, 0, MAX_CHAR_BUF );
     return TRUE;
 }
 
@@ -137,17 +145,16 @@ void ProcessCharacter( HWND hwnd, USHORT usChar, HWND hwndSource )
     UCHAR szChar[ 2 ];
     szChar[ 0 ] = (UCHAR) usChar;
     szChar[ 1 ] = 0;
-    strncat( pShared->szRomaji, szChar, MAX_CHAR_BUF-1 );
+    strncat( global.szRomaji, szChar, MAX_CHAR_BUF-1 );
 
     // temp for testing
     // ultimately we will pass the character to the romkan function to see if the current sequence is valid
-    if ( strlen( pShared->szRomaji ) > 1 ) {
+    if ( strlen( global.szRomaji ) > 1 ) {
         ConvertCharacter();
-        memset( pShared->szRomaji, 0, MAX_CHAR_BUF );
+        memset( global.szRomaji, 0, MAX_CHAR_BUF );
         // temp - if CJK conversion is active we should add it to the clause buffer
         SendCharacter( hwndSource );
     }
-
 /*
      - if romaji is valid sequence
        - convert
@@ -340,7 +347,7 @@ void SizeWindow( HWND hwnd )
     GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm );
     WinReleasePS( hps );
 
-    cyWin  = fm.lMaxBaselineExt + 8;
+    cyWin  = 2*fm.lMaxBaselineExt + 8;
     cxCtrl = ( 2 * fm.lEmInc );
     xPos = 0;
     WinSetWindowPos( WinWindowFromID( hwnd, IDD_MODE ), HWND_TOP,
@@ -384,7 +391,9 @@ void SetupWindow( HWND hwnd )
     WinCreateWindow( hwnd, WC_BUTTON, "K", WS_VISIBLE | BS_PUSHBUTTON | BS_NOPOINTERFOCUS,
                      0, 0, 0, 0,  hwnd, HWND_TOP, IDD_KANJI, NULL, NULL );
 #ifdef TESTHOOK
-    WinCreateWindow( hwnd, WC_ENTRYFIELD, "", WS_VISIBLE | ES_AUTOSCROLL,
+//    WinCreateWindow( hwnd, WC_ENTRYFIELD, "", WS_VISIBLE | ES_AUTOSCROLL,
+//                     0, 0, 0, 0,  hwnd, HWND_TOP, IDD_TESTINPUT, NULL, NULL );
+    WinCreateWindow( hwnd, WC_MLE, "", WS_VISIBLE,
                      0, 0, 0, 0,  hwnd, HWND_TOP, IDD_TESTINPUT, NULL, NULL );
 #endif
     WinCreateWindow( hwnd, WC_STATIC, "FreeWnn", WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER,
@@ -468,7 +477,9 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
         default:                    // if this is our custom msg
             if ( msg == pShared->wmAddChar ) {
-                ProcessCharacter( hwnd, SHORT1FROMMP( mp1 ), (HWND) mp2 );
+                //ProcessCharacter( hwnd, SHORT1FROMMP( mp1 ), (HWND) mp2 );
+                WinSendMsg( (HWND)mp2, WM_CHAR, MPFROM2SHORT( KC_CHAR, 0 ),
+                            MPFROM2SHORT( SHORT1FROMMP( mp1 ) & ~0x20, 0 ));
                 return 0;
             }
             break;
@@ -521,26 +532,34 @@ int main( int argc, char **argv )
     HMQ   hmq;
     QMSG  qmsg;
     ULONG frameFlags = FCF_DLGBORDER | FCF_TASKLIST;
+    HMODULE hm;
+    CHAR    szErr[ 256 ];
+
+    memset( global.szRomaji, 0, MAX_CHAR_BUF );
+    memset( global.szKana, 0, MAX_KANA_BUF );
+
+    pShared = WnnGlobalData();
 
     hab = WinInitialize( 0 );
     hmq = WinCreateMsgQueue( hab, 0 );
 
     DosExitList( EXLST_ADD, (PFNEXITLIST) ExeTrap );    // trap exceptions to ensure hooks released
-    pShared = WnnGlobalData();                          // get shared data pointer from DLL
 
     WinRegisterClass( hab, clientClass, ClientWndProc, CS_CLIPCHILDREN, 0 );
     global.hwndFrame = WinCreateStdWindow( HWND_DESKTOP, 0L, &frameFlags, clientClass,
-                                    "FreeWnnIME", 0L, 0, ID_ICON, &global.hwndClient );
+                                           "FreeWnnIME", 0L, 0, ID_ICON, &global.hwndClient );
     SetupWindow( global.hwndClient );
 
     SetupDBCSLanguage( MODE_JP );       // for now
 
     // Now do our stuff
+    DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );     // increment the DLL use counter for safety
     if ( WnnHookInit( global.hwndClient )) {
-       while ( WinGetMsg( hab, &qmsg, NULLHANDLE, 0, 0 ))
-           WinDispatchMsg( hab, &qmsg );
-       WnnHookTerm();
+        while ( WinGetMsg( hab, &qmsg, NULLHANDLE, 0, 0 ))
+            WinDispatchMsg( hab, &qmsg );
+        WnnHookTerm();
     }
+    if ( hm ) DosFreeModule( hm );
 
     WinDestroyWindow( global.hwndFrame );
     WinDestroyMsgQueue( hmq );

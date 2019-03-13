@@ -39,12 +39,13 @@ WNNSHARED global;
 
 /* -------------------------------------------------------------------------- *
  * Clear a character buffer (cheap and dirty memset replacement).             *
- * -------------------------------------------------------------------------- */
+ * -------------------------------------------------------------------------- *
 void ClearBuffer( CHAR *pBuf, USHORT usLen )
 {
     USHORT i;
     for ( i = 0; pBuf && i < usLen; i++ ) pBuf[ i ] = 0;
 }
+*/
 
 
 /* -------------------------------------------------------------------------- *
@@ -99,9 +100,6 @@ BOOL EXPENTRY _Export WnnHookInit( HWND hwnd )
     LoadExceptq(&exRegRec, "I", "WNNHOOK");
 #endif
 
-    ClearBuffer( global.szRomaji, MAX_CHAR_BUF );
-    ClearBuffer( global.szKana, MAX_KANA_BUF );
-
     g_hwndClient = hwnd;
     if ( g_fHookActive ) return TRUE;
 
@@ -109,8 +107,7 @@ BOOL EXPENTRY _Export WnnHookInit( HWND hwnd )
     // We probably don't need this since we're only sending the message to the client
     //   srand( (UINT)hwnd );
     //   sprintf( global.szAddChar, "WnnAddChar%d", rand() );
-    sprintf( global.szAddChar, "WnnAddChar");
-    global.wmAddChar = WinAddAtom( g_hATSys, global.szAddChar );
+    global.wmAddChar = WinAddAtom( g_hATSys, "WnnAddChar");
     if ( DosQueryModuleHandle("wnnhook", &g_hMod )) return FALSE;
     g_hab = WinQueryAnchorBlock( hwnd );
     WinSetHook( g_hab, g_hmq, HK_INPUT, (PFN) WnnHookInput, g_hMod );

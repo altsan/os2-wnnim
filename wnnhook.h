@@ -1,6 +1,6 @@
 
 // Uncomment to restrict hook to client window
-// #define TESTHOOK 1
+#define TESTHOOK 1
 
 
 //#define USE_EXCEPTQ 1
@@ -9,9 +9,6 @@
 #define INCL_LOADEXCEPTQ
 #include <exceptq.h>
 #endif
-
-#define MAX_CHAR_BUF    7
-#define MAX_KANA_BUF    4
 
 
 // Flags for WNNSHARED.fsMode
@@ -42,12 +39,10 @@
 // Global data shared between DLL and app
 typedef struct _Wnn_Global_Data {
     USHORT fsMode;
-    USHORT usChar;
-    CHAR   szRomaji[ MAX_CHAR_BUF ];
-    CHAR   szKana[ MAX_KANA_BUF ];
-    BOOL   fDoubleConsonant;
     ATOM   wmAddChar;
-    CHAR   szAddChar[ 40 ];
+//    CHAR   szRomaji[ MAX_CHAR_BUF ];
+//    CHAR   szKana[ MAX_KANA_BUF ];
+//    CHAR   szAddChar[ 40 ];
 } WNNSHARED, *PWNNSHARED;
 
 

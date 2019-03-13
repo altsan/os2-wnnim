@@ -29,7 +29,9 @@ OBJS_DLL = $(DLL).obj
 
 !ifdef DEBUG
     CFLAGS_EXE = $(CFLAGS_EXE) /Ti+ /Tm+
+    CFLAGS_DLL = $(CFLAGS_DLL) /Ti+ /Tm+
     LFLAGS_EXE = $(LFLAGS_EXE) /DEBUG
+    LFLAGS_DLL = $(LFLAGS_DLL) /DEBUG
 !endif
 
 
