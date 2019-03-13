@@ -19,6 +19,7 @@
  ****************************************************************************/
 #define INCL_DOSNLS
 #define INCL_WIN
+#define INCL_PM
 #define INCL_GPI
 #define INCL_DOSEXCEPTIONS
 #define INCL_DOSMODULEMGR
@@ -34,6 +35,11 @@
 #include "ids.h"
 
 
+// useful rectangle macros
+#define RECTL_HEIGHT(rcl)       (rcl.yTop - rcl.yBottom)
+#define RECTL_WIDTH(rcl)        (rcl.xRight - rcl.xLeft)
+
+
 // --------------------------------------------------------------------------
 // CONSTANTS
 //
@@ -41,7 +47,7 @@
 #define SZ_VERSION      "0.1"
 #define MAX_VERSTRZ     32
 #define MAX_STATUSZ     64
-
+#define MAX_BTN_LABELZ  12
 #define MAX_CHAR_BUF    7
 #define MAX_KANA_BUF    4
 
@@ -58,7 +64,8 @@
 
 typedef struct _WnnClientData {
     HWND  hwndFrame,            // our frame
-          hwndClient;           // our client window
+          hwndClient,           // our client window
+          hwndMenu;             // our context menu
     BYTE  dbcs[ 12 ];           // DBCS information vector (byte-ranges)
     CHAR  szRomaji[ MAX_CHAR_BUF ];
     CHAR  szKana[ MAX_KANA_BUF ];
@@ -307,21 +314,22 @@ MRESULT EXPENTRY StaticTextProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
  *                                                                           *
  * Toggle the 'always on top' (float) setting of the window.                 *
  * ------------------------------------------------------------------------- */
-void SetTopmost( HWND hwnd, HWND hwndMenu )
+void SetTopmost( HWND hwnd )
 {
     USHORT usState;
     ULONG  fl;
 
-    usState = (USHORT) WinSendMsg( hwndMenu, MM_QUERYITEMATTR,
+    if ( !global.hwndMenu ) return;
+    usState = (USHORT) WinSendMsg( global.hwndMenu, MM_QUERYITEMATTR,
                                    MPFROM2SHORT( IDM_FLOAT, TRUE ),
                                    MPFROMSHORT( MIA_CHECKED ));
     if ( usState == MIA_CHECKED ) {
         fl = 0;
-        WinCheckMenuItem( hwndMenu, IDM_FLOAT, FALSE );
+        WinCheckMenuItem( global.hwndMenu, IDM_FLOAT, FALSE );
     }
     else {
         fl = WS_TOPMOST;
-        WinCheckMenuItem( hwndMenu, IDM_FLOAT, TRUE );
+        WinCheckMenuItem( global.hwndMenu, IDM_FLOAT, TRUE );
     }
     WinSetWindowBits( global.hwndFrame, QWL_STYLE, fl, WS_TOPMOST );
 }
@@ -346,33 +354,32 @@ void SizeWindow( HWND hwnd )
                 xPos;           // position of current control
 
     cxDesktop = WinQuerySysValue( HWND_DESKTOP, SV_CXSCREEN );
-    cxBorder  = WinQuerySysValue( HWND_DESKTOP, SV_CXDLGFRAME );
-    cyBorder  = WinQuerySysValue( HWND_DESKTOP, SV_CYDLGFRAME );
+    cxBorder = 2;
+    cyBorder = 2;
 
     hps = WinGetPS( hwnd );
     GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm );
     WinReleasePS( hps );
 
-    cyWin  = 2*fm.lMaxBaselineExt + 8;
-    cxCtrl = ( 2 * fm.lEmInc );
+    cyWin  = fm.lMaxBaselineExt + 10;
+    cxCtrl = ( 2 * fm.lEmInc ) + 4;
     xPos = 0;
     WinSetWindowPos( WinWindowFromID( hwnd, IDD_MODE ), HWND_TOP,
                      xPos, 0, cxCtrl, cyWin, SWP_SIZE | SWP_MOVE );
-    xPos += cxCtrl + 1;
+    xPos += cxCtrl;
     WinSetWindowPos( WinWindowFromID( hwnd, IDD_KANJI ), HWND_TOP,
                      xPos, 0, cxCtrl, cyWin, SWP_SIZE | SWP_MOVE );
     xPos += cxCtrl + 5;
-    cxCtrl = 16 * fm.lEmInc;
+    cxCtrl = 10 * fm.lEmInc;
 #ifdef TESTHOOK
     WinSetWindowPos( WinWindowFromID( hwnd, IDD_TESTINPUT ), HWND_TOP,
                      xPos, 2, cxCtrl, cyWin - 4, SWP_SIZE | SWP_MOVE );
     xPos += 5 + cxCtrl;
 #endif
     WinSetWindowPos( WinWindowFromID( hwnd, IDD_STATUS ), HWND_TOP,
-                     xPos, 0, cxCtrl, cyWin, SWP_SIZE | SWP_MOVE );
+                     xPos, cyBorder, cxCtrl, cyWin - (2 * cyBorder), SWP_SIZE | SWP_MOVE );
 
     cxWin = xPos + cxCtrl + ( 2 * cxBorder );
-    cyWin += cyBorder * 2;
     WinSetWindowPos( global.hwndFrame, 0, cxDesktop - cxWin, 0,
                      cxWin, cyWin, SWP_MOVE | SWP_SIZE | SWP_SHOW | SWP_ACTIVATE );
 }
@@ -382,7 +389,8 @@ void SizeWindow( HWND hwnd )
  * ------------------------------------------------------------------------- */
 void SetupWindow( HWND hwnd )
 {
-    LONG lClr;
+    ULONG flBtn = WS_VISIBLE | BS_PUSHBUTTON | BS_NOPOINTERFOCUS | BS_USERBUTTON;
+    LONG  lClr;
 
     lClr = SYSCLR_DIALOGBACKGROUND;
     WinSetPresParam( hwnd, PP_BACKGROUNDCOLORINDEX, sizeof( lClr ), &lClr );
@@ -392,13 +400,11 @@ void SetupWindow( HWND hwnd )
     WinSetPresParam( hwnd, PP_FONTNAMESIZE,
                      strlen(SZ_DEFAULTFONT)+1, (PVOID) SZ_DEFAULTFONT );
 
-    WinCreateWindow( hwnd, WC_BUTTON, "M", WS_VISIBLE | BS_PUSHBUTTON | BS_NOPOINTERFOCUS,
-                     0, 0, 0, 0, hwnd, HWND_TOP, IDD_MODE, NULL, NULL );
-    WinCreateWindow( hwnd, WC_BUTTON, "K", WS_VISIBLE | BS_PUSHBUTTON | BS_NOPOINTERFOCUS,
-                     0, 0, 0, 0,  hwnd, HWND_TOP, IDD_KANJI, NULL, NULL );
+    WinCreateWindow( hwnd, WC_BUTTON, "M", flBtn, 0, 0, 0, 0,
+                     hwnd, HWND_TOP, IDD_MODE, NULL, NULL );
+    WinCreateWindow( hwnd, WC_BUTTON, "K", flBtn, 0, 0, 0, 0,
+                     hwnd, HWND_TOP, IDD_KANJI, NULL, NULL );
 #ifdef TESTHOOK
-//    WinCreateWindow( hwnd, WC_ENTRYFIELD, "", WS_VISIBLE | ES_AUTOSCROLL,
-//                     0, 0, 0, 0,  hwnd, HWND_TOP, IDD_TESTINPUT, NULL, NULL );
     WinCreateWindow( hwnd, WC_MLE, "", WS_VISIBLE,
                      0, 0, 0, 0,  hwnd, HWND_TOP, IDD_TESTINPUT, NULL, NULL );
 #endif
@@ -410,6 +416,7 @@ void SetupWindow( HWND hwnd )
     pfnTxtProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_STATUS), (PFNWP) StaticTextProc );
 
     SizeWindow( hwnd );
+    SetTopmost( global.hwndFrame );
 }
 
 
@@ -486,18 +493,112 @@ void SetConversionMode( HWND hwnd )
 
 /* ------------------------------------------------------------------------- *
  * ------------------------------------------------------------------------- */
+void Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset )
+{
+    POINTL ptl;
+
+    GpiSetColor( hps, fInset? CLR_BLACK: SYSCLR_BUTTONDARK );
+    ptl.x = rcl.xLeft;
+    ptl.y = rcl.yBottom;
+    GpiMove( hps, &ptl );
+    ptl.y = rcl.yTop - 1;
+    GpiLine( hps, &ptl );
+    GpiMove( hps, &ptl );
+    ptl.x = rcl.xRight - 1;
+    GpiLine( hps, &ptl );
+    GpiSetColor( hps, fInset? SYSCLR_BUTTONDARK: CLR_BLACK );
+    ptl.x = rcl.xLeft;
+    ptl.y = rcl.yBottom;
+    GpiMove( hps, &ptl );
+    ptl.x = rcl.xRight - 1;
+    GpiLine( hps, &ptl );
+    GpiMove( hps, &ptl );
+    ptl.y = rcl.yTop - 2;
+    GpiLine( hps, &ptl );
+    GpiSetColor( hps, fInset? SYSCLR_BUTTONLIGHT: SYSCLR_BUTTONDARK );
+    ptl.x = rcl.xLeft + 1;
+    ptl.y = rcl.yBottom + 1;
+    GpiMove( hps, &ptl );
+    ptl.x = rcl.xRight - 2;
+    GpiLine( hps, &ptl );
+    GpiMove( hps, &ptl );
+    ptl.y = rcl.yTop - 2;
+    GpiLine( hps, &ptl );
+    GpiSetColor( hps, fInset? SYSCLR_BUTTONDARK: SYSCLR_BUTTONLIGHT );
+    ptl.x = rcl.xLeft + 1;
+    ptl.y = rcl.yBottom + 2;
+    GpiMove( hps, &ptl );
+    ptl.y = rcl.yTop - 2;
+    GpiLine( hps, &ptl );
+    GpiMove( hps, &ptl );
+    ptl.x = rcl.xRight - 2;
+    GpiLine( hps, &ptl );
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * ------------------------------------------------------------------------- */
+void PaintIMEButton( PUSERBUTTON pBtnData )
+{
+    FONTMETRICS fm;
+    CHAR   szText[ MAX_BTN_LABELZ ] = {0};
+    ULONG  cb;
+    LONG   lClr, lStrW, lStrH;
+    POINTL ptl, aptl[ TXTBOX_COUNT ];
+    RECTL  rcl;
+
+    if ( !pBtnData ) return;
+    if ( !WinQueryWindowRect( pBtnData->hwnd, &rcl )) return;
+
+    // Draw the button background and border
+    cb = WinQueryPresParam( pBtnData->hwnd, PP_BACKGROUNDCOLOR,
+                            PP_BACKGROUNDCOLORINDEX, NULL,
+                            sizeof( lClr ), &lClr, QPF_ID2COLORINDEX );
+    if ( cb )
+        GpiCreateLogColorTable( pBtnData->hps, 0, LCOLF_RGB, 0, 0, NULL );
+    else
+        lClr = GpiQueryRGBColor( pBtnData->hps, 0, SYSCLR_BUTTONMIDDLE );
+
+    WinFillRect( pBtnData->hps, &rcl, lClr );
+    Draw3DBorder( pBtnData->hps, rcl, (BOOL)(pBtnData->fsState & BDS_HILITED) );
+
+    // Draw the text
+    WinQueryWindowText( pBtnData->hwnd, MAX_BTN_LABELZ, szText );
+
+    GpiQueryFontMetrics( pBtnData->hps, sizeof( FONTMETRICS ), &fm );
+    GpiQueryTextBox( pBtnData->hps, strlen( szText ), szText, TXTBOX_COUNT, aptl );
+    lStrW = aptl[ TXTBOX_CONCAT ].x;
+    lStrH = fm.lEmHeight;
+
+    if ( pBtnData->fsState & BDS_DISABLED )
+        lClr = GpiQueryRGBColor( pBtnData->hps, 0, SYSCLR_MENUDISABLEDTEXT );
+    else {
+        cb = WinQueryPresParam( pBtnData->hwnd, PP_FOREGROUNDCOLOR,
+                                PP_FOREGROUNDCOLORINDEX, NULL,
+                                sizeof( lClr ), &lClr, QPF_ID2COLORINDEX );
+        if ( !cb )
+            lClr = GpiQueryRGBColor( pBtnData->hps, 0, SYSCLR_WINDOWTEXT );
+    }
+    GpiSetColor( pBtnData->hps, lClr );
+    ptl.x = ( RECTL_WIDTH( rcl ) / 2 ) - ( lStrW / 2 ) - 1;
+    ptl.y = ( RECTL_HEIGHT( rcl ) / 2) - ( lStrH / 2 ) + 1;
+    GpiCharStringPosAt( pBtnData->hps, &ptl, &rcl, CHS_CLIP, cb, szText, NULL );
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
-    static HWND hwndMenu;
     POINTL ptlMouse;
+    LONG   cb, lClr;
     RECTL  rcl;
     HPS    hps;
 
     switch ( msg ) {
 
         case WM_CREATE:
-            hwndMenu = WinLoadMenu(HWND_OBJECT, 0, IDM_POPUP);
-            SetTopmost( WinQueryWindow( hwnd, QW_PARENT ), hwndMenu );
+            global.hwndMenu = WinLoadMenu(HWND_OBJECT, 0, IDM_POPUP);
             return 0;
 
         case WM_BEGINDRAG:
@@ -506,9 +607,9 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             break;
 
         case WM_CONTEXTMENU:
-            if ( hwndMenu != NULLHANDLE ) {
+            if ( global.hwndMenu != NULLHANDLE ) {
                 WinQueryPointerPos(HWND_DESKTOP, &ptlMouse);
-                WinPopupMenu(HWND_DESKTOP, hwnd, hwndMenu, ptlMouse.x, ptlMouse.y, 0,
+                WinPopupMenu(HWND_DESKTOP, hwnd, global.hwndMenu, ptlMouse.x, ptlMouse.y, 0,
                                 PU_HCONSTRAIN | PU_VCONSTRAIN | PU_MOUSEBUTTON1 | PU_MOUSEBUTTON2 | PU_KEYBOARD);
                 return 0;
             }
@@ -526,7 +627,7 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     break;
 
                 case IDM_FLOAT:
-                    SetTopmost( hwnd, hwndMenu );
+                    SetTopmost( hwnd );
                     return 0;
 
                 case IDM_CLOSE:
@@ -534,15 +635,30 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     return 0;
 
                 case IDM_ABOUT:
-                    WinDlgBox(HWND_DESKTOP, hwnd, AboutDlgProc, NULLHANDLE, DLG_ABOUT, NULL);
+                    WinDlgBox( HWND_DESKTOP, hwnd, AboutDlgProc, NULLHANDLE, DLG_ABOUT, NULL );
                     return 0;
+            }
+            break;
+
+        case WM_CONTROL:
+            switch ( SHORT2FROMMP( mp1 )) {
+                case BN_PAINT:
+                    PaintIMEButton( (PUSERBUTTON) mp2 );
+                    break;
             }
             break;
 
         case WM_PAINT:
             hps = WinBeginPaint( hwnd, NULLHANDLE, &rcl );
             WinQueryWindowRect( hwnd, &rcl );
-            WinFillRect( hps, &rcl, CLR_PALEGRAY );
+            cb = WinQueryPresParam( hwnd, PP_BACKGROUNDCOLOR, PP_BACKGROUNDCOLORINDEX,
+                                    NULL, sizeof( lClr ), &lClr, QPF_ID2COLORINDEX );
+            if ( cb )
+                GpiCreateLogColorTable( hps, 0, LCOLF_RGB, 0, 0, NULL );
+            else
+                lClr = GpiQueryRGBColor( hps, 0, SYSCLR_DIALOGBACKGROUND );
+            WinFillRect( hps, &rcl, lClr );
+            Draw3DBorder( hps, rcl, FALSE );
             WinEndPaint( hps );
             return 0;
 
@@ -625,7 +741,7 @@ int main( int argc, char **argv )
     HAB   hab;
     HMQ   hmq;
     QMSG  qmsg;
-    ULONG frameFlags = FCF_DLGBORDER | FCF_TASKLIST;
+    ULONG frameFlags = FCF_TASKLIST;
     HMODULE hm;
     CHAR    szErr[ 256 ];
 
