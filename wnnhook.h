@@ -12,28 +12,33 @@
 
 
 // Flags for WNNSHARED.fsMode
+// - Low byte is the input mode, this can be switched by the user
+// - Bits 17-24 indicate the language mode, this is fixed at startup
+// - Bits 25-32 indicate the CJK conversion mode, this can be switched by the user
 
 // Conversion mode
 #define MODE_NONE       0       // No conversion, IME mode off
 
-// Phonetic (as typed) - Japanese modes
+// Input modes (Japanese)
 #define MODE_HIRAGANA   1       // Convert to hiragana
 #define MODE_KATAKANA   2       // Convert to fullwidth katakana
 #define MODE_HALFWIDTH  3       // Convert to halfwidth katakana
 #define MODE_FULLWIDTH  4       // Convert to fullwidth ASCII
 
-// Phonetic (as typed) - Korean modes
+// Input modes (Korean)
 #define MODE_HANGUL     1
 
-// TBD Does Chinese support purely phonetic modes, e.g. non-converted Pinyin?
+// TBD Chinese modes (Pinyin, ABC, etc)?
 
-// High byte: language mode
+// Language mode
 #define MODE_JP         0x100
 #define MODE_KR         0x200
 #define MODE_CN         0x400
 #define MODE_TW         0x800
 
-// Convert to Kanji/Hanzi/Hanja (build clause buffer and convert on accept command)
+// Convert to Kanji/Hanzi/Hanja
+// - In this mode, converted romaji are added to a clause buffer and converted
+//   only when the user selects Convert.
 #define MODE_CJK        0x1000
 
 
@@ -41,10 +46,11 @@
 typedef struct _Wnn_Global_Data {
     USHORT fsMode;              // current input language & mode
     HWND   hwndSource;          // HWND of window whose message was just intercepted
-    ATOM   wmAddChar;           // custom message ID
-//    CHAR   szRomaji[ MAX_CHAR_BUF ];
-//    CHAR   szKana[ MAX_KANA_BUF ];
-//    CHAR   szAddChar[ 40 ];
+    ATOM   wmAddChar;           // custom message ID - send intercepted character
+    ATOM   wmCJKMode;           // custom message ID - user pressed CJK mode hotkey (e.g. Alt+`)
+    ATOM   wmInputMode;         // custom message ID - user pressed input mode hotkey (e.g. Ctrl+Space)
+    ATOM   wmConvertCJK;        // custom message ID - user pressed convert hotkey (e.g. Space)
+    ATOM   wmAccept;            // custom message ID - user pressed accept hotkey (e.g. Enter)
 } WNNSHARED, *PWNNSHARED;
 
 

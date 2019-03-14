@@ -35,11 +35,6 @@
 #include "ids.h"
 
 
-// useful rectangle macros
-#define RECTL_HEIGHT(rcl)       (rcl.yTop - rcl.yBottom)
-#define RECTL_WIDTH(rcl)        (rcl.xRight - rcl.xLeft)
-
-
 // --------------------------------------------------------------------------
 // CONSTANTS
 //
@@ -59,14 +54,28 @@
 
 
 // --------------------------------------------------------------------------
+// MACROS
+//
+
+// useful rectangle macros
+#define RECTL_HEIGHT(rcl)       (rcl.yTop - rcl.yBottom)
+#define RECTL_WIDTH(rcl)        (rcl.xRight - rcl.xLeft)
+
+#define ErrorPopup( text ) \
+    WinMessageBox( HWND_DESKTOP, HWND_DESKTOP, text, "Error", 0, MB_OK | MB_ERROR )
+
+
+// --------------------------------------------------------------------------
 // TYPES
 //
 
 typedef struct _WnnClientData {
     HWND  hwndFrame,            // our frame
           hwndClient,           // our client window
-          hwndMenu;             // our context menu
+          hwndMenu,             // our context menu
+          hwndLast;             // last window to have focus
     BYTE  dbcs[ 12 ];           // DBCS information vector (byte-ranges)
+    ULONG codepage;
     CHAR  szRomaji[ MAX_CHAR_BUF ];
     CHAR  szKana[ MAX_KANA_BUF ];
 } IMCLIENTDATA, *PIMCLIENTDATA;
@@ -76,8 +85,8 @@ typedef struct _WnnClientData {
 // GLOBALS
 //
 
-IMCLIENTDATA global;           // our window's global data
-PWNNSHARED   pShared;          // data shared with the dll
+IMCLIENTDATA global = {0};      // our window's global data
+PWNNSHARED   pShared;           // data shared with the dll
 
 // Subclassed window procedures
 PFNWP pfnBtnProc;
@@ -145,14 +154,24 @@ BOOL ConvertCharacter( void )
  *                                                                           *
  * Process an input character (byte) from the input hook and decide how to   *
  * deal with it.  If we made it this far, then we know that IM mode is       *
- * active; here we determine whether the character is valid for the current  *
- * input mode and existing buffer contents, and process it accordingly.      *
+ * active.  Here, we add the character to the romaji buffer, then determine  *
+ * how to proceed based on the current input mode and the buffer contents.   *
  *                                                                           *
- * The romaji buffer can basically be in four states at any given time:      *
- *  - empty                                                                  *
- *  - complete (contains valid romaji sequence ready for conversion)         *
- *  - incomplete (contains a partial sequence which is potentially valid)    *
- *  - invalid (contains a sequence that is not nor could ever become valid)  *
+ * The romaji buffer is our basic input buffer.  It saves characters that    *
+ * are received here until the buffer contains a valid conversion sequence,  *
+ * reaches its maximum length, or contains an illegal sequence.  Thus, it    *
+ * can basically be in one of four states:                                   *
+ *                                                                           *
+ *  A. empty                                                                 *
+ *  B. incomplete (contains a partial sequence which is potentially valid)   *
+ *  C. complete (contains a valid romaji sequence ready for conversion)      *
+ *  D. invalid (contains a sequence that is not nor could ever become valid) *
+ *                                                                           *
+ * A obviously doesn't apply once we've reached this point.  In the case B,  *
+ * we simply keep the buffer and continue.  For C, we complete the input     *
+ * conversion (precisely what that entails depends on the CJK/conversion     *
+ * mode) and then clear the buffer.  In the case of D, we give up & send the *
+ * unconverted buffer contents to the source window, then clear the buffer.  *
  * ------------------------------------------------------------------------- */
 void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
 {
@@ -294,16 +313,38 @@ MRESULT EXPENTRY ButtonProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY StaticTextProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
+    ULONG id, cb, lClr;
+    CHAR  szFont[ FACESIZE+4 ];
+
     switch( msg ) {
         // pass these messages up to the owner after converting the pointer pos
         case WM_BEGINDRAG:
         case WM_CONTEXTMENU:
             return PassStdEvent( hwnd, msg, mp1, mp2 );
-/*
+
+        // pass colour and font changes up to the owner
         case WM_PRESPARAMCHANGED:
-            // also pass this one up, but we don't need to update the params
-            return (MRESULT) WinPostMsg( WinQueryWindow( hwnd, QW_OWNER ), msg, mp1, mp2 );
-*/
+            id = (ULONG) mp1;
+            switch ( id ) {
+                case PP_BACKGROUNDCOLORINDEX:
+                case PP_FOREGROUNDCOLORINDEX:
+                case PP_BACKGROUNDCOLOR:
+                case PP_FOREGROUNDCOLOR:
+                    cb = WinQueryPresParam( hwnd, id, 0,
+                                            NULL, sizeof( lClr ), &lClr, 0 );
+                    if ( cb ) WinSetPresParam( WinQueryWindow( hwnd, QW_OWNER ),
+                                               id, sizeof( lClr ), &lClr );
+                    return 0;
+
+                case PP_FONTNAMESIZE:
+                    cb = WinQueryPresParam( hwnd, PP_FONTNAMESIZE, 0, NULL,
+                                            sizeof( szFont ), szFont, 0 );
+                    if ( cb ) WinSetPresParam( WinQueryWindow( hwnd, QW_OWNER ),
+                                               id, strlen( szFont ) + 1, szFont );
+                    return 0;
+            }
+            break;
+
     }
     return (MRESULT) pfnTxtProc( hwnd, msg, mp1, mp2 );
 }
@@ -402,7 +443,7 @@ void SetupWindow( HWND hwnd )
 
     WinCreateWindow( hwnd, WC_BUTTON, "M", flBtn, 0, 0, 0, 0,
                      hwnd, HWND_TOP, IDD_MODE, NULL, NULL );
-    WinCreateWindow( hwnd, WC_BUTTON, "K", flBtn, 0, 0, 0, 0,
+    WinCreateWindow( hwnd, WC_BUTTON, "C", flBtn, 0, 0, 0, 0,
                      hwnd, HWND_TOP, IDD_KANJI, NULL, NULL );
 #ifdef TESTHOOK
     WinCreateWindow( hwnd, WC_MLE, "", WS_VISIBLE,
@@ -426,6 +467,7 @@ void SetupWindow( HWND hwnd )
 void UpdateStatus( HWND hwnd )
 {
     CHAR szText[ MAX_STATUSZ ] = {0};
+//    CHAR szBtn[ 3 ] = {0};
     USHORT usLang = pShared->fsMode & 0xF00,
            usMode = pShared->fsMode & 0xFF;
 
@@ -434,31 +476,44 @@ void UpdateStatus( HWND hwnd )
             switch ( usMode ) {
                 case MODE_HIRAGANA:
                     WinEnableControl( hwnd, IDD_KANJI, TRUE );
-                    sprintf( szText,
-                             pShared->fsMode & MODE_CJK? "Hiragana - Kanji": "Hiragana");
+//                    szBtn[ 0 ] = 0x82;
+//                    szBtn[ 1 ] = 0xA0;
+                    strcpy( szText,
+                            pShared->fsMode & MODE_CJK? "Hiragana - Kanji": "Hiragana");
                     break;
                 case MODE_KATAKANA:
+//                    szBtn[ 0 ] = 0x83;
+//                    szBtn[ 1 ] = 0x41;
                     WinEnableControl( hwnd, IDD_KANJI, TRUE );
-                    sprintf( szText,
-                             pShared->fsMode & MODE_CJK? "Katagana - Kanji": "Katakana");
+                    strcpy( szText,
+                            pShared->fsMode & MODE_CJK? "Katakana - Kanji": "Katakana");
                     break;
                 case MODE_HALFWIDTH:
+//                    szBtn[ 0 ] = 0xB1;
+//                    szBtn[ 1 ] = '_';
                     WinEnableControl( hwnd, IDD_KANJI, TRUE );
-                    sprintf( szText,
-                             pShared->fsMode & MODE_CJK? "Halfwidth - Kanji": "Halfwidth Katakana");
+                    strcpy( szText,
+                            pShared->fsMode & MODE_CJK? "Halfwidth - Kanji": "Halfwidth Katakana");
                     break;
                 case MODE_FULLWIDTH:
+//                    szBtn[ 0 ] = 0x82;
+//                    szBtn[ 1 ] = 0x60;
                     // Fullwidth mode doesn't support CJK
                     WinEnableControl( hwnd, IDD_KANJI, FALSE );
-                    sprintf( szText, "Fullwidth ASCII");
+                    strcpy( szText, "Fullwidth ASCII");
                     break;
                 case MODE_NONE:
+//                    szBtn[ 0 ] = 'A';
+//                    szBtn[ 1 ] = '_';
+                    // Neither does None, obviously
                     WinEnableControl( hwnd, IDD_KANJI, FALSE );
-                    sprintf( szText, "No conversion");      // neither does None, obviously
+                    strcpy( szText, "No conversion");
                     break;
             }
             break;
     }
+//    szBtn[ 2 ] = 0;
+//    WinSetDlgItemText( hwnd, IDD_MODE, szBtn );
     WinSetDlgItemText( hwnd, IDD_STATUS, szText );
 }
 
@@ -468,11 +523,23 @@ void UpdateStatus( HWND hwnd )
  * ------------------------------------------------------------------------- */
 void SetKanjiMode( HWND hwnd )
 {
-    if ( pShared->fsMode & MODE_CJK )
+//    CHAR szBtn[ 3 ] = {0};
+
+    if ( pShared->fsMode & MODE_CJK ) {
         pShared->fsMode &= ~MODE_CJK;
-    else
+//        szBtn[ 0 ] = 0x82;
+//        szBtn[ 1 ] = 0x6A;
+    }
+    else {
         pShared->fsMode |= MODE_CJK;
+//        szBtn[ 0 ] = 0x8A;
+//        szBtn[ 1 ] = 0xBF;
+    }
+//    szBtn[ 2 ] = 0;
+//    WinSetDlgItemText( hwnd, IDD_KANJI, szBtn );
+
     UpdateStatus( hwnd );
+    if ( global.hwndLast ) WinSetActiveWindow( global.hwndLast, TRUE );
 }
 
 
@@ -488,6 +555,8 @@ void SetConversionMode( HWND hwnd )
     else
         pShared->fsMode |= MODE_HIRAGANA;   // temp: turn on mode 1
     UpdateStatus( hwnd );
+
+    if ( global.hwndLast ) WinSetActiveWindow( global.hwndLast, TRUE );
 }
 
 
@@ -542,8 +611,10 @@ void PaintIMEButton( PUSERBUTTON pBtnData )
 {
     FONTMETRICS fm;
     CHAR   szText[ MAX_BTN_LABELZ ] = {0};
-    ULONG  cb;
-    LONG   lClr, lStrW, lStrH;
+    ULONG  cbPP,
+           cbText;
+    LONG   lClr,
+           lStrW, lStrH;    // string dimensions
     POINTL ptl, aptl[ TXTBOX_COUNT ];
     RECTL  rcl;
 
@@ -551,10 +622,10 @@ void PaintIMEButton( PUSERBUTTON pBtnData )
     if ( !WinQueryWindowRect( pBtnData->hwnd, &rcl )) return;
 
     // Draw the button background and border
-    cb = WinQueryPresParam( pBtnData->hwnd, PP_BACKGROUNDCOLOR,
-                            PP_BACKGROUNDCOLORINDEX, NULL,
-                            sizeof( lClr ), &lClr, QPF_ID2COLORINDEX );
-    if ( cb )
+    cbPP = WinQueryPresParam( pBtnData->hwnd, PP_BACKGROUNDCOLOR,
+                              PP_BACKGROUNDCOLORINDEX, NULL,
+                              sizeof( lClr ), &lClr, QPF_ID2COLORINDEX );
+    if ( cbPP )
         GpiCreateLogColorTable( pBtnData->hps, 0, LCOLF_RGB, 0, 0, NULL );
     else
         lClr = GpiQueryRGBColor( pBtnData->hps, 0, SYSCLR_BUTTONMIDDLE );
@@ -564,25 +635,29 @@ void PaintIMEButton( PUSERBUTTON pBtnData )
 
     // Draw the text
     WinQueryWindowText( pBtnData->hwnd, MAX_BTN_LABELZ, szText );
-
+    cbText = strlen( szText );
     GpiQueryFontMetrics( pBtnData->hps, sizeof( FONTMETRICS ), &fm );
-    GpiQueryTextBox( pBtnData->hps, strlen( szText ), szText, TXTBOX_COUNT, aptl );
+    GpiQueryTextBox( pBtnData->hps, cbText, szText, TXTBOX_COUNT, aptl );
     lStrW = aptl[ TXTBOX_CONCAT ].x;
-    lStrH = fm.lEmHeight;
+    lStrH = fm.lEmHeight - 1;
 
     if ( pBtnData->fsState & BDS_DISABLED )
-        lClr = GpiQueryRGBColor( pBtnData->hps, 0, SYSCLR_MENUDISABLEDTEXT );
+        lClr  = GpiQueryRGBColor( pBtnData->hps, 0, SYSCLR_MENUDISABLEDTEXT );
     else {
-        cb = WinQueryPresParam( pBtnData->hwnd, PP_FOREGROUNDCOLOR,
-                                PP_FOREGROUNDCOLORINDEX, NULL,
-                                sizeof( lClr ), &lClr, QPF_ID2COLORINDEX );
-        if ( !cb )
+        cbPP = WinQueryPresParam( pBtnData->hwnd, PP_FOREGROUNDCOLOR,
+                                  PP_FOREGROUNDCOLORINDEX, NULL,
+                                  sizeof( lClr ), &lClr, QPF_ID2COLORINDEX );
+        if ( !cbPP )
             lClr = GpiQueryRGBColor( pBtnData->hps, 0, SYSCLR_WINDOWTEXT );
     }
+    GpiSetColor( pBtnData->hps, SYSCLR_WINDOW );
+    ptl.x = ( RECTL_WIDTH( rcl ) / 2 ) - ( lStrW / 2 );
+    ptl.y = ( RECTL_HEIGHT( rcl ) / 2) - ( lStrH / 2 );
+    GpiCharStringPosAt( pBtnData->hps, &ptl, &rcl, CHS_CLIP | CHS_LEAVEPOS, cbText, szText, NULL );
     GpiSetColor( pBtnData->hps, lClr );
-    ptl.x = ( RECTL_WIDTH( rcl ) / 2 ) - ( lStrW / 2 ) - 1;
-    ptl.y = ( RECTL_HEIGHT( rcl ) / 2) - ( lStrH / 2 ) + 1;
-    GpiCharStringPosAt( pBtnData->hps, &ptl, &rcl, CHS_CLIP, cb, szText, NULL );
+    ptl.x--;
+    ptl.y++;
+    GpiCharStringPosAt( pBtnData->hps, &ptl, &rcl, CHS_CLIP | CHS_LEAVEPOS, cbText, szText, NULL );
 }
 
 
@@ -590,6 +665,7 @@ void PaintIMEButton( PUSERBUTTON pBtnData )
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
+    HWND   hwndFocus;
     POINTL ptlMouse;
     LONG   cb, lClr;
     RECTL  rcl;
@@ -648,8 +724,16 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             }
             break;
 
+        case WM_FOCUSCHANGE:
+            // If our window got focus, remember the previously-active window
+            hwndFocus = (HWND)mp1;
+            if (( SHORT1FROMMP( mp2 ) == TRUE ) && ! WinIsChild( hwndFocus, global.hwndFrame )) {
+                global.hwndLast = hwndFocus;
+            }
+            break;
+
         case WM_PAINT:
-            hps = WinBeginPaint( hwnd, NULLHANDLE, &rcl );
+            hps = WinBeginPaint( hwnd, NULLHANDLE, NULL );
             WinQueryWindowRect( hwnd, &rcl );
             cb = WinQueryPresParam( hwnd, PP_BACKGROUNDCOLOR, PP_BACKGROUNDCOLORINDEX,
                                     NULL, sizeof( lClr ), &lClr, QPF_ID2COLORINDEX );
@@ -676,7 +760,10 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             SizeWindow( hwnd );
             break;
 
-        default:                    // if this is our custom msg
+
+        // Custom msgs
+        //
+        default:
             if ( msg == pShared->wmAddChar ) {
                 ProcessCharacter( hwnd, pShared->hwndSource, mp1, mp2 );
                 //WinSendMsg( pShared->hwndSource, WM_CHAR, mp1, MPFROM2SHORT( SHORT1FROMMP( mp2 ) & ~0x20, 0 ));
@@ -700,7 +787,7 @@ void SetupDBCSLanguage( USHORT usLangMode )
     switch ( usLangMode ) {
         case MODE_JP:
             cc.country  = 81;       // Japan
-            cc.codepage = 932;      // Japanese SJIS
+            cc.codepage = 943;      // Japanese SJIS
             break;
 
         case MODE_KR:
@@ -719,7 +806,7 @@ void SetupDBCSLanguage( USHORT usLangMode )
             break;
     }
     DosQueryDBCSEnv( sizeof( global.dbcs ), &cc, global.dbcs );
-
+    global.codepage = cc.codepage;
     pShared->fsMode = usLangMode;   // no conversion, will set later
 }
 
@@ -764,13 +851,13 @@ int main( int argc, char **argv )
     SetConversionMode( global.hwndClient );
 
     // Now do our stuff
-//    DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );     // increment the DLL use counter for safety
+    DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );     // increment the DLL use counter for safety
     if ( WnnHookInit( global.hwndClient )) {
         while ( WinGetMsg( hab, &qmsg, NULLHANDLE, 0, 0 ))
             WinDispatchMsg( hab, &qmsg );
         WnnHookTerm();
     }
-//    if ( hm ) DosFreeModule( hm );
+    if ( hm ) DosFreeModule( hm );
 
     WinDestroyWindow( global.hwndFrame );
     WinDestroyMsgQueue( hmq );

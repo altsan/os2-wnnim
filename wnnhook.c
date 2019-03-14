@@ -68,7 +68,12 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                     return TRUE;
                 }
             }
+            // else if input mode hotkey send IDD_MODE
+            // else if CJK mode hotkey send IDD_KANJI
+            // else if accept hotkey send accept message
+            // else if convert hotkey send convert message
             break;
+
     }
     return FALSE;
 }
@@ -103,10 +108,13 @@ BOOL EXPENTRY _Export WnnHookInit( HWND hwnd )
     if ( g_fHookActive ) return TRUE;
 
     g_hATSys = WinQuerySystemAtomTable();
-    // We probably don't need this since we're only sending the message to the client
-    //   srand( (UINT)hwnd );
-    //   sprintf( global.szAddChar, "WnnAddChar%d", rand() );
     global.wmAddChar = WinAddAtom( g_hATSys, "WnnAddChar");
+/*
+    global.wmCJKMode = WinAddAtom( g_hATSys, "WnnCJKMode");
+    global.wmInputMode = WinAddAtom( g_hATSys, "WnnInputMode");
+    global.wmConvertCJK = WinAddAtom( g_hATSys, "WnnConvertCJK");
+    global.wmAccept = WinAddAtom( g_hATSys, "WnnAccept");
+*/
     if ( DosQueryModuleHandle("wnnhook", &g_hMod )) return FALSE;
     g_hab = WinQueryAnchorBlock( hwnd );
     WinSetHook( g_hab, g_hmq, HK_INPUT, (PFN) WnnHookInput, g_hMod );
@@ -124,6 +132,12 @@ BOOL EXPENTRY _Export WnnHookTerm( void )
     if ( g_fHookActive ) {
         WinReleaseHook( g_hab, g_hmq, HK_INPUT, (PFN) WnnHookInput, g_hMod );
         WinDeleteAtom( g_hATSys, global.wmAddChar );
+/*
+        WinDeleteAtom( g_hATSys, global.wmCJKMode );
+        WinDeleteAtom( g_hATSys, global.wmInputMode );
+        WinDeleteAtom( g_hATSys, global.wmConvertCJK );
+        WinDeleteAtom( g_hATSys, global.wmAccept );
+*/
         g_fHookActive = FALSE;
     }
 
