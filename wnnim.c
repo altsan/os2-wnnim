@@ -119,7 +119,8 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer, MPARAM mp1 )
         // Better to just use a separate message for each byte.
         //if ( IsDBCSLeadByte( global.szKana[ i ], global.dbcs )) usChar |= ( global.szKana[ ++i ] << 0x8 );
 
-        WinSendMsg( hwndSource, WM_CHAR, mp1, MPFROM2SHORT( usChar, 0 ));
+        //WinSendMsg( hwndSource, WM_CHAR, mp1, MPFROM2SHORT( usChar, 0 ));
+        WinSendMsg( hwndSource, WM_CHAR, MPFROMSH2CH( KC_CHAR, 1, 0 ), MPFROM2SHORT( usChar, 0 ));
     }
     memset( global.szKana, 0, MAX_KANA_BUF );
 }
@@ -539,7 +540,6 @@ void SetKanjiMode( HWND hwnd )
 //    WinSetDlgItemText( hwnd, IDD_KANJI, szBtn );
 
     UpdateStatus( hwnd );
-    if ( global.hwndLast ) WinSetActiveWindow( global.hwndLast, TRUE );
 }
 
 
@@ -555,8 +555,6 @@ void SetConversionMode( HWND hwnd )
     else
         pShared->fsMode |= MODE_HIRAGANA;   // temp: turn on mode 1
     UpdateStatus( hwnd );
-
-    if ( global.hwndLast ) WinSetActiveWindow( global.hwndLast, TRUE );
 }
 
 
@@ -696,9 +694,19 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
                 case IDD_MODE:
                     SetConversionMode( hwnd );
+                    if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
+                    break;
+
+                case ID_HOTKEY_MODE:
+                    SetConversionMode( hwnd );
                     break;
 
                 case IDD_KANJI:
+                    SetKanjiMode( hwnd );
+                    if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
+                    break;
+
+                case ID_HOTKEY_KANJI:
                     SetKanjiMode( hwnd );
                     break;
 

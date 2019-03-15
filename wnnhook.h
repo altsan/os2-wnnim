@@ -3,14 +3,6 @@
 // #define TESTHOOK 1
 
 
-//#define USE_EXCEPTQ 1
-
-#ifdef USE_EXCEPTQ
-#define INCL_LOADEXCEPTQ
-#include <exceptq.h>
-#endif
-
-
 // Flags for WNNSHARED.fsMode
 // - Low byte is the input mode, this can be switched by the user
 // - Bits 17-24 indicate the language mode, this is fixed at startup
@@ -46,11 +38,16 @@
 typedef struct _Wnn_Global_Data {
     USHORT fsMode;              // current input language & mode
     HWND   hwndSource;          // HWND of window whose message was just intercepted
+    ULONG  ulKeyMode;           // input mode hotkey (default Ctrl+Space)
+    ULONG  ulKeyCJK;            // CJK mode hotkey (default Alt+`)
+    ULONG  ulKeyConvert;        // CJK convert hotkey (default Space)
+    ULONG  ulKeyAccept;         // CJK accept hotkey (default Enter)
     ATOM   wmAddChar;           // custom message ID - send intercepted character
-    ATOM   wmCJKMode;           // custom message ID - user pressed CJK mode hotkey (e.g. Alt+`)
-    ATOM   wmInputMode;         // custom message ID - user pressed input mode hotkey (e.g. Ctrl+Space)
-    ATOM   wmConvertCJK;        // custom message ID - user pressed convert hotkey (e.g. Space)
-    ATOM   wmAccept;            // custom message ID - user pressed accept hotkey (e.g. Enter)
+// Not needed?
+//    ATOM   wmCJKMode;           // custom message ID - user pressed CJK mode hotkey
+//    ATOM   wmInputMode;         // custom message ID - user pressed input mode hotkey
+//    ATOM   wmConvertCJK;        // custom message ID - user pressed convert hotkey
+//    ATOM   wmAccept;            // custom message ID - user pressed accept hotkey
 } WNNSHARED, *PWNNSHARED;
 
 

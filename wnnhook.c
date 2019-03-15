@@ -55,23 +55,59 @@ void ClearBuffer( CHAR *pBuf, USHORT usLen )
 BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
 {
     CHAR   c;
+    ULONG  ulKey;
     USHORT fsFlags;
 
     switch( pQmsg->msg ) {
         case WM_CHAR:
             fsFlags = SHORT1FROMMP( pQmsg->mp1  );
-            if (( fsFlags & KC_CHAR ) && !( fsFlags & KC_KEYUP )) {
+            if ( fsFlags & KC_KEYUP ) break;    // don't process key-up events
+
+            ulKey = (ULONG) pQmsg->mp2;
+            if (( fsFlags & VK_CTRL ) && ( SHORT2FROMMP( pQmsg->mp2 ) == VK_SPACE )) {   // global.fsKeyMode, global.usKeyMode
+                // input mode hotkey
+                WinPostMsg( g_hwndClient, WM_COMMAND,
+                            MPFROMSHORT( ID_HOTKEY_MODE ),
+                            MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
+                return TRUE;
+            }
+                    /*
+                // Rationalize some of the virtual key-codes for comparison
+                if ( ulKey & VK_ENTER ) {
+                    ulKey |= VK_NEWLINE;
+                    ulKey &= ~VK_ENTER;
+                }
+
+
+
+
+                    else if ( ulKey == global.ulKeyCJK ) {      // CJK mode hotkey
+                        WinPostMsg( g_hwndClient, WM_COMMAND, MPFROMSHORT( IDD_KANJI ), MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
+                        return TRUE;
+                    }
+                    else if ( global.fsMode & MODE_CJK ) {
+                        if ( ulKey == global.ulKeyConvert ) {       // CJK convert hotkey
+                            WinPostMsg( g_hwndClient, WM_COMMAND, MPFROMSHORT( IDD_CONVERT ), MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
+                            return TRUE;
+                        }
+                        else if ( ulKey == global.ulKeyAccept ) {   // CJK accept hotkey
+                            WinPostMsg( g_hwndClient, WM_COMMAND, MPFROMSHORT( IDD_ACCEPT ), MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
+                            return TRUE;
+                        }
+                    }
+                    */
+
+            if ( fsFlags & KC_CHAR ) {
                 c = (CHAR)( SHORT1FROMMP( pQmsg->mp2 ) & 0xFF );
-                if (( global.fsMode & 0xFF ) && ( c >= 0x20 && c <= 0x7E )) {
-                    global.hwndSource = pQmsg->hwnd;
-                    WinPostMsg( g_hwndClient, global.wmAddChar, pQmsg->mp1, pQmsg->mp2 );
-                    return TRUE;
+
+                if ( global.fsMode & 0xFF ) {           // any conversion mode is active
+                    if ( c > 0x20 && c < 0x7E ) {               // convertible byte value
+                        global.hwndSource = pQmsg->hwnd;
+                        WinPostMsg( g_hwndClient, global.wmAddChar, pQmsg->mp1, pQmsg->mp2 );
+                        return TRUE;
+                    }
                 }
             }
-            // else if input mode hotkey send IDD_MODE
-            // else if CJK mode hotkey send IDD_KANJI
-            // else if accept hotkey send accept message
-            // else if convert hotkey send convert message
             break;
 
     }
@@ -99,11 +135,6 @@ BOOL EXPENTRY _Export WnnHookInit( HWND hwnd )
     g_hmq = HMQ_CURRENT;
 #endif
 
-#ifdef USE_EXCEPTQ
-    EXCEPTIONREGISTRATIONRECORD exRegRec;
-    LoadExceptq(&exRegRec, "I", "WNNHOOK");
-#endif
-
     g_hwndClient = hwnd;
     if ( g_fHookActive ) return TRUE;
 
@@ -115,6 +146,13 @@ BOOL EXPENTRY _Export WnnHookInit( HWND hwnd )
     global.wmConvertCJK = WinAddAtom( g_hATSys, "WnnConvertCJK");
     global.wmAccept = WinAddAtom( g_hATSys, "WnnAccept");
 */
+
+    // Default hotkeys (should eventually be configurable)
+    global.ulKeyMode    = VK_SPACE;
+    global.ulKeyCJK     = VK_ALT | '`';
+    global.ulKeyConvert = VK_SPACE;
+    global.ulKeyAccept  = VK_NEWLINE;
+
     if ( DosQueryModuleHandle("wnnhook", &g_hMod )) return FALSE;
     g_hab = WinQueryAnchorBlock( hwnd );
     WinSetHook( g_hab, g_hmq, HK_INPUT, (PFN) WnnHookInput, g_hMod );
@@ -140,10 +178,6 @@ BOOL EXPENTRY _Export WnnHookTerm( void )
 */
         g_fHookActive = FALSE;
     }
-
-#ifdef USE_EXCEPTQ
-    UninstallExceptq(&exRegRec);
-#endif
 
     return TRUE;
 }

@@ -16,3 +16,8 @@
 #define IDM_ABOUT       340
 
 
+#define ID_HOTKEY_MODE      1000
+#define ID_HOTKEY_KANJI     1001
+#define ID_HOTKEY_CONVERT   1002
+#define ID_HOTKEY_ACCEPT    1003
+
