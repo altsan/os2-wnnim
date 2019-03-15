@@ -202,11 +202,16 @@ void CentreWindow( HWND hwndCentre, HWND hwndRelative, ULONG flFlags )
 MRESULT EXPENTRY AboutDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
     CHAR achVersion[ MAX_VERSTRZ ];
+    CHAR achBuf[ 256 ];
 
     switch ( msg ) {
         case WM_INITDLG:
             sprintf( achVersion, "Version %s", SZ_VERSION );
             WinSetDlgItemText( hwnd, IDD_VERSION, achVersion );
+            sprintf( achBuf, "Copyright (C) %s Alexander Taylor.", SZ_COPYRIGHT );
+            strncat( achBuf, "\r\n\nWnnIM for OS/2 is free software published under the terms of the GNU General Public License, version 2.  ", 255 );
+            strncat( achBuf, "See the accompanying documentation for details.", 255 );
+            WinSetDlgItemText( hwnd, IDD_NOTICES, achBuf );
             CentreWindow( hwnd, NULLHANDLE, SWP_SHOW );
             break;
     }

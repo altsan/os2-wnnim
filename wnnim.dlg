@@ -10,10 +10,10 @@ BEGIN
     BEGIN
         DEFPUSHBUTTON   "OK", ID_ICON, 40, 2, 40, 12
         ICON            ID_ICON, 201, 8, 52, 16, 15, WS_GROUP
-        LTEXT           "FreeWnn IME (J)", -1, 40, 81, 129, 8
+        LTEXT           "WnnIM for OS/2", -1, 40, 81, 129, 8
         LTEXT           "", IDD_VERSION, 40, 71, 128, 8
         MLE             "", IDD_NOTICES, 40, 18, 143, 49, MLS_READONLY |
                         MLS_WORDWRAP | MLS_VSCROLL | WS_GROUP
-                        PRESPARAMS PP_BACKGROUNDCOLOR, 0x00CCCCCCL
+                        PRESPARAMS PP_BACKGROUNDCOLORINDEX, SYSCLR_DIALOGBACKGROUND
     END
 END

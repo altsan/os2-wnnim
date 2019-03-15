@@ -24,6 +24,7 @@
 //
 
 #define SZ_VERSION      "0.1"
+#define SZ_COPYRIGHT    "2019"
 #define MAX_VERSTRZ     32
 #define MAX_STATUSZ     64
 #define MAX_BTN_LABELZ  12
