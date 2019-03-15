@@ -36,13 +36,13 @@
 
 // Global data shared between DLL and app
 typedef struct _Wnn_Global_Data {
-    USHORT fsMode;              // current input language & mode
-    HWND   hwndSource;          // HWND of window whose message was just intercepted
-    ULONG  ulKeyMode;           // input mode hotkey (default Ctrl+Space)
-    ULONG  ulKeyCJK;            // CJK mode hotkey (default Alt+`)
-    ULONG  ulKeyConvert;        // CJK convert hotkey (default Space)
-    ULONG  ulKeyAccept;         // CJK accept hotkey (default Enter)
-    ATOM   wmAddChar;           // custom message ID - send intercepted character
+    USHORT fsMode;                      // current input language & mode
+    HWND   hwndSource;                  // HWND of window whose message was just intercepted
+    USHORT usKeyMode,    fsVKMode;      // input mode hotkey (default Ctrl+Space)
+    USHORT usKeyCJK,     fsVKCJK;       // CJK mode hotkey (default Alt+`)
+    USHORT usKeyConvert, fsVKConvert;   // CJK convert hotkey (default Space)
+    USHORT usKeyAccept,  fsVKAccept;    // CJK accept hotkey (default Enter)
+    ATOM   wmAddChar;                   // custom message ID - send intercepted character
 // Not needed?
 //    ATOM   wmCJKMode;           // custom message ID - user pressed CJK mode hotkey
 //    ATOM   wmInputMode;         // custom message ID - user pressed input mode hotkey

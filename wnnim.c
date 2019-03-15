@@ -463,6 +463,25 @@ void SetupWindow( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
+ * ------------------------------------------------------------------------- */
+void SettingsInit( HWND hwnd )
+{
+    // Default hotkeys (should eventually be configurable)
+    pShared->usKeyMode    = 0x20;
+    pShared->fsVKMode     = KC_CTRL;
+
+    pShared->usKeyCJK     = 0x60;
+    pShared->fsVKCJK      = KC_ALT;
+
+    pShared->usKeyConvert = ' ';
+    pShared->fsVKConvert  = 0;
+
+    pShared->usKeyAccept  = 0;
+    pShared->fsVKAccept   = VK_NEWLINE;
+}
+
+
+/* ------------------------------------------------------------------------- *
  * Set the status text to show the current mode.                             *
  * ------------------------------------------------------------------------- */
 void UpdateStatus( HWND hwnd )
@@ -853,8 +872,8 @@ int main( int argc, char **argv )
     WinRegisterClass( hab, clientClass, ClientWndProc, CS_CLIPCHILDREN, 0 );
     global.hwndFrame = WinCreateStdWindow( HWND_DESKTOP, 0L, &frameFlags, clientClass,
                                            "FreeWnnIME", 0L, 0, ID_ICON, &global.hwndClient );
+    SettingsInit( global.hwndClient );
     SetupWindow( global.hwndClient );
-
     SetupDBCSLanguage( MODE_JP );                       // for now
     SetConversionMode( global.hwndClient );
 
