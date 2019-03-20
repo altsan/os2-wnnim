@@ -46,14 +46,38 @@ PFNWP pfnTxtProc;
 // ==========================================================================
 
 /* ------------------------------------------------------------------------- *
- * SendCharacter                                                             *
+ * ClearInputBuffer                                                          *
  *                                                                           *
- * Send the contents of the character buffer to the source window. Typically *
- * this will cause the character to be inserted at the current position,     *
- * but in practice it's up to the application to decide what to do with it.  *
+ * Clear/reset the input conversion buffers.  This should always be done     *
+ * after calling SendCharacter or SupplyCharacter.  Effectively this resets  *
+ * the current input conversion to the empty state.  Note that this does not *
+ * affect the clause conversion buffer, which may still have contents.       *
  *                                                                           *
  * ------------------------------------------------------------------------- */
-void SendCharacter( HWND hwndSource, PSZ pszBuffer, MPARAM mp1 )
+void ClearInputBuffer( void )
+{
+    memset( global.szRomaji, 0, sizeof( global.szRomaji ));
+    memset( global.szKana, 0, sizeof( global.szKana ));
+    global.usCharIdx = 0;
+}
+
+
+
+/* ------------------------------------------------------------------------- *
+ * SendCharacter                                                             *
+ *                                                                           *
+ * Send the contents of the specified character buffer to the source window. *
+ * Typically this will cause the character to be inserted at the current     *
+ * position, but in practice it's up to the application to decide what to do *
+ * with it.                                                                  *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwndSource: HWND of source (application) window.                   *
+ *   PSZ  pszBuffer : Character buffer whose contents will be sent.          *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
+ * ------------------------------------------------------------------------- */
+void SendCharacter( HWND hwndSource, PSZ pszBuffer )
 {
     USHORT i,
            usLen,
@@ -67,7 +91,6 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer, MPARAM mp1 )
         // Better to just use a separate message for each byte.
         //if ( IsDBCSLeadByte( global.szKana[ i ], global.dbcs )) usChar |= ( global.szKana[ ++i ] << 0x8 );
 
-        //WinSendMsg( hwndSource, WM_CHAR, mp1, MPFROM2SHORT( usChar, 0 ));
         WinSendMsg( hwndSource, WM_CHAR, MPFROMSH2CH( KC_CHAR, 1, 0 ), MPFROM2SHORT( usChar, 0 ));
     }
     memset( global.szKana, 0, MAX_KANA_BUF );
@@ -75,27 +98,20 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer, MPARAM mp1 )
 
 
 /* ------------------------------------------------------------------------- *
- * ConvertCharacter                                                          *
+ * SupplyCharacter                                                           *
  *                                                                           *
- * Convert the ASCII (romaji) input buffer into a phonetic character for the *
- * active language.  (We use the term 'kana', which is Japanese, but this    *
- * applies equally to Korean Hangul or the various Chinese inputs.)          *
+ * Output a converted phonetic character.  If it is a 'candidate' character  *
+ * (that is, valid but still potentially modifiable) OR if we are in CJK     *
+ * conversion mode, add it to the clause buffer and display it in the        *
+ * overlay window.  Otherwise, send it directly to the target window, and    *
+ * clear the input _and_ clause buffers.                                     *
  *                                                                           *
- * Note that the phonetic 'character' in question may consist of more than   *
- * one actual character value, because some kana are composites (similar to  *
- * how English has composite units like "ch" or "sh").                       *
- *                                                                           *
- * ------------------------------------------------------------------------- */
-BOOL ConvertCharacter( void )
+ * ------------------------------------------------------------------------- *
+void SupplyCharacter( BYTE bStatus )
 {
-    // temp for testing (0x82a0 is Japanese 'A' hiragana)
-    global.szKana[ 0 ] = 0x82;
-    global.szKana[ 1 ] = 0xA0;
-    global.szKana[ 2 ] = 0;
 
-    memset( global.szRomaji, 0, MAX_CHAR_BUF );
-    return TRUE;
 }
+*/
 
 
 /* ------------------------------------------------------------------------- *
@@ -112,7 +128,7 @@ BOOL ConvertCharacter( void )
  * can basically be in one of four states:                                   *
  *                                                                           *
  *  A. empty                                                                 *
- *  B. incomplete (contains a partial sequence which is potentially valid)   *
+ *  B. pending (contains a partial sequence which is potentially valid)      *
  *  C. complete (contains a valid romaji sequence ready for conversion)      *
  *  D. invalid (contains a sequence that is not nor could ever become valid) *
  *                                                                           *
@@ -121,33 +137,46 @@ BOOL ConvertCharacter( void )
  * conversion (precisely what that entails depends on the CJK/conversion     *
  * mode) and then clear the buffer.  In the case of D, we give up & send the *
  * unconverted buffer contents to the source window, then clear the buffer.  *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND   hwnd      : Our own window handle.                               *
+ *   HWND   hwndSource: Handle of source (application) window.               *
+ *   MPARAM mp1       : mp1 of original WM_CHAR message.                     *
+ *   MPARAM mp2       : mp2 of original WM_CHAR message.                     *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
 {
     UCHAR szChar[ 2 ];
+    BYTE  bStatus;
+
     szChar[ 0 ] = (UCHAR) SHORT1FROMMP( mp2 );
     szChar[ 1 ] = 0;
-    strncat( global.szRomaji, szChar, MAX_CHAR_BUF-1 );
+    strncat( global.szRomaji, szChar, sizeof(global.szRomaji) - 1 );
 
-    if ( strlen( global.szRomaji ) > 1 ) {          // temp logic for testing
-    // TODO (eventual logic):
-    //   - check if szRomaji contains value romaji sequence (probably by calling romkan API)
-    //   - do the following if valid:
-
-        ConvertCharacter(); // may not be necessary if romkan API has already done it??
-
-        memset( global.szRomaji, 0, MAX_CHAR_BUF );     // clear romaji buffer
-
-        // TODO: if CJK conversion is active, add szKana to the clause buffer; else:
-        SendCharacter( hwndSource, global.szKana, mp1 );
+    // temp logic for testing
+    if ( strlen( global.szRomaji ) > 1 ) {
+        // temp for testing (0x82a0 is Japanese 'A' hiragana)
+        global.szKana[ 0 ] = 0x82;
+        global.szKana[ 1 ] = 0xA0;
+        global.szKana[ 2 ] = 0;
+        memset( global.szRomaji, 0, sizeof( global.szRomaji ));
+        global.usCharIdx = 0;
+        SendCharacter( hwndSource, global.szKana );
     }
-    // TODO:
-    // - else if (romaji is invalid) OR (romaji state is incomplete AND length is max)
-    //   - SendCharacter( hwndSource, global.szRomaji );
-    //   - clear romaji buffer
-    //   - clear kana buffer
-    // - else return (keep current buffers and be ready for next character)
 
+    /* TODO
+    bStatus = ConvertPhonetic();
+    if ( bStatus >= KANA_COMPLETE ) {
+        SupplyCharacter( bStatus );              //   either add szKana to the candidate buffer or send it directly
+    }
+    else if ( bStatus == KANA_INVALID ) {
+        SendCharacter( hwndSource, global.szRomaji );
+        ClearInputBuffer();
+    }
+    // otherwise (KANA_PENDING) just keep the buffers and return
+    */
 }
 
 
@@ -157,14 +186,14 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
  * Centres one window relative to another (or to the screen).  The window    *
  * will always be placed on top of the z-order (HWND_TOP).                   *
  *                                                                           *
- * ARGUMENTS:                                                                *
- *     HWND  hwndCentre  : the window to be centred                          *
- *     HWND  hwndRelative: the window relative to which hwndCentre will be   *
- *                         centred, or NULLHANDLE to centre on the screen    *
- *     ULONG flFlags     : additional flags for WinSetWindowPos (SWP_MOVE is *
- *                         always assumed                                    *
+ * PARAMETERS:                                                               *
+ *   HWND  hwndCentre  : the window to be centred                            *
+ *   HWND  hwndRelative: the window relative to which hwndCentre will be     *
+ *                       centred, or NULLHANDLE to centre on the screen      *
+ *   ULONG flFlags     : additional flags for WinSetWindowPos (SWP_MOVE is   *
+ *                       always assumed                                      *
  *                                                                           *
- * RETURNS: N/A                                                              *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void CentreWindow( HWND hwndCentre, HWND hwndRelative, ULONG flFlags )
 {
@@ -198,6 +227,7 @@ void CentreWindow( HWND hwndCentre, HWND hwndRelative, ULONG flFlags )
 
 /* ------------------------------------------------------------------------- *
  * Window procedure for 'About' (product info) dialog.                       *
+ * See OS/2 PM reference for a description of input and output.              *
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY AboutDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
@@ -224,6 +254,8 @@ MRESULT EXPENTRY AboutDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
  * that control's owner.  The main purpose of this is to make sure drag and  *
  * context-menu events on the control are handled by the dialog, rather than *
  * getting eaten by the control.                                             *
+ *                                                                           *
+ * Input/output are as per window procedure; see OS/2 PM reference.          *
  * ------------------------------------------------------------------------- */
 MRESULT PassStdEvent( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
@@ -308,6 +340,11 @@ MRESULT EXPENTRY StaticTextProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
  * SetTopmost                                                                *
  *                                                                           *
  * Toggle the 'always on top' (float) setting of the window.                 *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void SetTopmost( HWND hwnd )
 {
@@ -335,6 +372,11 @@ void SetTopmost( HWND hwnd )
  *                                                                           *
  * Set the size of the window and its various controls.  (The window is not  *
  * directly resizable but we set the size dynamically based on the font.)    *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void SizeWindow( HWND hwnd )
 {
@@ -381,6 +423,14 @@ void SizeWindow( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
+ * SetupWindow                                                               *
+ *                                                                           *
+ * Perform initial setup of our program window.                              *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void SetupWindow( HWND hwnd )
 {
@@ -416,6 +466,14 @@ void SetupWindow( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
+ * SettingsInit                                                              *
+ *                                                                           *
+ * Set the initial program settings.                                         *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void SettingsInit( HWND hwnd )
 {
@@ -436,6 +494,11 @@ void SettingsInit( HWND hwnd )
 
 /* ------------------------------------------------------------------------- *
  * Set the status text to show the current mode.                             *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void UpdateStatus( HWND hwnd )
 {
@@ -492,7 +555,14 @@ void UpdateStatus( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
- * Toggle kanji (CJK) conversion on or off                                   *
+ * SetKanjiMode                                                              *
+ *                                                                           *
+ * Toggle kanji (CJK) conversion on or off.                                  *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void SetKanjiMode( HWND hwnd )
 {
@@ -516,9 +586,16 @@ void SetKanjiMode( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
- * Change the current romaji conversion mode                                 *
+ * SetInputMode                                                              *
+ *                                                                           *
+ * Change the current (phonetic) input mode.                                 *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
-void SetConversionMode( HWND hwnd )
+void SetInputMode( HWND hwnd )
 {
     BYTE bInputMode = pShared->fsMode & 0xFF;
     // temp: for now just toggle between mode 0/1
@@ -665,12 +742,12 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             switch( COMMANDMSG(&msg)->cmd ) {
 
                 case IDD_MODE:
-                    SetConversionMode( hwnd );
+                    SetInputMode( hwnd );
                     if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
                     break;
 
                 case ID_HOTKEY_MODE:
-                    SetConversionMode( hwnd );
+                    SetInputMode( hwnd );
                     break;
 
                 case IDD_KANJI:
@@ -758,7 +835,7 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
 
 /* ------------------------------------------------------------------------- *
- * Set the language and conversion mode                                      *
+ * Set the language setting.                                                 *
  * ------------------------------------------------------------------------- */
 void SetupDBCSLanguage( USHORT usLangMode )
 {
@@ -804,7 +881,7 @@ VOID APIENTRY ExeTrap()
  * ------------------------------------------------------------------------- */
 int main( int argc, char **argv )
 {
-    static PSZ clientClass = "FreeWnn2";
+    static PSZ clientClass = "WnnIM2";
     HAB   hab;
     HMQ   hmq;
     QMSG  qmsg;
@@ -812,10 +889,8 @@ int main( int argc, char **argv )
     HMODULE hm;
     CHAR    szErr[ 256 ];
 
-    memset( global.szRomaji, 0, MAX_CHAR_BUF );
-    memset( global.szKana, 0, MAX_KANA_BUF );
-
     pShared = WnnGlobalData();
+    ClearInputBuffer();
 
     hab = WinInitialize( 0 );
     hmq = WinCreateMsgQueue( hab, 0 );
@@ -828,7 +903,7 @@ int main( int argc, char **argv )
     SettingsInit( global.hwndClient );
     SetupWindow( global.hwndClient );
     SetupDBCSLanguage( MODE_JP );                       // for now
-    SetConversionMode( global.hwndClient );
+    SetInputMode( global.hwndClient );
 
     // Now do our stuff
     DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );     // increment the DLL use counter for safety

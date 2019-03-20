@@ -33,6 +33,12 @@
 
 #define SZ_DEFAULTFONT  "8.Helv"
 
+// Status returned by ConvertPhonetic()
+#define KANA_INVALID   -1   // Phonetic conversion failed
+#define KANA_PENDING    0   // Phonetic sequence is incomplete but potentially valid
+#define KANA_COMPLETE   1   // Phonetic sequence is valid and complete
+#define KANA_CANDIDATE  2   // Phonetic sequence is valid as-is but may still be modifiable
+
 #ifndef WS_TOPMOST
 #define WS_TOPMOST      0x00200000L
 #endif
@@ -55,14 +61,15 @@
 //
 
 typedef struct _WnnClientData {
-    HWND  hwndFrame,            // our frame
-          hwndClient,           // our client window
-          hwndMenu,             // our context menu
-          hwndLast;             // last window to have focus
-    BYTE  dbcs[ 12 ];           // DBCS information vector (byte-ranges)
-    ULONG codepage;
-    CHAR  szRomaji[ MAX_CHAR_BUF ];
-    CHAR  szKana[ MAX_KANA_BUF ];
+    HWND   hwndFrame,            // our frame
+           hwndClient,           // our client window
+           hwndMenu,             // our context menu
+           hwndLast;             // last window to have focus
+    BYTE   dbcs[ 12 ];           // DBCS information vector (byte-ranges)
+    ULONG  codepage;
+    CHAR   szRomaji[ MAX_CHAR_BUF ];
+    CHAR   szKana[ MAX_KANA_BUF ];
+    USHORT usCharIdx;
 } IMCLIENTDATA, *PIMCLIENTDATA;
 
 
