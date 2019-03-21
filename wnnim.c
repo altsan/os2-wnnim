@@ -29,12 +29,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <uconv.h>
 
 #include "wnnhook.h"
 #include "codepage.h"
 #include "ids.h"
 #include "wnnim.h"
 #include "wnnclient.h"
+
 
 
 IMCLIENTDATA global = {0};      // our window's global data
@@ -862,31 +864,46 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 void SetupDBCSLanguage( USHORT usLangMode )
 {
     COUNTRYCODE cc = {0};
+    CHAR szModeHyo[ CCHMAXPATH ] = {0};
+    INT rc;
 
     switch ( usLangMode ) {
         case MODE_JP:
             cc.country  = 81;       // Japan
             cc.codepage = 943;      // Japanese SJIS
+            strcpy( szModeHyo, "e:/usr/local/lib/wnn/ja_JP/rk/mode");   // temp
             break;
 
         case MODE_KR:
             cc.country  = 82;       // Korea
             cc.codepage = 949;      // Korean KS-Code
+            strcpy( szModeHyo, "e:/usr/local/lib/wnn/ko_KR/rk/mode");   // temp
             break;
 
         case MODE_CN:
             cc.country  = 86;       // China PRC
             cc.codepage = 1386;     // Chinese GBK
+            strcpy( szModeHyo, "e:/usr/local/lib/wnn/zh_CN/rk/mode");   // temp
             break;
 
         case MODE_TW:
             cc.country  = 88;       // Taiwan
             cc.codepage = 950;      // Chinese Big-5
+            strcpy( szModeHyo, "e:/usr/local/lib/wnn/zh_TW/rk/mode");   // temp
             break;
     }
     DosQueryDBCSEnv( sizeof( global.dbcs ), &cc, global.dbcs );
     global.codepage = cc.codepage;
     pShared->fsMode = usLangMode;   // no conversion, will set later
+
+    if ( CreateUconvObject( cc.codepage, &(global.uconvOut) ) != ULS_SUCCESS ) {
+        ErrorPopup("Failed to create conversion object for selected codepage.");
+        return;
+    }
+    rc = InitInputMethod( szModeHyo, usLangMode );
+    if ( rc ) {
+        ErrorPopup( global.szEngineError );
+    }
 }
 
 
@@ -925,7 +942,6 @@ int main( int argc, char **argv )
     SettingsInit( global.hwndClient );
     SetupWindow( global.hwndClient );
     SetupDBCSLanguage( MODE_JP );                                   // for now
-    InitInputMethod("e:/usr/local/lib/wnn/ja_JP/rk/mode", "ja_JP"); // for now
     SetInputMode( global.hwndClient );
 
     // Now do our stuff

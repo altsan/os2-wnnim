@@ -67,7 +67,7 @@ extern int              _cdecl jl_zenkouho_dai( register struct wnn_buf *buf, in
 extern int              _cdecl wnn_get_area( struct wnn_buf *buf, register int bun_no, register int bun_no2, w_char *area, int kanjip );
 
 
-// GLOBALS
+// --------------------------------------------------------------------------
 
 extern IMCLIENTDATA global;
 
@@ -75,6 +75,8 @@ char   WnnErrorBuf[ 128 ] = {0};
 BOOL   fInitRK            = FALSE;
 BOOL   fInitCJK           = FALSE;
 USHORT usCharIdx;           // index of next input character to be converted
+
+UconvObject uconvEUC = NULL;
 
 
 // ============================================================================
@@ -85,7 +87,10 @@ USHORT usCharIdx;           // index of next input character to be converted
  * NextCharacter                                                             *
  *                                                                           *
  * Callback function registered with romkan_init(): returns the next input   *
- * byte for conversion (both romkan_getc() and romkan_next() will use it).   *
+ * byte for conversion.  The FreeWnn romkan_next() function (which is called *
+ * internally by romkan_getc()) uses this to retrieve each byte.             *
+ *                                                                           *
+ * Since we don't use romkan_getc(), this is presumably unused in practice.  *
  * ------------------------------------------------------------------------- */
 letter _cdecl NextCharacter()
 {
@@ -105,12 +110,13 @@ letter _cdecl NextCharacter()
  *                                                                           *
  * Callback function registered with romkan_init(): returns whether an       *
  * input character value is a single- or double-byte character for the       *
- * active input codepage.                                                    *
+ * active input codepage.  Also used by romkan_next() via romkan_getc().     *
+ *                                                                           *
+ * Since we don't use romkan_getc(), this is presumably unused in practice.  *
  * ------------------------------------------------------------------------- */
 int _cdecl CharacterByteCount( char *pChar )
 {
-    // TODO query the current OS/2 codepage
-    return 1;       // temp
+    return 1;       // We only pass ASCII characters as input anyway, so...
 }
 
 
@@ -192,12 +198,39 @@ done_connect:
  * (FreeWnn romkan), this involves loading the romkan table files.           *
  *                                                                           *
  * ------------------------------------------------------------------------- */
-INT _Optlink InitInputMethod( PSZ pszPath, PSZ pszLang )
+INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
 {
-    int rc;
-    romkan_set_lang( pszLang );
+    USHORT cpEUC;
+    CHAR   szLang[ 6 ];
+    int    rc;
+
+    switch ( usLang ) {
+        case MODE_CN: strcpy( szLang, "zh_CN"); break;
+        case MODE_TW: strcpy( szLang, "zh_TW"); break;
+        case MODE_KR: strcpy( szLang, "ko_KR"); break;
+        default:      strcpy( szLang, "ja_JP"); break;
+    }
+    romkan_set_lang( szLang );     // This may not actually be needed (?)
+
+    // romkan_init() parameters:
+    //   pszPath                Filespec of the main 'mode' table
+    //   0x08                   Value of the 'delete' character code
+    //   *NextCharacter         Pointer to character-read function
+    //   *CharacterByteCount    Pointer to character byte-count function
+
     rc = romkan_init( pszPath, 0x08, 0, *NextCharacter, *CharacterByteCount );
+
+    if ( rc )
+        sprintf( global.szEngineError, "Failed to initialize romkan (Wnn) library (error %u)", rc );
     fInitRK = ( rc == 0 )? TRUE: FALSE;
+
+    if ( fInitRK && ( uconvEUC == NULL )) {
+        cpEUC = GetEucCodepage( usLang );
+        rc = CreateUconvObject( cpEUC, &uconvEUC );
+        if ( rc )
+            sprintf( global.szEngineError, "Failed to create conversion object for codeoage %u (error %u). The OS/2 codepage file might not be installed.", cpEUC, rc );
+    }
+
     return rc;
 }
 
@@ -209,18 +242,17 @@ INT _Optlink InitInputMethod( PSZ pszPath, PSZ pszLang )
  * the current language.  (We use the term 'kana', which is Japanese, but    *
  * this also applies to Korean Hangul.)                                      *
  *                                                                           *
- * Note that the converted result may consist of more than one actual        *
- * character value.                                                          *
+ * Note that the converted result may consist of several bytes, possibly     *
+ * even more than two in the case of composite characters.                   *
  *                                                                           *
  * ------------------------------------------------------------------------- */
 BYTE _Optlink ConvertPhonetic( void )
 {
-    CHAR   szOutput[ MAX_KANA_BUFZ ];
+    CHAR   szOutput[ 8 ];
     USHORT i, j,
            len;
     BYTE   result;
-    letter ltr,
-           prev;
+    letter ltr;
     letter *converted, *c;
 
 //FILE *f;
@@ -238,9 +270,6 @@ BYTE _Optlink ConvertPhonetic( void )
     memset( szOutput, 0, sizeof( szOutput ));
 
 #if 0       // Using romkan_getc() seems to be problematic due to its internal loop logic
-
-//fprintf( f, "Entering romkan loop (buffer=%s len=%d index=%d).\n", global.szRomaji, len, usCharIdx );
-
     usCharIdx = 0;
     do {
         if ( usCharIdx > len ) break;
@@ -248,9 +277,6 @@ BYTE _Optlink ConvertPhonetic( void )
 
         prev = ltr;
         ltr = romkan_getc();
-
-//fprintf( f, "index: %d, converted: %d\t", usCharIdx, i );
-//fprintf( f, "(0x%X)\n", ltr );
 
         if ( ltr == LTREOF )
             break;           // end of input, exit with the last status result
@@ -271,10 +297,9 @@ BYTE _Optlink ConvertPhonetic( void )
         // TODO not sure how to identify KANA_CANDIDATE yet (only used for Korean)
     } while ( ltr );
 
-#else       // Let's iterate the buffer ourselves and call romkan_henkan() directly instead.
+#else       // We iterate the buffer ourselves and call romkan_henkan() directly
 
     for( j = 0; j < len; j++ ) {
-        //if ( i >= ( sizeof( global.szKana ) -  1 )) break;
 
 //fprintf( f, "romaji: %s, start: %d, converted: %d\t", global.szRomaji, j, i );
 
@@ -286,7 +311,7 @@ BYTE _Optlink ConvertPhonetic( void )
         else {
             converted = romkan_henkan( ltr & 0xFF );
             c = converted;
-            while (( *c != EOLTTR ) && i < sizeof( global.szKana )) {
+            while (( *c != EOLTTR ) && i < sizeof( szOutput )) {
                 ltr = *c;
                 if ( is_HON( ltr )) {
 //fprintf( f, "%02X ", ltr );
@@ -294,6 +319,7 @@ BYTE _Optlink ConvertPhonetic( void )
                     result = KANA_COMPLETE;
                 }
                 c++;
+                if (( c - converted ) > 10 ) break;     // simple sanity check
             }
         }
 //fprintf( f, " (%08X)\n", ltr );
@@ -315,7 +341,8 @@ BYTE _Optlink ConvertPhonetic( void )
 
     // TODO convert szOutput to target codepage
     if ( i ) {
-        strncpy( global.szKana, szOutput, sizeof( global.szKana ) - 1 );
+        StrConvert( szOutput, global.szKana, uconvEUC, global.uconvOut );
+        //strncpy( global.szKana, szOutput, sizeof( global.szKana ) - 1 );
 //fprintf( f, "Converted: %s\n", szOutput );
     }
     romkan_clear();

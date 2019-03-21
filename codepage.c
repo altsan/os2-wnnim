@@ -1,3 +1,4 @@
+#define INCL_WINATOM
 #include <os2.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -5,6 +6,7 @@
 #include <unidef.h>
 #include <uconv.h>
 
+#include "wnnhook.h"
 #include "codepage.h"
 
 
@@ -20,11 +22,32 @@
  *                                                                           *
  * RETURNS: BOOL                                                             *
  * ------------------------------------------------------------------------- */
-BOOL IsDBCSLeadByte( CHAR ch, PBYTE pDBCS )
+BOOL _Optlink IsDBCSLeadByte( CHAR ch, PBYTE pDBCS )
 {
    while ( *pDBCS )
       if (( ch >= *pDBCS++ ) && ( ch <= *pDBCS++ )) return TRUE;
    return FALSE;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * GetEucCodepage                                                            *
+ *                                                                           *
+ * Return the OS/2 codepage number for Extended Unix Code encoding that      *
+ * corresponds to the specified language.                                    *
+ *                                                                           *
+ * RETURNS: USHORT                                                           *
+ * The codepage number.                                                      *
+ * ------------------------------------------------------------------------- */
+USHORT _Optlink GetEucCodepage( USHORT usLang )
+{
+    switch ( usLang ) {
+        case MODE_JP: return 954;
+        case MODE_KR: return 970;
+        case MODE_CN: return 1383;
+        case MODE_TW: return 964;
+        default:      return 0;
+    }
 }
 
 
@@ -41,93 +64,61 @@ BOOL IsDBCSLeadByte( CHAR ch, PBYTE pDBCS )
  *                                                                           *
  * RETURNS: ULONG                                                            *
  *   ULS API return code                                                     *
- * ------------------------------------------------------------------------- *
-ULONG CreateUconvObject( ULONG ulCP, UconvOject *uconv )
+ * ------------------------------------------------------------------------- */
+ULONG _Optlink CreateUconvObject( ULONG ulCP, UconvObject *uconv )
 {
-    UniChar     suCP[ 32 ];         // conversion specifier (UCS-2 string)
-    ULONG       rc = ULS_SUCCESS;
+    UniChar suCP[ 32 ];         // conversion specifier (UCS-2 string)
+    ULONG   rc = ULS_SUCCESS;
 
     if ( ulCP == 0 )
         suCP[ 0 ] = L'@';
     else
-        rc = UniMapCpToUcsCp( ulCP, suCP, 12 )
-    if ( rc != ULS_SUCCESS )
-        return rc;
+        rc = UniMapCpToUcsCp( ulCP, suCP, 12 );
 
-    UniStrcat( suCP, (UniChar *) L"@map=display,path=no");
-    rc = UniCreateUconvObject( suCP, uconv );
-    if ( rc != ULS_SUCCESS )
-        return rc;
+    if ( rc == ULS_SUCCESS ) {
+        UniStrcat( suCP, (UniChar *) L"@map=display,path=no");
+        rc = UniCreateUconvObject( suCP, uconv );
+    }
+    return rc;
 }
 
 
-/*
-char *strconvert( char *input, unsigned long fromCP, unsigned long toCP )
+/* ------------------------------------------------------------------------- *
+ * StrConvert                                                                *
+ *                                                                           *
+ * Converts the input string from one codepage to another.                   *
+ *                                                                           *
+ * ARGUMENTS:                                                                *
+ *   PSZ         pszInput:  Input string to be converted.                    *
+ *   PSZ         pszOutput: Output buffer (must be at least 4*input length). *
+ *   UconvObject uconvFrom: Conversion object for the source codepage.       *
+ *   UconvObject uconvTo:   Conversion object for the target codepage.       *
+ *                                                                           *
+ * RETURNS: PSZ                                                              *
+ *   Pointer to the output buffer.                                           *
+ * ------------------------------------------------------------------------- */
+PSZ _Optlink StrConvert( PSZ pszInput, PSZ pszOutput, UconvObject uconvFrom, UconvObject uconvTo )
 {
-    UconvObject uconvFrom,
-                uconvTo;
-    UniChar suCP[ 32 ];         // conversion specifier (UCS-2 string)
     UniChar *psu;               // UCS-2 conversion buffer
-    unsigned long in_len,
-                  out_len,
-                  rc;
-    char *output = NULL;
+    ULONG   in_len,
+            out_len,
+            rc;
 
-    // Create conversion objects for each codepage
-    if ( fromCP == 0 ) suCP[ 0 ] = L'@';
-    else if ( UniMapCpToUcsCp( fromCP, suCP, 12 ) != ULS_SUCCESS ) {
-        printf("UniMapCpToUcsCp: %X\n", rc );
-        return NULL;
-    }
-    UniStrcat( suCP, (UniChar *) L"@map=display,path=no");
-    if ( UniCreateUconvObject( suCP, &uconvFrom ) != ULS_SUCCESS ) {
-        printf("UniCreateUconvObject: %X\n", rc );
-        return NULL;
-    }
+    if ( !uconvFrom || !uconvTo ) return pszOutput;
 
-    if ( toCP == 0 ) suCP[ 0 ] = L'@';
-    else if ( UniMapCpToUcsCp( toCP, suCP, 12 ) != ULS_SUCCESS ) {
-        printf("UniMapCpToUcsCp: %X\n", rc );
-        goto done2;
-    }
-    UniStrcat( suCP, (UniChar *) L"@map=display,path=no");
-    if ( UniCreateUconvObject( suCP, &uconvTo ) != ULS_SUCCESS ) {
-        printf("UniCreateUconvObject: %X\n", rc );
-        goto done2;
-    }
+    in_len = 2 * strlen( pszInput );
+    psu = (UniChar *) calloc( in_len + 1, sizeof( UniChar ));
+    if ( psu == NULL )
+        return pszOutput;
 
-    in_len = strlen( input );
-    psu = (UniChar *) calloc( in_len+1, sizeof(UniChar) );
-    if ( psu == NULL ) {
-        printf("Out of memory!\n");
-        goto done1;
+    out_len = 4 * strlen( pszInput );
+    rc = UniStrToUcs( uconvFrom, psu, pszInput, in_len + 1 );
+    if ( rc == ULS_SUCCESS ) {
+        rc = UniStrFromUcs( uconvTo, pszOutput, psu, out_len + 1 );
     }
-
-    // Convert the string
-    out_len = in_len * 4;
-    rc = UniStrToUcs( uconvFrom, psu, input, in_len+1 );
-    if (( rc != ULS_SUCCESS ) ||
-        (( output = (char *) malloc( out_len+1 )) == NULL ))
-    {
-        printf("UniStrToUcs: %X\n", rc );
-        free( psu );
-        goto done1;
-    }
-    rc = UniStrFromUcs( uconvTo, output, psu, out_len+1 );
-    if ( rc != ULS_SUCCESS ) {
-        printf("UniStrFromUcs: %X\n", rc );
-        free( output );
-        output = NULL;
-    }
-
-    // Clean up and return
     free( psu );
-
-done1:
-    UniFreeUconvObject( uconvTo );
-done2:
-    UniFreeUconvObject( uconvFrom );
-    return output;
+    return pszOutput;
 }
 
-*/
+
+

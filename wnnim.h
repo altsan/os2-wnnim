@@ -28,8 +28,8 @@
 #define MAX_VERSTRZ     32
 #define MAX_STATUSZ     64
 #define MAX_BTN_LABELZ  12
-#define MAX_CHAR_BUFZ   7
-#define MAX_KANA_BUFZ   7
+#define MAX_CHAR_BUFZ   9
+#define MAX_KANA_BUFZ   32
 #define MAX_ENGINE_ERRZ 128
 #define CLAUSE_INCZ     32
 
@@ -74,6 +74,9 @@ typedef struct _WnnClientData {
     CHAR   szPending[ MAX_KANA_BUFZ ];  // current phonetic pending/candidate buffer (TODO)
     PSZ    pszClause;                   // current clause conversion buffer
     CHAR   szEngineError[ MAX_ENGINE_ERRZ ];    // may hold error messages from the IME engine
+
+    UconvObject uconvOut;               // Conversion object for 'codepage'
+
 } IMCLIENTDATA, *PIMCLIENTDATA;
 
 
