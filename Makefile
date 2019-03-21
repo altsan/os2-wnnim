@@ -8,21 +8,23 @@ LINK       = ilink
 # Compiler flags:
 # /Gm+      Use multithread library
 # /Ge-      Generate DLL
+# /I<path>  Add <path> to include path
 # /O        Turn on optimizations
 # /Rn       Generate subsystem (no runtime)
 # /Ss       Allow C++ style comments
 # /Wuse     Warn on unused variables
 
-CFLAGS_EXE = /Gm+ /O /Ss /Wuse
+CFLAGS_EXE = /Gm+ /O /Ss /Wuse /Ie:\usr\local\include\wnn
 CFLAGS_DLL = /Ge- /Rn /O /Ss /Wuse
 
-LFLAGS_EXE = /NOE /PMTYPE:PM /NOLOGO /MAP
+LFLAGS_EXE = /NOE /PMTYPE:PM /NOLOGO /MAP /STACK:0x100000
 LFLAGS_DLL = /NOE /DLL /NOLOGO /MAP
 
 HEADERS_ALL = ids.h wnnhook.h codepage.h
 
 EXE = wnnim
-OBJS_EXE = $(EXE).obj codepage.obj
+OBJS_EXE = $(EXE).obj codepage.obj wnnclient.obj
+LIBS_EXE = libuls.lib libconv.lib wnn0_dll.lib
 
 DLL = wnnhook
 OBJS_DLL = $(DLL).obj
@@ -34,18 +36,20 @@ OBJS_DLL = $(DLL).obj
     LFLAGS_DLL = $(LFLAGS_DLL) /DEBUG
 !endif
 
+.c.obj: $(HEADERS)
+        $(CC) /c $(CFLAGS_EXE) $<
 
 .all: $(DLL).dll $(EXE).exe
 
 $(EXE).exe: $(OBJS_EXE) $(EXE).res $(DLL).lib
-        $(LINK) $(LFLAGS_EXE) $(OBJS_EXE) $(DLL).lib /OUT:$@
+        $(LINK) $(LFLAGS_EXE) $(OBJS_EXE) $(DLL).lib $(LIBS_EXE) /OUT:$@
         rc -x $(EXE).res $(EXE).exe
 
 $(EXE).obj: $(EXE).c $(HEADERS_ALL)
         $(CC) /c $(CFLAGS_EXE) $<
 
-fonts.obj: fonts.c $(HEADERS_ALL)
-        $(CC) /c $(CFLAGS_EXE) $<
+wnnclient.obj: wnnclient.c $(HEADERS_ALL)
+        $(CC) /c /Mc $(CFLAGS_EXE) $<
 
 codepage.obj: codepage.c $(HEADERS_ALL)
         $(CC) /c $(CFLAGS_EXE) $<

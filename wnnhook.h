@@ -43,6 +43,7 @@ typedef struct _Wnn_Global_Data {
     USHORT usKeyConvert, fsVKConvert;   // CJK convert hotkey (default Space)
     USHORT usKeyAccept,  fsVKAccept;    // CJK accept hotkey (default Enter)
     ATOM   wmAddChar;                   // custom message ID - send intercepted character
+    ATOM   wmDelChar;                   // custom message ID - send backspace
 // Not needed?
 //    ATOM   wmCJKMode;           // custom message ID - user pressed CJK mode hotkey
 //    ATOM   wmInputMode;         // custom message ID - user pressed input mode hotkey

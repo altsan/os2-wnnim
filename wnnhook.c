@@ -145,6 +145,7 @@ BOOL EXPENTRY _Export WnnHookInit( HWND hwnd )
 
     g_hATSys = WinQuerySystemAtomTable();
     global.wmAddChar = WinAddAtom( g_hATSys, "WnnAddChar");
+    global.wmDelChar = WinAddAtom( g_hATSys, "WnnDelChar");
 
     if ( DosQueryModuleHandle("wnnhook", &g_hMod )) return FALSE;
     g_hab = WinQueryAnchorBlock( hwnd );
@@ -163,6 +164,7 @@ BOOL EXPENTRY _Export WnnHookTerm( void )
     if ( g_fHookActive ) {
         WinReleaseHook( g_hab, g_hmq, HK_INPUT, (PFN) WnnHookInput, g_hMod );
         WinDeleteAtom( g_hATSys, global.wmAddChar );
+        WinDeleteAtom( g_hATSys, global.wmDelChar );
         g_fHookActive = FALSE;
     }
 

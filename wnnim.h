@@ -28,8 +28,10 @@
 #define MAX_VERSTRZ     32
 #define MAX_STATUSZ     64
 #define MAX_BTN_LABELZ  12
-#define MAX_CHAR_BUF    7
-#define MAX_KANA_BUF    4
+#define MAX_CHAR_BUFZ   7
+#define MAX_KANA_BUFZ   7
+#define MAX_ENGINE_ERRZ 128
+#define CLAUSE_INCZ     32
 
 #define SZ_DEFAULTFONT  "8.Helv"
 
@@ -61,15 +63,17 @@
 //
 
 typedef struct _WnnClientData {
-    HWND   hwndFrame,            // our frame
-           hwndClient,           // our client window
-           hwndMenu,             // our context menu
-           hwndLast;             // last window to have focus
-    BYTE   dbcs[ 12 ];           // DBCS information vector (byte-ranges)
-    ULONG  codepage;
-    CHAR   szRomaji[ MAX_CHAR_BUF ];
-    CHAR   szKana[ MAX_KANA_BUF ];
-    USHORT usCharIdx;
+    HWND   hwndFrame,                   // our frame
+           hwndClient,                  // our client window
+           hwndMenu,                    // our context menu
+           hwndLast;                    // last window to have focus
+    BYTE   dbcs[ 12 ];                  // DBCS information vector (byte-ranges)
+    ULONG  codepage;                    // DBCS codepage (this is not necessarily the process codepage)
+    CHAR   szRomaji[ MAX_CHAR_BUFZ ];   // current phonetic input buffer
+    CHAR   szKana[ MAX_KANA_BUFZ ];     // current phonetic conversion/output buffer
+    CHAR   szPending[ MAX_KANA_BUFZ ];  // current phonetic pending/candidate buffer (TODO)
+    PSZ    pszClause;                   // current clause conversion buffer
+    CHAR   szEngineError[ MAX_ENGINE_ERRZ ];    // may hold error messages from the IME engine
 } IMCLIENTDATA, *PIMCLIENTDATA;
 
 
@@ -77,7 +81,6 @@ typedef struct _WnnClientData {
 // GLOBALS
 //
 
-IMCLIENTDATA global = {0};      // our window's global data
 PWNNSHARED   pShared;           // data shared with the dll
 
 

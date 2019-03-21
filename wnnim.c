@@ -34,7 +34,10 @@
 #include "codepage.h"
 #include "ids.h"
 #include "wnnim.h"
+#include "wnnclient.h"
 
+
+IMCLIENTDATA global = {0};      // our window's global data
 
 // Subclassed window procedures
 PFNWP pfnBtnProc;
@@ -49,18 +52,30 @@ PFNWP pfnTxtProc;
  * ClearInputBuffer                                                          *
  *                                                                           *
  * Clear/reset the input conversion buffers.  This should always be done     *
- * after calling SendCharacter or SupplyCharacter.  Effectively this resets  *
- * the current input conversion to the empty state.  Note that this does not *
- * affect the clause conversion buffer, which may still have contents.       *
+ * after calling SendCharacter.  Effectively this resets the current input   *
+ * conversion to the empty state.  Note that this does not affect the clause *
+ * conversion buffer.                                                        *
  *                                                                           *
  * ------------------------------------------------------------------------- */
 void ClearInputBuffer( void )
 {
     memset( global.szRomaji, 0, sizeof( global.szRomaji ));
     memset( global.szKana, 0, sizeof( global.szKana ));
-    global.usCharIdx = 0;
 }
 
+
+/* ------------------------------------------------------------------------- *
+ * ClearClauseBuffer                                                         *
+ *                                                                           *
+ * Clear/reset the clause conversion buffer.                                 *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+void ClearClauseBuffer( void )
+{
+    if ( global.pszClause )
+        free( global.pszClause );
+    global.pszClause = (PSZ) calloc( CLAUSE_INCZ, sizeof( char ));
+}
 
 
 /* ------------------------------------------------------------------------- *
@@ -85,7 +100,7 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
 
     usLen = strlen( pszBuffer );
     for ( i = 0; i < usLen; i++ ) {
-        usChar = (USHORT) global.szKana[ i ];
+        usChar = (USHORT) pszBuffer[ i ];
 
         // Hmm, some apps don't seem able to cope with this.
         // Better to just use a separate message for each byte.
@@ -93,50 +108,60 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
 
         WinSendMsg( hwndSource, WM_CHAR, MPFROMSH2CH( KC_CHAR, 1, 0 ), MPFROM2SHORT( usChar, 0 ));
     }
-    memset( global.szKana, 0, MAX_KANA_BUF );
 }
 
 
 /* ------------------------------------------------------------------------- *
  * SupplyCharacter                                                           *
  *                                                                           *
- * Output a converted phonetic character.  If it is a 'candidate' character  *
- * (that is, valid but still potentially modifiable) OR if we are in CJK     *
- * conversion mode, add it to the clause buffer and display it in the        *
- * overlay window.  Otherwise, send it directly to the target window, and    *
- * clear the input _and_ clause buffers.                                     *
+ * Output a converted phonetic character.  If CJK conversion is active, add  *
+ * it to the clause buffer and display it in the overlay window.  (TODO: or  *
+ * if it is a 'candidate' character, i.e. valid but potentially modifiable,  *
+ * set the pending buffer and display it in the overlay window.)  Otherwise, *
+ * send it directly to the target window, and clear all buffers.             *
  *                                                                           *
- * ------------------------------------------------------------------------- *
-void SupplyCharacter( BYTE bStatus )
+ * ------------------------------------------------------------------------- */
+void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
 {
-
+    /*
+    if ( pShared->fsMode & MODE_CJK ) {
+        // TODO append to clause buffer
+        // TODO update/display overlay
+        ClearInputBuffer();
+    }
+    else if ( bStatus == KANA_CANDIDATE )
+        strncpy( global.szPending, global.szKana, sizeof( global.szPending ));
+        // TODO update/display overlay
+    else
+    */
+    {
+        SendCharacter( hwndSource, global.szKana );
+        ClearInputBuffer();
+    }
 }
-*/
 
 
 /* ------------------------------------------------------------------------- *
  * ProcessCharacter                                                          *
  *                                                                           *
  * Process an input character (byte) from the input hook and decide how to   *
- * deal with it.  If we made it this far, then we know that IM mode is       *
- * active.  Here, we add the character to the romaji buffer, then determine  *
- * how to proceed based on the current input mode and the buffer contents.   *
+ * deal with it.  If we made it this far, then we know that the IME is       *
+ * enabled.  Here, we add the character to the romaji buffer, then call the  *
+ * input conversion routine to see if it can be converted.                   *
  *                                                                           *
- * The romaji buffer is our basic input buffer.  It saves characters that    *
- * are received here until the buffer contains a valid conversion sequence,  *
- * reaches its maximum length, or contains an illegal sequence.  Thus, it    *
- * can basically be in one of four states:                                   *
+ * The romaji buffer accumulates characters until either a valid conversion  *
+ * is possible, the maximum length is reached, or an illegal sequence is     *
+ * reported.  It can be in one of five states:                               *
  *                                                                           *
- *  A. empty                                                                 *
+ *  A. empty (not applicable if we've reached this point)                    *
  *  B. pending (contains a partial sequence which is potentially valid)      *
  *  C. complete (contains a valid romaji sequence ready for conversion)      *
- *  D. invalid (contains a sequence that is not nor could ever become valid) *
+ *  D. candidate (contains a valid romaji                                    *
+ *  E. invalid (contains a sequence that is not nor could ever become valid) *
  *                                                                           *
- * A obviously doesn't apply once we've reached this point.  In the case B,  *
- * we simply keep the buffer and continue.  For C, we complete the input     *
- * conversion (precisely what that entails depends on the CJK/conversion     *
- * mode) and then clear the buffer.  In the case of D, we give up & send the *
- * unconverted buffer contents to the source window, then clear the buffer.  *
+ * A does not apply at this point.  In the case of B, we simply keep the     *
+ * buffer and continue.  For the other three possibilities we call the       *
+ * SupplyCharacter() function and let it decide how to proceed.              *
  *                                                                           *
  * PARAMETERS:                                                               *
  *   HWND   hwnd      : Our own window handle.                               *
@@ -155,28 +180,24 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     szChar[ 1 ] = 0;
     strncat( global.szRomaji, szChar, sizeof(global.szRomaji) - 1 );
 
+#if 0
     // temp logic for testing
     if ( strlen( global.szRomaji ) > 1 ) {
         // temp for testing (0x82a0 is Japanese 'A' hiragana)
         global.szKana[ 0 ] = 0x82;
         global.szKana[ 1 ] = 0xA0;
         global.szKana[ 2 ] = 0;
-        memset( global.szRomaji, 0, sizeof( global.szRomaji ));
-        global.usCharIdx = 0;
-        SendCharacter( hwndSource, global.szKana );
+        bStatus = KANA_COMPLETE;
     }
-
-    /* TODO
+    else
+        bStatus = KANA_PENDING;
+#else
     bStatus = ConvertPhonetic();
-    if ( bStatus >= KANA_COMPLETE ) {
-        SupplyCharacter( bStatus );              //   either add szKana to the candidate buffer or send it directly
+#endif
+    if ( bStatus != KANA_PENDING ) {
+        SupplyCharacter( hwnd, hwndSource, bStatus );
     }
-    else if ( bStatus == KANA_INVALID ) {
-        SendCharacter( hwndSource, global.szRomaji );
-        ClearInputBuffer();
-    }
-    // otherwise (KANA_PENDING) just keep the buffers and return
-    */
+    // otherwise just keep the buffers and continue
 }
 
 
@@ -807,7 +828,6 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             switch ( (ULONG) mp1 ) {
                 case PP_FONTNAMESIZE:
                     SizeWindow( hwnd );
-                    //WinInvalidateRect( hwnd, NULL, FALSE );
                     break;
                 default: break;
             }
@@ -821,10 +841,12 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         // Custom msgs
         //
         default:
-            if ( msg == pShared->wmAddChar ) {
+            if ( msg == pShared->wmAddChar ) {          // Typed character
                 ProcessCharacter( hwnd, pShared->hwndSource, mp1, mp2 );
-                //WinSendMsg( pShared->hwndSource, WM_CHAR, mp1, MPFROM2SHORT( SHORT1FROMMP( mp2 ) & ~0x20, 0 ));
                 return 0;
+            }
+            else if ( msg == pShared->wmDelChar ) {     // Backspace
+                // If overlay is active, delete the last character.  Otherwise, pass on to hwndSource
             }
             break;
 
@@ -902,7 +924,8 @@ int main( int argc, char **argv )
                                            "FreeWnnIME", 0L, 0, ID_ICON, &global.hwndClient );
     SettingsInit( global.hwndClient );
     SetupWindow( global.hwndClient );
-    SetupDBCSLanguage( MODE_JP );                       // for now
+    SetupDBCSLanguage( MODE_JP );                                   // for now
+    InitInputMethod("e:/usr/local/lib/wnn/ja_JP/rk/mode", "ja_JP"); // for now
     SetInputMode( global.hwndClient );
 
     // Now do our stuff
