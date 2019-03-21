@@ -160,6 +160,9 @@ INT _Optlink InitConversionMethod( USHORT usLang, PVOID *ppSession )
     CHAR    fzk[ 1024 ] = {0};
     INT     result = 0;
 
+    if ( !fInitRK ) return 1;
+    if ( uconvEUC == NULL ) return 2;
+
     // Get the server and user names to use.
     pszEnv = getenv("JSERVER");
     pszServer = strdup( pszEnv? pszEnv: "localhost");
@@ -202,7 +205,9 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
 {
     USHORT cpEUC;
     CHAR   szLang[ 6 ];
+    CHAR   szModeHyo[ CCHMAXPATH ];
     int    rc;
+
 
     switch ( usLang ) {
         case MODE_CN: strcpy( szLang, "zh_CN"); break;
@@ -210,6 +215,16 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
         case MODE_KR: strcpy( szLang, "ko_KR"); break;
         default:      strcpy( szLang, "ja_JP"); break;
     }
+
+    if ( pszPath == NULL ) {
+        pszPath = getenv("ROMKAN_TABLE");
+        if ( pszPath )
+            strncpy( szModeHyo, pszPath, CCHMAXPATH - 1 );
+        else
+            sprintf( szModeHyo, "/@unixroot/usr/lib/Wnn/%s/rk/mode", szLang );
+        pszPath = szModeHyo;
+    }
+
     romkan_set_lang( szLang );     // This may not actually be needed (?)
 
     // romkan_init() parameters:

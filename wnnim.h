@@ -77,6 +77,8 @@ typedef struct _WnnClientData {
 
     UconvObject uconvOut;               // Conversion object for 'codepage'
 
+    CHAR   szDicPath[ CCHMAXPATH ];     // Location of input dictionary files (romkan)
+
 } IMCLIENTDATA, *PIMCLIENTDATA;
 
 

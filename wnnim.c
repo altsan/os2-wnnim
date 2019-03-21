@@ -103,12 +103,11 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
     usLen = strlen( pszBuffer );
     for ( i = 0; i < usLen; i++ ) {
         usChar = (USHORT) pszBuffer[ i ];
-
-        // Hmm, some apps don't seem able to cope with this.
-        // Better to just use a separate message for each byte.
-        //if ( IsDBCSLeadByte( global.szKana[ i ], global.dbcs )) usChar |= ( global.szKana[ ++i ] << 0x8 );
-
-        WinSendMsg( hwndSource, WM_CHAR, MPFROMSH2CH( KC_CHAR, 1, 0 ), MPFROM2SHORT( usChar, 0 ));
+        if ( IsDBCSLeadByte( usChar, global.dbcs ))
+            usChar |= pszBuffer[ ++i ] << 0x8;
+        WinSendMsg( hwndSource, WM_CHAR,
+                    MPFROMSH2CH( KC_CHAR, 1, 0 ),
+                    MPFROM2SHORT( usChar, 0 ));
     }
 }
 
@@ -861,7 +860,7 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 /* ------------------------------------------------------------------------- *
  * Set the language setting.                                                 *
  * ------------------------------------------------------------------------- */
-void SetupDBCSLanguage( USHORT usLangMode )
+BOOL SetupDBCSLanguage( USHORT usLangMode )
 {
     COUNTRYCODE cc = {0};
     CHAR szModeHyo[ CCHMAXPATH ] = {0};
@@ -871,25 +870,25 @@ void SetupDBCSLanguage( USHORT usLangMode )
         case MODE_JP:
             cc.country  = 81;       // Japan
             cc.codepage = 943;      // Japanese SJIS
-            strcpy( szModeHyo, "e:/usr/local/lib/wnn/ja_JP/rk/mode");   // temp
+            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/ja_JP/rk/mode");   // temp
             break;
 
         case MODE_KR:
             cc.country  = 82;       // Korea
             cc.codepage = 949;      // Korean KS-Code
-            strcpy( szModeHyo, "e:/usr/local/lib/wnn/ko_KR/rk/mode");   // temp
+            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/ko_KR/rk/mode");   // temp
             break;
 
         case MODE_CN:
             cc.country  = 86;       // China PRC
             cc.codepage = 1386;     // Chinese GBK
-            strcpy( szModeHyo, "e:/usr/local/lib/wnn/zh_CN/rk/mode");   // temp
+            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/zh_CN/rk/mode");   // temp
             break;
 
         case MODE_TW:
             cc.country  = 88;       // Taiwan
             cc.codepage = 950;      // Chinese Big-5
-            strcpy( szModeHyo, "e:/usr/local/lib/wnn/zh_TW/rk/mode");   // temp
+            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/zh_TW/rk/mode");   // temp
             break;
     }
     DosQueryDBCSEnv( sizeof( global.dbcs ), &cc, global.dbcs );
@@ -898,12 +897,15 @@ void SetupDBCSLanguage( USHORT usLangMode )
 
     if ( CreateUconvObject( cc.codepage, &(global.uconvOut) ) != ULS_SUCCESS ) {
         ErrorPopup("Failed to create conversion object for selected codepage.");
-        return;
+        return FALSE;
     }
     rc = InitInputMethod( szModeHyo, usLangMode );
     if ( rc ) {
         ErrorPopup( global.szEngineError );
+        return FALSE;
     }
+
+    return TRUE;
 }
 
 
