@@ -18,15 +18,15 @@
 #define MODE_FULLWIDTH  4       // Convert to fullwidth ASCII
 
 // Input modes (Korean)
-#define MODE_HANGUL     1
+#define MODE_HANGUL     1       // Convert to hangul
 
 // TBD Chinese modes (Pinyin, ABC, etc)?
 
 // Language mode
-#define MODE_JP         0x100
-#define MODE_KR         0x200
-#define MODE_CN         0x400
-#define MODE_TW         0x800
+#define MODE_JP         0x100   // Japanese
+#define MODE_KR         0x200   // Korean
+#define MODE_CN         0x400   // Simplified Chinese
+#define MODE_TW         0x800   // Traditional Chinese
 
 // Convert to Kanji/Hanzi/Hanja
 // - In this mode, converted romaji are added to a clause buffer and converted
@@ -44,11 +44,6 @@ typedef struct _Wnn_Global_Data {
     USHORT usKeyAccept,  fsVKAccept;    // CJK accept hotkey (default Enter)
     ATOM   wmAddChar;                   // custom message ID - send intercepted character
     ATOM   wmDelChar;                   // custom message ID - send backspace
-// Not needed?
-//    ATOM   wmCJKMode;           // custom message ID - user pressed CJK mode hotkey
-//    ATOM   wmInputMode;         // custom message ID - user pressed input mode hotkey
-//    ATOM   wmConvertCJK;        // custom message ID - user pressed convert hotkey
-//    ATOM   wmAccept;            // custom message ID - user pressed accept hotkey
 } WNNSHARED, *PWNNSHARED;
 
 

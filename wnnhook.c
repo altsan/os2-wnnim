@@ -38,17 +38,6 @@ WNNSHARED global;
 
 
 /* -------------------------------------------------------------------------- *
- * Clear a character buffer (cheap and dirty memset replacement).             *
- * -------------------------------------------------------------------------- *
-void ClearBuffer( CHAR *pBuf, USHORT usLen )
-{
-    USHORT i;
-    for ( i = 0; pBuf && i < usLen; i++ ) pBuf[ i ] = 0;
-}
-*/
-
-
-/* -------------------------------------------------------------------------- *
  * Hook for posted messages.                                                  *
  * Return TRUE for messages processed here, or FALSE to pass the message on.  *
  * -------------------------------------------------------------------------- */
