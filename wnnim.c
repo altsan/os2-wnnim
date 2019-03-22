@@ -99,15 +99,28 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
     USHORT i,
            usLen,
            usChar;
+    CHAR   achClassName[ 100 ] = {0};
+    BOOL   fWorkAround = FALSE;
 
     usLen = strlen( pszBuffer );
     for ( i = 0; i < usLen; i++ ) {
         usChar = (USHORT) pszBuffer[ i ];
-        if ( IsDBCSLeadByte( usChar, global.dbcs ))
+
+        // Some custom input windows can't handle combined double bytes
+        if ( WinQueryClassName( hwndSource, 100, achClassName ) > 0 ) {
+            // MED (MrED) text editor
+            if ( strcmp( achClassName, "MRED_BUFWIN_CLASS") == 0 )
+                fWorkAround = TRUE;
+        }
+
+        if ( !fWorkAround && IsDBCSLeadByte( usChar, global.dbcs ))
             usChar |= pszBuffer[ ++i ] << 0x8;
         WinSendMsg( hwndSource, WM_CHAR,
                     MPFROMSH2CH( KC_CHAR, 1, 0 ),
                     MPFROM2SHORT( usChar, 0 ));
+
+        // Force a window redraw if workaround was used
+        if ( fWorkAround ) WinInvalidateRect( hwndSource, NULL, FALSE );
     }
 }
 

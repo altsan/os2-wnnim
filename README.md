@@ -10,16 +10,65 @@ As such, it will (when finished) require the FreeWnn server for the desired
 language to be installed and running (not necessarily on the same computer, but
 accessible via TCP/IP).
 
-All the FreeWnn-specific code will be isolated in its own source files.  In
+Only Presentation Manager (OS/2 graphical) sessions are supported; DOS and 
+Win-OS/2 sessions are not.  OS/2 command lines are not supported either, 
+_except_ for windowed VIO sessions running on DBCS versions of OS/2.
+
+
+For Users
+---------
+
+The FreeWnn runtime and romkan mode tables must be installed.  These are 
+included in the FreeWnn RPM packages, which should soon be available from a
+repository near you; in the meantime, get `FreeWnn-1.1.1-0.a023.0.i386.rpm` from
+[here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
+
+If you don't have a UNIXROOT environment or prefer not to install the RPM for 
+other reasons, you can extract `wnn0.dll` and the files in the `rk` directory;
+place the DLL in your LIBPATH, and the files from `rk` in their own directory
+(anywhere), then define the environment variable `ROMKAN_TABLE` to indicate the
+fully-qualified path of the file `mode`.  (This will suffice for phonetic input
+conversion; full clause conversion, which is not yet implemented, will require
+the full FreeWnn server installed either locally or on the local network.)
+
+Make sure `wnnhook.dll` and `wnnim.exe` are in the same directory, and run
+'wnnim' to start the IME.  The actual UI is a small window located by default
+at the bottom right of your screen (you can move it around by dragging).  The
+UI consists of two small buttons and a status panel.  
+
+ * The button labelled 'M' selects the input conversion mode.  Currently it only
+   supports two modes: hiragana (the default), and none.  You can also toggle
+   this setting using Ctrl+Space.
+ * The button labelled 'C' toggles CJK clause conversion on or off.  (Since
+   clause conversion has not been implemented yet, this currently does nothing.)
+   You can also toggle this setting using Alt+`.  
+
+There is also a popup context menu from which you can close the program.
+
+The active settings are global, i.e. switching from one program to another will
+retain the current conversion mode.
+
+
+For Developers
+--------------
+
+The included Makefile requires the IBM C Compiler (preferably version 3.65).
+It might be possible to build with GCC, but any functions which are explicitly
+declared _Optlink might have to be changed to _System or _cdecl.  Also, the
+PM hook DLL (see below) is built with the subsystem runtime (ICC `/Rn` switch)
+to avoid side effects due to its data segment being SINGLE NONSHARED; using GCC
+or another compiler would probably require some changes to this approach.
+
+Building the client application requires the FreeWnn library and header files;
+these are included in the `FreeWnn-devel` RPM (provisionally available from
+[here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
+
+All the FreeWnn-specific code is isolated in one or two source files.  In 
 principle, the rest of the WnnIM code could probably be used to implement an IME
 based on a different engine such as Canna or Anthy (although I have no plans to
 try doing such a thing myself).
 
-The included Makefile requires the IBM C Compiler (preferably version 3.65).
-
-
-Concepts
---------
+### Concepts
 
 WnnIM's operation is based around two 'mode' settings which work in conjunction
 with each other: _input mode_ and _CJK conversion mode_.
@@ -51,7 +100,7 @@ continue typing.]
 
 [TODO 2: If the target language does not use phonetic characters, then all of
 the above is bypassed: typed characters are simply added to the clause buffer 
-in place of phonetic characters, and the logic otherwise proceeds as below.  
+in place of phonetic characters, and the logic otherwise proceeds as below. 
 This will probably be the case with Chinese (both types?).]
 
 The other mode is CJK (or 'clause') conversion mode.  This mode is a simple
@@ -73,9 +122,7 @@ If the input mode is set to 'none', then all conversion (input and CJK) is
 disabled, and typed characters are simply sent to the application as they
 are.
 
-
-Source Code Organization
-------------------------
+### Source Code Organization
 
 `wnnclient.*` implements the interface to the FreeWnn engine.  If WnnIM were
 to be adapted to use a different engine, this is the module that would need to
@@ -101,25 +148,26 @@ PM hook.
 Notices
 -------
 
-WnnIM for OS/2 is (C) 2019 Alexander Taylor
+WnnIM for OS/2  
+(C) 2019 Alexander Taylor
 
 Some of the PM hook logic was derived from `xray` by Michael Shillingford, and
 his [EDM/2 programming article](http://www.edm2.com/0501/hooks.html) on the
 subject.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307  USA
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+  02111-1307  USA
 
-WnnIM program source: https://github.com/altsan/os2-wnnim
+WnnIM program source: [https://github.com/altsan/os2-wnnim]()
