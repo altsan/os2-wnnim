@@ -62,7 +62,7 @@ PFNWP pfnTxtProc;
 void ClearInputBuffer( void )
 {
     memset( global.szRomaji, 0, sizeof( global.szRomaji ));
-    memset( global.szKana, 0, sizeof( global.szKana ));
+    memset( global.uszKana, 0, sizeof( global.uszKana ));
 }
 
 
@@ -74,9 +74,9 @@ void ClearInputBuffer( void )
  * ------------------------------------------------------------------------- */
 void ClearClauseBuffer( void )
 {
-    if ( global.pszClause )
-        free( global.pszClause );
-    global.pszClause = (PSZ) calloc( CLAUSE_INCZ, sizeof( char ));
+    if ( global.puszClause )
+        free( global.puszClause );
+    global.puszClause = (UniChar *) calloc( CLAUSE_INCZ, sizeof( char ));
 }
 
 
@@ -128,28 +128,32 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
 /* ------------------------------------------------------------------------- *
  * SupplyCharacter                                                           *
  *                                                                           *
- * Output a converted phonetic character.  If CJK conversion is active, add  *
- * it to the clause buffer and display it in the overlay window.  (TODO: or  *
- * if it is a 'candidate' character, i.e. valid but potentially modifiable,  *
- * set the pending buffer and display it in the overlay window.)  Otherwise, *
- * send it directly to the target window, and clear all buffers.             *
+ * Output converted input buffer.  If CJK conversion is active, add it to    *
+ * the clause buffer and display it in the overlay window.  (TODO: or if     *
+ * it's a 'candidate' character, i.e. valid but potentially modifiable, put  *
+ * it in the pending buffer and display it in the overlay window.)           *
+ * Otherwise, send it directly to the target window, and clear all buffers.  *
  *                                                                           *
  * ------------------------------------------------------------------------- */
 void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
 {
+    static CHAR szKana[ MAX_KANA_BUFZ ];
+
     /*
-    if ( pShared->fsMode & MODE_CJK ) {
+    if ( bStatus == KANA_CANDIDATE )
+        UniStrncpy( global.suPending, global.uszKana, MAX_KANA_BUFZ );
+        // TODO update/display overlay
+    else if ( pShared->fsMode & MODE_CJK ) {
         // TODO append to clause buffer
         // TODO update/display overlay
         ClearInputBuffer();
     }
-    else if ( bStatus == KANA_CANDIDATE )
-        strncpy( global.szPending, global.szKana, sizeof( global.szPending ));
-        // TODO update/display overlay
     else
     */
     {
-        SendCharacter( hwndSource, global.szKana );
+        // Convert kana buffer to output codepage and send to application
+        StrConvert( (PCH)(global.uszKana), szKana, NULL, global.uconvOut );
+        SendCharacter( hwndSource, szKana );
         ClearInputBuffer();
     }
 }
@@ -194,20 +198,7 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     szChar[ 1 ] = 0;
     strncat( global.szRomaji, szChar, sizeof(global.szRomaji) - 1 );
 
-#if 0
-    // temp logic for testing
-    if ( strlen( global.szRomaji ) > 1 ) {
-        // temp for testing (0x82a0 is Japanese 'A' hiragana)
-        global.szKana[ 0 ] = 0x82;
-        global.szKana[ 1 ] = 0xA0;
-        global.szKana[ 2 ] = 0;
-        bStatus = KANA_COMPLETE;
-    }
-    else
-        bStatus = KANA_PENDING;
-#else
     bStatus = ConvertPhonetic();
-#endif
     if ( bStatus != KANA_PENDING ) {
         SupplyCharacter( hwnd, hwndSource, bStatus );
     }
@@ -912,6 +903,8 @@ BOOL SetupDBCSLanguage( USHORT usLangMode )
         ErrorPopup("Failed to create conversion object for selected codepage.");
         return FALSE;
     }
+    global.puszClause = (UniChar *) calloc( CLAUSE_INCZ, sizeof( char ));
+
     rc = InitInputMethod( NULL, usLangMode );
     if ( rc ) {
         ErrorPopup( global.szEngineError );

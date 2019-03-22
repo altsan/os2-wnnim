@@ -1,3 +1,22 @@
+/****************************************************************************
+ * codepage.c                                                               *
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or modify    *
+ *  it under the terms of the GNU General Public License as published by    *
+ *  the Free Software Foundation; either version 2 of the License, or       *
+ *  (at your option) any later version.                                     *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA                *
+ *  02111-1307  USA                                                         *
+ *                                                                          *
+ ****************************************************************************/
 #define INCL_WINATOM
 #include <os2.h>
 #include <stdlib.h>
@@ -89,35 +108,53 @@ ULONG _Optlink CreateUconvObject( ULONG ulCP, UconvObject *uconv )
  * Converts the input string from one codepage to another.                   *
  *                                                                           *
  * ARGUMENTS:                                                                *
- *   PSZ         pszInput:  Input string to be converted.                    *
- *   PSZ         pszOutput: Output buffer (must be at least 4*input length). *
+ *   PCH         pchInput:  Input string to be converted.                    *
+ *   PCH         pchOutput: Output buffer (must be at least 4*input length). *
  *   UconvObject uconvFrom: Conversion object for the source codepage.       *
+ *                          If NULL, convert from UCS-2.                     *
  *   UconvObject uconvTo:   Conversion object for the target codepage.       *
+ *                          If NULL, convert to UCS-2.                       *
  *                                                                           *
- * RETURNS: PSZ                                                              *
+ * RETURNS: PCH                                                              *
  *   Pointer to the output buffer.                                           *
  * ------------------------------------------------------------------------- */
-PSZ _Optlink StrConvert( PSZ pszInput, PSZ pszOutput, UconvObject uconvFrom, UconvObject uconvTo )
+PCH _Optlink StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, UconvObject uconvTo )
 {
     UniChar *psu;               // UCS-2 conversion buffer
     ULONG   in_len,
             out_len,
             rc;
 
-    if ( !uconvFrom || !uconvTo ) return pszOutput;
+    if ( !uconvFrom && !uconvTo )       // no conversion objects --> no conversion!
+        return pchOutput;
 
-    in_len = 2 * strlen( pszInput );
-    psu = (UniChar *) calloc( in_len + 1, sizeof( UniChar ));
-    if ( psu == NULL )
-        return pszOutput;
+    in_len  = 2 * strlen( pchInput );   // allow up to double the input string length
 
-    out_len = 4 * strlen( pszInput );
-    rc = UniStrToUcs( uconvFrom, psu, pszInput, in_len + 1 );
-    if ( rc == ULS_SUCCESS ) {
-        rc = UniStrFromUcs( uconvTo, pszOutput, psu, out_len + 1 );
+    if ( uconvFrom ) {
+        // Convert input string to UCS-2
+        psu = (UniChar *) calloc( in_len + 1, sizeof( UniChar ));
+        if ( psu == NULL )
+            goto done;
+        rc = UniStrToUcs( uconvFrom, psu, pchInput, in_len + 1 );
     }
-    free( psu );
-    return pszOutput;
+    else {
+        // Assume we were given a UCS-2 string
+        psu = (UniChar *) pchInput;
+        rc = ULS_SUCCESS;
+    }
+
+    if ( !uconvTo )
+        UniStrcpy( (UniChar *)pchOutput, psu );
+    else if ( rc == ULS_SUCCESS ) {
+        // Convert UCS-2 string to output codepage
+        out_len = 4 * UniStrlen( psu );     // allow up to 4x the UCS-2 string length
+        rc = UniStrFromUcs( uconvTo, pchOutput, psu, out_len + 1 );
+    }
+
+    if ( uconvFrom ) free( psu );
+
+done:
+    return pchOutput;
 }
 
 

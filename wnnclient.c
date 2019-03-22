@@ -74,9 +74,11 @@ extern IMCLIENTDATA global;
 char   WnnErrorBuf[ 128 ] = {0};
 BOOL   fInitRK            = FALSE;
 BOOL   fInitCJK           = FALSE;
-USHORT usCharIdx;           // index of next input character to be converted
+USHORT usCharIdx;               // index of next input character to be converted
 
-UconvObject uconvEUC = NULL;
+UconvObject uconvEUC = NULL;    // conversion object (EUC to UCS-2)
+XformObject xfFullK  = NULL,    // transform object (fullwidth katakana)
+            xfHalfK  = NULL;    // transform object (halfwidth katakana)
 
 
 // ============================================================================
@@ -284,35 +286,8 @@ BYTE _Optlink ConvertPhonetic( void )
 
     memset( szOutput, 0, sizeof( szOutput ));
 
-#if 0       // Using romkan_getc() seems to be problematic due to its internal loop logic
-    usCharIdx = 0;
-    do {
-        if ( usCharIdx > len ) break;
-        if ( i >= ( sizeof( global.szKana ) -  1 )) break;
-
-        prev = ltr;
-        ltr = romkan_getc();
-
-        if ( ltr == LTREOF )
-            break;           // end of input, exit with the last status result
-        else if ( ltr && is_HON( ltr )) {
-            if ( result == KANA_PENDING && ( ltr == (prev & 0xFF ))) continue;
-            szOutput[ i++ ] = (CHAR)(ltr & 0xFF);
-            result = KANA_COMPLETE;
-        }
-        else if ( ltr == 0x80000008 ) {     // 'delete' character
-            result = KANA_INVALID;
-            break;
-        }
-        else if ( ltr & 0x80000000 )
-            result = KANA_PENDING;
-        else // if ( ltr == NISEBP )
-            break;          // error, exit with the last status result
-
-        // TODO not sure how to identify KANA_CANDIDATE yet (only used for Korean)
-    } while ( ltr );
-
-#else       // We iterate the buffer ourselves and call romkan_henkan() directly
+    // Using romkan_getc() seems to be problematic due to its internal loop logic
+    // We iterate the buffer ourselves and call romkan_henkan() directly
 
     for( j = 0; j < len; j++ ) {
 
@@ -352,12 +327,9 @@ BYTE _Optlink ConvertPhonetic( void )
         // TODO not sure how to identify KANA_CANDIDATE yet (only used for Korean)
     }
 
-#endif
-
-    // TODO convert szOutput to target codepage
+    // Convert szOutput to UCS-2
     if ( i ) {
-        StrConvert( szOutput, global.szKana, uconvEUC, global.uconvOut );
-        //strncpy( global.szKana, szOutput, sizeof( global.szKana ) - 1 );
+        StrConvert( szOutput, (PCH)(global.uszKana), uconvEUC, NULL );
 //fprintf( f, "Converted: %s\n", szOutput );
     }
     romkan_clear();

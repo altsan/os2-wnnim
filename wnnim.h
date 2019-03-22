@@ -68,17 +68,17 @@ typedef struct _WnnClientData {
            hwndMenu,                    // our context menu
            hwndLast;                    // last window to have focus
     BYTE   dbcs[ 12 ];                  // DBCS information vector (byte-ranges)
-    ULONG  codepage;                    // DBCS codepage (this is not necessarily the process codepage)
-    CHAR   szRomaji[ MAX_CHAR_BUFZ ];   // current phonetic input buffer
-    CHAR   szKana[ MAX_KANA_BUFZ ];     // current phonetic conversion/output buffer
-    CHAR   szPending[ MAX_KANA_BUFZ ];  // current phonetic pending/candidate buffer (TODO)
-    PSZ    pszClause;                   // current clause conversion buffer
-    CHAR   szEngineError[ MAX_ENGINE_ERRZ ];    // may hold error messages from the IME engine
+    ULONG  codepage;                    // DBCS target codepage
 
-    UconvObject uconvOut;               // Conversion object for 'codepage'
+    CHAR     szRomaji[ MAX_CHAR_BUFZ ];     // current phonetic input buffer
+    UniChar  uszKana[ MAX_KANA_BUFZ ];      // current phonetic conversion/output buffer
+    UniChar  uszPending[ MAX_KANA_BUFZ ];   // current phonetic conversion/output buffer
+    UniChar *puszClause;                    // current clause conversion buffer
 
-    CHAR   szDicPath[ CCHMAXPATH ];     // Location of input dictionary files (romkan)
+    UconvObject uconvOut;                   // conversion object for target codepage
 
+    CHAR szDicPath[ CCHMAXPATH ];           // location of input dictionary files (romkan)
+    CHAR szEngineError[ MAX_ENGINE_ERRZ ];  // may hold error messages from the IME engine
 } IMCLIENTDATA, *PIMCLIENTDATA;
 
 
