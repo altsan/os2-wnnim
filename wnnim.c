@@ -863,32 +863,32 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 BOOL SetupDBCSLanguage( USHORT usLangMode )
 {
     COUNTRYCODE cc = {0};
-    CHAR szModeHyo[ CCHMAXPATH ] = {0};
+//    CHAR szModeHyo[ CCHMAXPATH ] = {0};
     INT rc;
 
     switch ( usLangMode ) {
         case MODE_JP:
             cc.country  = 81;       // Japan
             cc.codepage = 943;      // Japanese SJIS
-            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/ja_JP/rk/mode");   // temp
+//            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/ja_JP/rk/mode");   // temp
             break;
 
         case MODE_KR:
             cc.country  = 82;       // Korea
             cc.codepage = 949;      // Korean KS-Code
-            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/ko_KR/rk/mode");   // temp
+//            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/ko_KR/rk/mode");   // temp
             break;
 
         case MODE_CN:
             cc.country  = 86;       // China PRC
             cc.codepage = 1386;     // Chinese GBK
-            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/zh_CN/rk/mode");   // temp
+//            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/zh_CN/rk/mode");   // temp
             break;
 
         case MODE_TW:
             cc.country  = 88;       // Taiwan
             cc.codepage = 950;      // Chinese Big-5
-            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/zh_TW/rk/mode");   // temp
+//            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/zh_TW/rk/mode");   // temp
             break;
     }
     DosQueryDBCSEnv( sizeof( global.dbcs ), &cc, global.dbcs );
@@ -899,7 +899,7 @@ BOOL SetupDBCSLanguage( USHORT usLangMode )
         ErrorPopup("Failed to create conversion object for selected codepage.");
         return FALSE;
     }
-    rc = InitInputMethod( szModeHyo, usLangMode );
+    rc = InitInputMethod( NULL, usLangMode );
     if ( rc ) {
         ErrorPopup( global.szEngineError );
         return FALSE;
