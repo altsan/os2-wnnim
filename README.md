@@ -54,14 +54,14 @@ For Developers
 
 The included Makefile requires the IBM C Compiler (preferably version 3.65).
 It might be possible to build with GCC, but any functions which are explicitly
-declared _Optlink might have to be changed to _System or _cdecl.  Also, the
-PM hook DLL (see below) is built with the subsystem runtime (ICC `/Rn` switch)
-to avoid side effects due to its data segment being SINGLE NONSHARED; using GCC
-or another compiler would probably require some changes to this approach.
+declared `_Optlink` might have to be changed to `_System` or `_cdecl`.  Also, 
+the PM hook DLL (see below) is built with the subsystem runtime (ICC `/Rn` 
+switch) to avoid side effects due to its data segment being SINGLE SHARED; using
+GCC or another compiler would probably require some changes to this approach.
 
 Building the client application requires the FreeWnn library and header files;
 these are included in the `FreeWnn-devel` RPM (provisionally available from
-[here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
+[here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).)
 
 All the FreeWnn-specific code is isolated in one or two source files.  In 
 principle, the rest of the WnnIM code could probably be used to implement an IME
@@ -101,7 +101,7 @@ continue typing.]
 [TODO 2: If the target language does not use phonetic characters, then all of
 the above is bypassed: typed characters are simply added to the clause buffer 
 in place of phonetic characters, and the logic otherwise proceeds as below. 
-This will probably be the case with Chinese (both types?).]
+This will probably be the case with Chinese (both types).]
 
 The other mode is CJK (or 'clause') conversion mode.  This mode is a simple
 on-or-off toggle.  When active, the phonetic characters which have been 
@@ -124,19 +124,19 @@ are.
 
 ### Source Code Organization
 
-`wnnclient.*` implements the interface to the FreeWnn engine.  If WnnIM were
-to be adapted to use a different engine, this is the module that would need to
-be replaced.
+`wnnclient.*` implements the interface to the FreeWnn engine (it is linked into
+`wnnim.exe`).  If WnnIM were to be adapted to use a different engine, this is 
+the module that would need to be replaced.  
 
 `wnnhook.*` implements a global PM hook, which is loaded by the client (below)
 when the latter starts up.  This hook is responsible for intercepting keystrokes
 in any running PM application, and either passing it on to the application
 directly or running it through WnnIM's conversion logic.
 
-`wnnim.*` is the main client (front-end) application.  It activates the PM
-hook (above), and presents the UI controls for the user to operate the IME.  It
-also implements the functions to perform the actual input conversion, which are
-called by the PM hook as needed.
+`wnnim.*` is the main client (front-end) application.  It activates the PM hook
+(above), and presents the UI controls for the user to operate the IME.  It also
+implements most of the actual keypress processing logic (triggered as needed by
+the PM hook), for the sake of keeping the hook DLL as lightweight as possible.
 
 `codepage.*` contains various useful functions for dealing with text
 encodings.
