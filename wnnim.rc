@@ -5,6 +5,9 @@ ICON    ID_ICON  app.ico
 
 MENU IDM_POPUP
 BEGIN
+    MENUITEM "~Hiragana",       IDM_HIRAGANA
+    MENUITEM "~Katakana",       IDM_KATAKANA
+    MENUITEM SEPARATOR
     MENUITEM "~Always on top",  IDM_FLOAT
     MENUITEM "~About...",       IDM_ABOUT
     MENUITEM SEPARATOR

@@ -198,7 +198,7 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     szChar[ 1 ] = 0;
     strncat( global.szRomaji, szChar, sizeof(global.szRomaji) - 1 );
 
-    bStatus = ConvertPhonetic();
+    bStatus = ConvertPhonetic( pShared->fsMode );
     if ( bStatus != KANA_PENDING ) {
         SupplyCharacter( hwnd, hwndSource, bStatus );
     }
@@ -581,7 +581,7 @@ void UpdateStatus( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
- * SetKanjiMode                                                              *
+ * ToggleKanjiConversion                                                     *
  *                                                                           *
  * Toggle kanji (CJK) conversion on or off.                                  *
  *                                                                           *
@@ -590,7 +590,7 @@ void UpdateStatus( HWND hwnd )
  *                                                                           *
  * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
-void SetKanjiMode( HWND hwnd )
+void ToggleKanjiConversion( HWND hwnd )
 {
 //    CHAR szBtn[ 3 ] = {0};
 
@@ -612,6 +612,30 @@ void SetKanjiMode( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
+ * ToggleInputConversion                                                     *
+ *                                                                           *
+ * Toggle input (phonetic) conversion on or off.                             *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
+ * ------------------------------------------------------------------------- */
+void ToggleInputConversion( HWND hwnd )
+{
+    BYTE bInputMode = pShared->fsMode & 0xFF;
+
+    if ( bInputMode ) {
+        global.fsLastMode = pShared->fsMode;
+        pShared->fsMode &= 0xFF00;              // turn off all
+    }
+    else
+        pShared->fsMode = global.fsLastMode;    // restore last mode
+    UpdateStatus( hwnd );
+}
+
+
+/* ------------------------------------------------------------------------- *
  * SetInputMode                                                              *
  *                                                                           *
  * Change the current (phonetic) input mode.                                 *
@@ -621,14 +645,27 @@ void SetKanjiMode( HWND hwnd )
  *                                                                           *
  * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
-void SetInputMode( HWND hwnd )
+void SetInputMode( HWND hwnd, USHORT usNewMode )
 {
-    BYTE bInputMode = pShared->fsMode & 0xFF;
-    // temp: for now just toggle between mode 0/1
-    if ( bInputMode )
-        pShared->fsMode &= 0xFF00;          // temp: turn off all
+    USHORT i,
+           usNumModes,
+           usID;
+
+    pShared->fsMode &= 0xFF00;
+    pShared->fsMode |= usNewMode;
+
+    if ( pShared->fsMode & MODE_JP )
+        usNumModes = IDM_FULLWIDTH - IDM_INPUT_BASE;
     else
-        pShared->fsMode |= MODE_HIRAGANA;   // temp: turn on mode 1
+        usNumModes = 0;        // other languages TBD
+
+    for ( i = 1; i <= usNumModes; i++ ) {
+        usID = IDM_INPUT_BASE + i;
+        if ( i == usNewMode )
+            WinCheckMenuItem( global.hwndMenu, usID, TRUE );
+        else
+            WinCheckMenuItem( global.hwndMenu, usID, FALSE );
+    }
     UpdateStatus( hwnd );
 }
 
@@ -768,21 +805,37 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             switch( COMMANDMSG(&msg)->cmd ) {
 
                 case IDD_MODE:
-                    SetInputMode( hwnd );
+                    ToggleInputConversion( hwnd );
                     if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
                     break;
 
                 case ID_HOTKEY_MODE:
-                    SetInputMode( hwnd );
+                    ToggleInputConversion( hwnd );
                     break;
 
                 case IDD_KANJI:
-                    SetKanjiMode( hwnd );
+                    ToggleKanjiConversion( hwnd );
                     if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
                     break;
 
                 case ID_HOTKEY_KANJI:
-                    SetKanjiMode( hwnd );
+                    ToggleKanjiConversion( hwnd );
+                    break;
+
+                case IDM_HIRAGANA:
+                    SetInputMode( hwnd, MODE_HIRAGANA );
+                    break;
+
+                case IDM_KATAKANA:
+                    SetInputMode( hwnd, MODE_KATAKANA );
+                    break;
+
+                case IDM_HALFWIDTH:
+                    SetInputMode( hwnd, MODE_HALFWIDTH );
+                    break;
+
+                case IDM_FULLWIDTH:
+                    SetInputMode( hwnd, MODE_FULLWIDTH );
                     break;
 
                 case IDM_FLOAT:
@@ -950,16 +1003,18 @@ int main( int argc, char **argv )
     SettingsInit( global.hwndClient );
     SetupWindow( global.hwndClient );
     SetupDBCSLanguage( MODE_JP );                                   // for now
-    SetInputMode( global.hwndClient );
+    SetInputMode( global.hwndClient, MODE_HIRAGANA );               // for now
 
     // Now do our stuff
-    DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );     // increment the DLL use counter for safety
+    DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );      // increment the DLL use counter for safety
     if ( WnnHookInit( global.hwndClient )) {
         while ( WinGetMsg( hab, &qmsg, NULLHANDLE, 0, 0 ))
             WinDispatchMsg( hab, &qmsg );
         WnnHookTerm();
     }
     if ( hm ) DosFreeModule( hm );
+
+    FinishInputMethod();
 
     WinDestroyWindow( global.hwndFrame );
     WinDestroyMsgQueue( hmq );

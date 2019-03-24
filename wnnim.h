@@ -63,13 +63,13 @@
 //
 
 typedef struct _WnnClientData {
-    HWND   hwndFrame,                   // our frame
-           hwndClient,                  // our client window
-           hwndMenu,                    // our context menu
-           hwndLast;                    // last window to have focus
-    BYTE   dbcs[ 12 ];                  // DBCS information vector (byte-ranges)
-    ULONG  codepage;                    // DBCS target codepage
-
+    HWND     hwndFrame,                     // our frame
+             hwndClient,                    // our client window
+             hwndMenu,                      // our context menu
+             hwndLast;                      // last window to have focus
+    BYTE     dbcs[ 12 ];                    // DBCS information vector (byte-ranges)
+    ULONG    codepage;                      // DBCS target codepage
+    USHORT   fsLastMode;                    // last input mode
     CHAR     szRomaji[ MAX_CHAR_BUFZ ];     // current phonetic input buffer
     UniChar  uszKana[ MAX_KANA_BUFZ ];      // current phonetic conversion/output buffer
     UniChar  uszPending[ MAX_KANA_BUFZ ];   // current phonetic conversion/output buffer

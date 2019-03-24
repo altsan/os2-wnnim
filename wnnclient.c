@@ -19,6 +19,7 @@
  *  02111-1307  USA                                                         *
  *                                                                          *
  ****************************************************************************/
+#define INCL_DOSERRORS
 #define INCL_WINATOM
 #include <os2.h>
 #include <stdio.h>
@@ -76,9 +77,8 @@ BOOL   fInitRK            = FALSE;
 BOOL   fInitCJK           = FALSE;
 USHORT usCharIdx;               // index of next input character to be converted
 
-UconvObject uconvEUC = NULL;    // conversion object (EUC to UCS-2)
-XformObject xfFullK  = NULL,    // transform object (fullwidth katakana)
-            xfHalfK  = NULL;    // transform object (halfwidth katakana)
+UconvObject uconvEUC  = NULL;   // conversion object (EUC to UCS-2)
+XformObject xfKatakana = NULL;   // transformation object for fullwidth katakana
 
 
 // ============================================================================
@@ -241,6 +241,7 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
         sprintf( global.szEngineError, "Failed to initialize romkan (Wnn) library (error %u)", rc );
     fInitRK = ( rc == 0 )? TRUE: FALSE;
 
+    // Create a conversion object for EUC encoding (what Wnn returns its strings in)
     if ( fInitRK && ( uconvEUC == NULL )) {
         cpEUC = GetEucCodepage( usLang );
         rc = CreateUconvObject( cpEUC, &uconvEUC );
@@ -248,7 +249,72 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
             sprintf( global.szEngineError, "Failed to create conversion object for codeoage %u (error %u). The OS/2 codepage file might not be installed.", cpEUC, rc );
     }
 
+    if (( rc == NO_ERROR ) && ( usLang == MODE_JP )) {
+        // Create transformation objects for alternate Japanese kana modes
+        if ( UniCreateTransformObject( NULL, (UniChar *)L"katakana", &xfKatakana ) != NO_ERROR )
+            xfKatakana = NULL;
+    }
+
     return rc;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * FinishInputMethod                                                         *
+ *                                                                           *
+ * Close down the input method engine and free any associated resources      *
+ * (romkan doesn't utilize any cleanup functions so there's not much to do). *
+ * ------------------------------------------------------------------------- */
+void _Optlink FinishInputMethod( void )
+{
+    if ( uconvEUC != NULL )
+        UniFreeUconvObject( uconvEUC );
+    if ( xfKatakana != NULL )
+        UniFreeTransformObject( xfKatakana );
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * ------------------------------------------------------------------------- */
+INT _Optlink StrTransform( UniChar *puszString, INT iMax, XformObject xform )
+{
+    int iLen,
+        iOut,
+        rc;
+    UniChar *puszTemp;
+
+    if ( puszString == NULL ) return 0;
+
+    iLen = UniStrlen( puszString );
+    iOut = iMax;
+    puszTemp = (UniChar *) calloc( iMax, sizeof( UniChar ));
+    if ( !puszTemp ) return ERROR_NOT_ENOUGH_MEMORY;
+
+    rc = UniTransformStr( xform, puszString, &iLen, puszTemp, &iOut );
+    if ( rc == ULS_SUCCESS )
+        UniStrncpy( puszString, puszTemp, iMax - 1 );
+    free( puszTemp );
+
+    return rc;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * ------------------------------------------------------------------------- */
+INT MakeKatakana( void )
+{
+    StrTransform( global.uszKana, sizeof( global.uszKana ), xfKatakana );
+    return 0;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * ------------------------------------------------------------------------- */
+INT MakeHalfKana( void )
+{
+    // TODO
+
+    return 0;
 }
 
 
@@ -261,9 +327,8 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
  *                                                                           *
  * Note that the converted result may consist of several bytes, possibly     *
  * even more than two in the case of composite characters.                   *
- *                                                                           *
  * ------------------------------------------------------------------------- */
-BYTE _Optlink ConvertPhonetic( void )
+BYTE _Optlink ConvertPhonetic( USHORT fsMode )
 {
     CHAR   szOutput[ 8 ];
     USHORT i, j,
@@ -286,8 +351,8 @@ BYTE _Optlink ConvertPhonetic( void )
 
     memset( szOutput, 0, sizeof( szOutput ));
 
-    // Using romkan_getc() seems to be problematic due to its internal loop logic
-    // We iterate the buffer ourselves and call romkan_henkan() directly
+    // Using romkan_getc() causes problems due to its internal loop processing.
+    // Instead, we call romkan_henkan() and handle the iteration ourselves.
 
     for( j = 0; j < len; j++ ) {
 
@@ -330,6 +395,15 @@ BYTE _Optlink ConvertPhonetic( void )
     // Convert szOutput to UCS-2
     if ( i ) {
         StrConvert( szOutput, (PCH)(global.uszKana), uconvEUC, NULL );
+
+        // Apply any special transformations (e.g. hiragana to katakana)
+        if ( fsMode & MODE_JP ) {
+            if ( fsMode & MODE_KATAKANA )
+                MakeKatakana();
+            else if ( fsMode & MODE_HALFWIDTH )
+                MakeHalfKana();
+        }
+
 //fprintf( f, "Converted: %s\n", szOutput );
     }
     romkan_clear();
@@ -340,4 +414,5 @@ BYTE _Optlink ConvertPhonetic( void )
 
     return result;
 }
+
 

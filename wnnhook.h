@@ -5,7 +5,7 @@
 
 // Flags for WNNSHARED.fsMode
 // - Low byte is the input mode, this can be switched by the user
-// - Bits 17-24 indicate the language mode, this is fixed at startup
+// - Bits 17-24 indicate the language mode, this is fixed at runtime
 // - Bits 25-32 indicate the CJK conversion mode, this can be switched by the user
 
 // Conversion mode
