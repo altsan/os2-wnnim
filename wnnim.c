@@ -198,6 +198,13 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     szChar[ 1 ] = 0;
     strncat( global.szRomaji, szChar, sizeof(global.szRomaji) - 1 );
 
+    if ( hwndSource != global.hwndLast ) {
+        // Source window changed, clear any existing buffers.
+        global.hwndLast = hwndSource;
+        ClearInputBuffer();
+        // ClearClauseBuffer();
+    }
+
     bStatus = ConvertPhonetic( pShared->fsMode );
     if ( bStatus != KANA_PENDING ) {
         SupplyCharacter( hwnd, hwndSource, bStatus );

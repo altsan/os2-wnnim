@@ -275,6 +275,9 @@ void _Optlink FinishInputMethod( void )
 
 
 /* ------------------------------------------------------------------------- *
+ * StrTransform                                                              *
+ *                                                                           *
+ * Applies a ULS transformation to a UCS-2 string.                           *
  * ------------------------------------------------------------------------- */
 INT _Optlink StrTransform( UniChar *puszString, INT iMax, XformObject xform )
 {
@@ -300,8 +303,11 @@ INT _Optlink StrTransform( UniChar *puszString, INT iMax, XformObject xform )
 
 
 /* ------------------------------------------------------------------------- *
+ * MakeKatakana                                                              *
+ *                                                                           *
+ * Transforms an already-converted kana string into fullwidth katakana.      *
  * ------------------------------------------------------------------------- */
-INT MakeKatakana( void )
+INT _Optlink MakeKatakana( void )
 {
     StrTransform( global.uszKana, sizeof( global.uszKana ), xfKatakana );
     return 0;
@@ -309,8 +315,11 @@ INT MakeKatakana( void )
 
 
 /* ------------------------------------------------------------------------- *
+ * MakeHalfKana                                                              *
+ *                                                                           *
+ * Transforms an already-converted kana string into halfwidth katakana.      *
  * ------------------------------------------------------------------------- */
-INT MakeHalfKana( void )
+INT _Optlink MakeHalfKana( void )
 {
     // TODO
 
@@ -319,11 +328,31 @@ INT MakeHalfKana( void )
 
 
 /* ------------------------------------------------------------------------- *
+ * PreprocessKana                                                            *
+ *                                                                           *
+ * This function checks for and converts certain kana sequences not handled  *
+ * by romkan_henkan()'s normal hiragana logic.  This is done before the call *
+ * to romkan_henkan(), and thus also prior to the output buffer's conversion *
+ * from EUC to UCS-2.  Therefore, this function generates EUC output.        *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   USHORT fsMode   : The current input mode flags.                         *
+ *   PUSHORT pusIn   : Current position in the input buffer.                 *
+ *   PUSHORT pusOut  : Current position in the output buffer.                *
+ *   PSZ    pszOutput: Pointer to the output buffer.                         *
+ *   USHORT cbOutput : Total size of the output buffer, in bytes.            *
+ *                                                                           *
+ * RETURNS: BYTE                                                             *
+ * Result of the conversion attempt.  This will be either KANA_COMPLETE      *
+ * (meaning we found & converted a sequence) or KANA_PENDING (in which case  *
+ * the calling function will proceed to use romkan_henkan() as usual).       *
  * ------------------------------------------------------------------------- */
-BYTE PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput, USHORT cbOutput )
+BYTE _Optlink PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput, USHORT cbOutput )
 {
+
 #define NUM_SPEC_KATAKANA 27
 
+    // Special katakana sequences (romaji input)
     CHAR *aszSpcKataIn[] = {
         "KWA", "GWA",
         "SHE", "JE",  "CHE",
@@ -334,6 +363,7 @@ BYTE PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput
         "WI",  "WE",  "WO",  "YE",
         "VA",  "VI",  "VU",  "VE",  "VO"
     };
+    // Special katakana sequences (kana output); these are EUC-JP encoded
     CHAR *aszSpcKataOut[] = {
         "クァ", "グァ",
         "シェ", "ジェ", "チェ",
@@ -394,12 +424,13 @@ BYTE PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput
  * ------------------------------------------------------------------------- */
 BYTE _Optlink ConvertPhonetic( USHORT fsMode )
 {
-    CHAR   szOutput[ 8 ];
-    USHORT i, j,
-           len;
-    BYTE   result;
-    letter ltr;
-    letter *converted, *c;
+    CHAR   szOutput[ 8 ];       // should be big enough for any known sequence
+    USHORT i, j,                // index variables
+           len;                 // input string length
+    BYTE   result;              // result to return
+    letter ltr,                 // current letter being examined
+           *converted,          // pointers to converted letters
+           *c;                  // "
 
 //FILE *f;
 
