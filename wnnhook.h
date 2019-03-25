@@ -38,8 +38,9 @@
 typedef struct _Wnn_Global_Data {
     USHORT fsMode;                      // current input language & mode
     HWND   hwndSource;                  // HWND of window whose message was just intercepted
-    USHORT usKeyMode,    fsVKMode;      // input mode hotkey (default Ctrl+Space)
-    USHORT usKeyCJK,     fsVKCJK;       // CJK mode hotkey (default Alt+`)
+    USHORT usKeyMode,    fsVKMode;      // input mode hotkey (default Shift+Space)
+    USHORT usKeyInput,   fsVKInput;     // input toggle hotkey (default Ctrl+Space)
+    USHORT usKeyCJK,     fsVKCJK;       // CJK toggle hotkey (default Ctrl+`)
     USHORT usKeyConvert, fsVKConvert;   // CJK convert hotkey (default Space)
     USHORT usKeyAccept,  fsVKAccept;    // CJK accept hotkey (default Enter)
     ATOM   wmAddChar;                   // custom message ID - send intercepted character

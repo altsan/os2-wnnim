@@ -1,6 +1,6 @@
 #define ID_ICON             1
 
-#define IDD_MODE            100
+#define IDD_INPUT           100
 #define IDD_KANJI           101
 #define IDD_STATUS          102
 #define IDD_TESTINPUT       110
@@ -21,8 +21,9 @@
 #define IDM_HALFWIDTH       ( IDM_INPUT_BASE + 3 )
 #define IDM_FULLWIDTH       ( IDM_INPUT_BASE + 4 )
 
-#define ID_HOTKEY_MODE      1000
-#define ID_HOTKEY_KANJI     1001
-#define ID_HOTKEY_CONVERT   1002
-#define ID_HOTKEY_ACCEPT    1003
+#define ID_HOTKEY_INPUT     1000
+#define ID_HOTKEY_MODE      1001
+#define ID_HOTKEY_KANJI     1002
+#define ID_HOTKEY_CONVERT   1003
+#define ID_HOTKEY_ACCEPT    1004
 

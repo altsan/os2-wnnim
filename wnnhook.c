@@ -61,17 +61,24 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
             }
             */
             // Check for hotkey commands first
-            if (( fsFlags & global.fsVKMode ) && ( c == global.usKeyMode )) {
-                // input mode hotkey
+            if (( fsFlags & global.fsVKInput ) && ( c == global.usKeyInput )) {
+                // toggle input hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
-                            MPFROMSHORT( ID_HOTKEY_MODE ),
+                            MPFROMSHORT( ID_HOTKEY_INPUT ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }
             else if (( fsFlags & global.fsVKCJK ) && ( c == global.usKeyCJK )) {
-                // CJK mode hotkey
+                // toggle CJK hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_KANJI ),
+                            MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
+                return TRUE;
+            }
+            else if (( fsFlags & global.fsVKMode ) && ( c == global.usKeyMode )) {
+                // switch input mode hotkey
+                WinPostMsg( g_hwndClient, WM_COMMAND,
+                            MPFROMSHORT( ID_HOTKEY_MODE ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }

@@ -427,7 +427,7 @@ void SizeWindow( HWND hwnd )
     cyWin  = fm.lMaxBaselineExt + 10;
     cxCtrl = ( 2 * fm.lEmInc ) + 4;
     xPos = 0;
-    WinSetWindowPos( WinWindowFromID( hwnd, IDD_MODE ), HWND_TOP,
+    WinSetWindowPos( WinWindowFromID( hwnd, IDD_INPUT ), HWND_TOP,
                      xPos, 0, cxCtrl, cyWin, SWP_SIZE | SWP_MOVE );
     xPos += cxCtrl;
     WinSetWindowPos( WinWindowFromID( hwnd, IDD_KANJI ), HWND_TOP,
@@ -472,7 +472,7 @@ void SetupWindow( HWND hwnd )
                      strlen(SZ_DEFAULTFONT)+1, (PVOID) SZ_DEFAULTFONT );
 
     WinCreateWindow( hwnd, WC_BUTTON, "M", flBtn, 0, 0, 0, 0,
-                     hwnd, HWND_TOP, IDD_MODE, NULL, NULL );
+                     hwnd, HWND_TOP, IDD_INPUT, NULL, NULL );
     WinCreateWindow( hwnd, WC_BUTTON, "C", flBtn, 0, 0, 0, 0,
                      hwnd, HWND_TOP, IDD_KANJI, NULL, NULL );
 #ifdef TESTHOOK
@@ -482,7 +482,7 @@ void SetupWindow( HWND hwnd )
     WinCreateWindow( hwnd, WC_STATIC, "FreeWnn", WS_VISIBLE | SS_TEXT | DT_LEFT | DT_VCENTER,
                      0, 0, 0, 0,  hwnd, HWND_TOP, IDD_STATUS, NULL, NULL );
 
-    pfnBtnProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_MODE), (PFNWP) ButtonProc );
+    pfnBtnProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_INPUT), (PFNWP) ButtonProc );
     pfnBtnProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_KANJI), (PFNWP) ButtonProc );
     pfnTxtProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_STATUS), (PFNWP) StaticTextProc );
 
@@ -504,11 +504,14 @@ void SetupWindow( HWND hwnd )
 void SettingsInit( HWND hwnd )
 {
     // Default hotkeys (should eventually be configurable)
+    pShared->usKeyInput   = 0x20;
+    pShared->fsVKInput    = KC_CTRL;
+
     pShared->usKeyMode    = 0x20;
-    pShared->fsVKMode     = KC_CTRL;
+    pShared->fsVKMode     = KC_SHIFT;
 
     pShared->usKeyCJK     = 0x60;
-    pShared->fsVKCJK      = KC_ALT;
+    pShared->fsVKCJK      = KC_CTRL;
 
     pShared->usKeyConvert = ' ';
     pShared->fsVKConvert  = 0;
@@ -575,7 +578,7 @@ void UpdateStatus( HWND hwnd )
             break;
     }
 //    szBtn[ 2 ] = 0;
-//    WinSetDlgItemText( hwnd, IDD_MODE, szBtn );
+//    WinSetDlgItemText( hwnd, IDD_INPUT, szBtn );
     WinSetDlgItemText( hwnd, IDD_STATUS, szText );
 }
 
@@ -641,7 +644,8 @@ void ToggleInputConversion( HWND hwnd )
  * Change the current (phonetic) input mode.                                 *
  *                                                                           *
  * PARAMETERS:                                                               *
- *   HWND hwnd: Our window handle.                                           *
+ *   HWND   hwnd     : Our window handle.                                    *
+ *   USHORT usNewMode: ID of the mode to switch to.                          *
  *                                                                           *
  * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
@@ -669,6 +673,40 @@ void SetInputMode( HWND hwnd, USHORT usNewMode )
     UpdateStatus( hwnd );
 }
 
+
+/* ------------------------------------------------------------------------- *
+ * NextInputMode                                                             *
+ *                                                                           *
+ * Cycle to the next (phonetic) input mode.                                  *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our window handle.                                           *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
+ * ------------------------------------------------------------------------- */
+void NextInputMode( HWND hwnd )
+{
+    USHORT usNumModes,
+           usMode;
+
+    // Get the current mode
+    usMode = pShared->fsMode & 0xFF;
+
+#if 1
+    usNumModes = 2;     // temp
+#else
+    // Get total number of available modes for this language
+    if (( pShared->fsMode & 0xFF00 ) == MODE_JP )
+        usNumModes = IDM_FULLWIDTH - IDM_INPUT_BASE;
+    else
+        usNumModes = 0;        // other languages TBD
+#endif
+
+    // Now select the next mode
+    usMode++;
+    if ( usMode > usNumModes ) usMode = 1;
+    SetInputMode( hwnd, usMode );
+}
 
 /* ------------------------------------------------------------------------- *
  * ------------------------------------------------------------------------- */
@@ -804,13 +842,17 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case WM_COMMAND:
             switch( COMMANDMSG(&msg)->cmd ) {
 
-                case IDD_MODE:
+                case IDD_INPUT:
                     ToggleInputConversion( hwnd );
                     if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
                     break;
 
-                case ID_HOTKEY_MODE:
+                case ID_HOTKEY_INPUT:
                     ToggleInputConversion( hwnd );
+                    break;
+
+                case ID_HOTKEY_MODE:
+                    NextInputMode( hwnd );
                     break;
 
                 case IDD_KANJI:
