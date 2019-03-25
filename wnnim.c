@@ -471,7 +471,7 @@ void SetupWindow( HWND hwnd )
     WinSetPresParam( hwnd, PP_FONTNAMESIZE,
                      strlen(SZ_DEFAULTFONT)+1, (PVOID) SZ_DEFAULTFONT );
 
-    WinCreateWindow( hwnd, WC_BUTTON, "M", flBtn, 0, 0, 0, 0,
+    WinCreateWindow( hwnd, WC_BUTTON, "I", flBtn, 0, 0, 0, 0,
                      hwnd, HWND_TOP, IDD_INPUT, NULL, NULL );
     WinCreateWindow( hwnd, WC_BUTTON, "C", flBtn, 0, 0, 0, 0,
                      hwnd, HWND_TOP, IDD_KANJI, NULL, NULL );

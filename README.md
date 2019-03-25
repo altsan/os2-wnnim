@@ -36,15 +36,18 @@ Make sure `wnnhook.dll` and `wnnim.exe` are in the same directory, and run
 at the bottom right of your screen (you can move it around by dragging).  The
 UI consists of two small buttons and a status panel.  
 
- * The button labelled 'M' toggles input conversion on or off.  You can also
+ * The button labelled 'I' toggles input conversion on or off.  You can also
    toggle this setting using Ctrl+Space.
  * The button labelled 'C' toggles CJK clause conversion on or off.  (Since
    clause conversion has not been implemented yet, this currently does nothing.)
-   You can also toggle this setting using Alt+`.  
+   You can also toggle this setting using Ctrl+`.  
 
 There is also a popup context menu which allows you to do various things, such 
 as select the input conversion mode (currently only hiragana and katakana are
 supported), adjust settings, or close the program.
+
+You can also change the input conversion mode using Shift+Space, which will 
+cycle through the available modes.
 
 The active settings are global, i.e. switching from one program to another will
 retain the current conversion mode.  However, settings are _not_ currently saved 
