@@ -319,6 +319,53 @@ INT MakeHalfKana( void )
 
 
 /* ------------------------------------------------------------------------- *
+ * ------------------------------------------------------------------------- */
+BYTE PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput, USHORT cbOutput )
+{
+#define NUM_SPEC_KATAKANA 27
+
+    CHAR *aszSpcKataIn[] = {
+        "KWA", "GWA",
+        "SHE", "JE",  "CHE",
+        "TSA", "TSE", "TSO",
+        "TI",  "XTU", "TU",
+        "DI",  "DYU", "DU",
+        "FA",  "FI",  "FE",  "FO",
+        "WI",  "WE",  "WO",  "YE",
+        "VA",  "VI",  "VU",  "VE",  "VO"
+    };
+    CHAR *aszSpcKataOut[] = {
+        "クァ", "グァ",
+        "シェ", "ジェ", "チェ",
+        "ツァ", "ツェ", "ツォ",
+        "ティ", "ッ",   "トゥ",
+        "ディ", "デュ", "ドゥ",
+        "ファ", "フィ", "フェ", "フォ",
+        "ウィ", "ウェ", "ウォ", "イェ",
+        "ヴァ", "ヴィ", "ヴ",   "ヴェ", "ヴォ"
+    };
+
+    USHORT index;
+    PSZ    pszInput;
+    BYTE   result = KANA_PENDING;
+
+    if (( fsMode & 0xFF ) == MODE_KATAKANA ) {
+        pszInput = (PSZ)(global.szRomaji) + *pusIn;
+        for ( index = 0; index < NUM_SPEC_KATAKANA; index++ ) {
+            if ( strcmpi( pszInput, aszSpcKataIn[ index ] ) == 0 ) {
+                strncat( pszOutput, aszSpcKataOut[ index ], cbOutput );
+                *pusIn  += strlen( aszSpcKataIn[ index ] );
+                *pusOut += strlen( aszSpcKataOut[ index ] );
+                result = KANA_COMPLETE;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+
+/* ------------------------------------------------------------------------- *
  * ConvertPhonetic                                                           *
  *                                                                           *
  * Convert the input ('romaji') buffer into phonetic characters ('kana') for *
@@ -327,6 +374,23 @@ INT MakeHalfKana( void )
  *                                                                           *
  * Note that the converted result may consist of several bytes, possibly     *
  * even more than two in the case of composite characters.                   *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   USHORT fsMode: The current input mode flags.                            *
+ *                                                                           *
+ * RETURNS: BYTE                                                             *
+ * Result of the conversion attempt.  One of:                                *
+ *   KANA_INVALID   Invalid character sequence, not converted; caller can do *
+ *                  what it likes with it, but should clear the buffers.     *
+ *   KANA_PENDING   Incomplete character sequence, not converted; caller     *
+ *                  should keep the input buffer as-is, and continue.        *
+ *   KANA_COMPLETE  Valid character sequence, successfully converted; caller *
+ *                  should process the converted text & clear the buffers.   *
+ *   KANA_CANDIDATE Valid & successfully converted, may be modified later;   *
+ *                  caller should allow the user to confirm the current      *
+ *                  converted value (in which case process it and clear the  *
+ *                  buffers), or continue to add characters (in which case   *
+ *                  the caller should keep the input buffer and continue).   *
  * ------------------------------------------------------------------------- */
 BYTE _Optlink ConvertPhonetic( USHORT fsMode )
 {
@@ -346,30 +410,59 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
 
     i = 0;
     ltr = 0;
-    result = KANA_INVALID;
+    result = KANA_PENDING;
     len = strlen( global.szRomaji );
 
     memset( szOutput, 0, sizeof( szOutput ));
 
-    // Using romkan_getc() causes problems due to its internal loop processing.
+    // Read (and try to convert) the input buffer until either we reach the
+    // end, or the current state becomes something other than KANA_PENDING.
+
+    // NOTE: We don't use romkan_getc() due to problems with its internal loops.
     // Instead, we call romkan_henkan() and handle the iteration ourselves.
 
-    for( j = 0; j < len; j++ ) {
+    for( j = 0; (result == KANA_PENDING) && (j < len); j++ ) {
 
 //fprintf( f, "romaji: %s, start: %d, converted: %d\t", global.szRomaji, j, i );
 
+        // Get the next input character
         ltr = (letter)(global.szRomaji[ j ]);
-        if ( ltr == 0 ) {
+
+        if ( ltr && ( fsMode & MODE_JP )) {
+            // Check for kana that require special handling.  If found, the
+            // buffer positions will be advanced by this function.
+            result = PreprocessKana( fsMode, &i, &j, szOutput, sizeof( szOutput ));
+            ltr = (letter)(global.szRomaji[ j ]);
+        }
+
+        if (( ltr == 0 ) || ( i >= sizeof( szOutput ) - 1 )) {
+            // End of input string
             converted = NULL;
             ltr = LTREOF;
         }
-        else {
+
+#if 0   // not actually needed at the moment
+        else if ( IsDBCSLeadByte( (CHAR)(ltr & 0xFF), global.dbcs )) {
+            // This is already a DBCS character so don't try and convert it;
+            // just read both bytes and continue.
+            szOutput[ i++ ] = (CHAR)(ltr & 0xFF);
+            ltr = (letter)(global.szRomaji[ ++j ]);
+            if (( ltr == 0 ) || ( i >= sizeof( szOutput ) - 1 ))
+                ltr = LTREOF;
+            else
+                szOutput[ i++ ] = (CHAR)(ltr & 0xFF);
+        }
+#endif
+
+        else if ( result == KANA_PENDING ) {
+            // Input character that needs converting.  Note that romkan_henkan()
+            // converts ltr into (potentially) a series of output bytes, so
+            // we have to read all of them...
             converted = romkan_henkan( ltr & 0xFF );
             c = converted;
             while (( *c != EOLTTR ) && i < sizeof( szOutput )) {
                 ltr = *c;
                 if ( is_HON( ltr )) {
-//fprintf( f, "%02X ", ltr );
                     szOutput[ i++ ] = (CHAR)(ltr & 0xFF);
                     result = KANA_COMPLETE;
                 }
