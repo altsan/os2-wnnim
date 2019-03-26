@@ -45,21 +45,16 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
 {
     CHAR   c;
     USHORT fsFlags;
-//    USHORT usVK;
+    USHORT usVK;
 
     switch( pQmsg->msg ) {
         case WM_CHAR:
             fsFlags = SHORT1FROMMP( pQmsg->mp1  );
             if ( fsFlags & KC_KEYUP ) break;    // don't process key-up events
 
-            c = (CHAR)( SHORT1FROMMP( pQmsg->mp2 ) & 0xFF );
-            /*
+            c    = (CHAR)( SHORT1FROMMP( pQmsg->mp2 ) & 0xFF );
             usVK = SHORT2FROMMP( pQmsg->mp2 );
-            if ( usVK & VK_ENTER ) {
-                usVK |= VK_NEWLINE;
-                usVK &= ~VK_ENTER;
-            }
-            */
+
             // Check for hotkey commands first
             if (( fsFlags & global.fsVKInput ) && ( c == global.usKeyInput )) {
                 // toggle input hotkey
@@ -102,7 +97,8 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
             // Check for input characters
             if ( fsFlags & KC_CHAR ) {
                 if ( global.fsMode & 0xFF ) {           // any conversion mode is active
-                    if ( c > 0x20 && c < 0x7E ) {               // convertible byte value
+                    if ( !( usVK & VK_NUMLOCK ) && ( c > 0x20 && c < 0x7E )) {
+                        // Convertible byte value
                         global.hwndSource = pQmsg->hwnd;
                         WinPostMsg( g_hwndClient, global.wmAddChar, pQmsg->mp1, pQmsg->mp2 );
                         return TRUE;

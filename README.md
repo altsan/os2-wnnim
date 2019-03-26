@@ -10,20 +10,20 @@ As such, it will (when finished) require the FreeWnn server for the desired
 language to be installed and running (not necessarily on the same computer, but
 accessible via TCP/IP).
 
-Only Presentation Manager (OS/2 graphical) sessions are supported; DOS and 
-Win-OS/2 sessions are not.  OS/2 command lines are not supported either, 
+Only Presentation Manager (OS/2 graphical) sessions are supported; DOS and
+Win-OS/2 sessions are not.  OS/2 command lines are not supported either,
 _except_ for windowed VIO sessions running on DBCS versions of OS/2.
 
 
 For Users
 ---------
 
-The FreeWnn runtime and romkan mode tables must be installed.  These are 
+The FreeWnn runtime and romkan mode tables must be installed.  These are
 included in the FreeWnn RPM packages, which should soon be available from a
 repository near you; in the meantime, get `FreeWnn-1.1.1-0.a023.0.i386.rpm` from
 [here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
 
-If you don't have a UNIXROOT environment or prefer not to install the RPM for 
+If you don't have a UNIXROOT environment or prefer not to install the RPM for
 other reasons, you can extract `wnn0.dll` and the files in the `rk` directory;
 place the DLL in your LIBPATH, and the files from `rk` in their own directory
 (anywhere), then define the environment variable `ROMKAN_TABLE` to indicate the
@@ -34,23 +34,23 @@ the full FreeWnn server installed either locally or on the local network.)
 Make sure `wnnhook.dll` and `wnnim.exe` are in the same directory, and run
 'wnnim' to start the IME.  The actual UI is a small window located by default
 at the bottom right of your screen (you can move it around by dragging).  The
-UI consists of two small buttons and a status panel.  
+UI consists of two small buttons and a status panel.
 
  * The button labelled 'I' toggles input conversion on or off.  You can also
    toggle this setting using Ctrl+Space.
  * The button labelled 'C' toggles CJK clause conversion on or off.  (Since
    clause conversion has not been implemented yet, this currently does nothing.)
-   You can also toggle this setting using Ctrl+`.  
+   You can also toggle this setting using Ctrl+`.
 
-There is also a popup context menu which allows you to do various things, such 
+There is also a popup context menu which allows you to do various things, such
 as select the input conversion mode (currently only hiragana and katakana are
 supported), adjust settings, or close the program.
 
-You can also change the input conversion mode using Shift+Space, which will 
+You can also change the input conversion mode using Shift+Space, which will
 cycle through the available modes.
 
 The active settings are global, i.e. switching from one program to another will
-retain the current conversion mode.  However, settings are _not_ currently saved 
+retain the current conversion mode.  However, settings are _not_ currently saved
 when closing the UI.
 
 
@@ -59,8 +59,8 @@ For Developers
 
 The included Makefile requires the IBM C Compiler (preferably version 3.65).
 It might be possible to build with GCC, but any functions which are explicitly
-declared `_Optlink` might have to be changed to `_System` or `_cdecl`.  Also, 
-the PM hook DLL (see below) is built with the subsystem runtime (ICC `/Rn` 
+declared `_Optlink` might have to be changed to `_System` or `_cdecl`.  Also,
+the PM hook DLL (see below) is built with the subsystem runtime (ICC `/Rn`
 switch) to avoid side effects due to its data segment being SINGLE SHARED; using
 GCC or another compiler would probably require some changes to this approach.
 
@@ -68,7 +68,7 @@ Building the client application requires the FreeWnn library and header files;
 these are included in the `FreeWnn-devel` RPM (provisionally available from
 [here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).)
 
-All the FreeWnn-specific code is isolated in one or two source files.  In 
+All the FreeWnn-specific code is isolated in one or two source files.  In
 principle, the rest of the WnnIM code could probably be used to implement an IME
 based on a different engine such as Canna or Anthy (although I have no plans to
 try doing such a thing myself).
@@ -83,44 +83,44 @@ with each other: _input mode_ and _CJK conversion mode_.
 The input mode controls how typed characters are converted into basic phonetic
 characters for the language in question.  The number of modes supported varies
 according to language, although 'none' (i.e. no conversion) is always available.
-(Japanese, for example, will have 'hiragana', 'katakana', 'halfwidth katakana' 
-and 'fullwidth ASCII' modes; Korean, by contrast, only has 'hangul'.)  
+(Japanese, for example, has Hiragana and Katakana modes; Korean has only
+Hangul.)
 
-If the target language uses phonetic characters, then how it works is that all 
-typed characters are saved into a buffer (known internally as the 'romaji 
-buffer') until the buffer contents can be successfully converted into phonetic 
-characters (the results of which are placed in the 'kana buffer').  Once 
+If the target language uses phonetic characters, then how it works is that all
+typed characters are saved into a buffer (known internally as the 'romaji
+buffer') until the buffer contents can be successfully converted into phonetic
+characters (the results of which are placed in the 'kana buffer').  Once
 conversion is successful and unambiguous, the converted characters are inserted
-into the application window where the original characters were typed -- unless 
-CJK conversion is also active, in which case see below.  If conversion is 
+into the application window where the original characters were typed -- unless
+CJK conversion is also active, in which case see below.  If conversion is
 unsuccessful (i.e. the buffer contents do not represent a valid character in the
-target language), then the conversion attempt is abandoned and the current 
-buffer contents are inserted into the application window unchanged.  
+target language), then the conversion attempt is abandoned and the current
+buffer contents are inserted into the application window unchanged.
 
-[TODO 1: If conversion is successful but ambiguous (that is, the buffer 
+[TODO 1: If conversion is successful but ambiguous (that is, the buffer
 represents a valid character as-is, but could potentially become a different
 character if more letters were added, as may be the case with Korean), then the
 current conversion is offered as a 'candidate' for the user to either accept or
 continue typing.]
 
 [TODO 2: If the target language does not use phonetic characters, then all of
-the above is bypassed: typed characters are simply added to the clause buffer 
-in place of phonetic characters, and the logic otherwise proceeds as below. 
+the above is bypassed: typed characters are simply added to the clause buffer
+in place of phonetic characters, and the logic otherwise proceeds as below.
 This will probably be the case with Chinese (both types).]
 
 The other mode is CJK (or 'clause') conversion mode.  This mode is a simple
-on-or-off toggle.  When active, the phonetic characters which have been 
+on-or-off toggle.  When active, the phonetic characters which have been
 confirmed for entry (per above) will not be sent directly to the application,
 but rather added to a 'clause buffer' which is displayed on-screen as an overlay
 at the cursor position.  When the user hits a 'convert' key, the current clause
-buffer will be converted (if possible) into the Chinese-origin CJK glyphs 
+buffer will be converted (if possible) into the Chinese-origin CJK glyphs
 (kanji/hanzi/hanja) applicable to the current language.  Since there are usually
 multiple possible candidates for conversion, the candidates are displayed in a
 pop-up list on screen so the user can accept the correct one.  Once a candidate
 is accepted, the full converted clause is inserted in the application window.
 
-In either case, once a conversion (phonetic or clause) is accepted and the 
-result inserted in the application, all buffers are cleared and the process 
+In either case, once a conversion (phonetic or clause) is accepted and the
+result inserted in the application, all buffers are cleared and the process
 starts over.
 
 If the input mode is set to 'none', then all conversion (input and CJK) is
@@ -130,8 +130,8 @@ are.
 ### Source Code Organization
 
 `wnnclient.*` implements the interface to the FreeWnn engine (it is linked into
-`wnnim.exe`).  If WnnIM were to be adapted to use a different engine, this is 
-the module that would need to be replaced.  
+`wnnim.exe`).  If WnnIM were to be adapted to use a different engine, this is
+the module that would need to be replaced.
 
 `wnnhook.*` implements a global PM hook, which is loaded by the client (below)
 when the latter starts up.  This hook is responsible for intercepting keystrokes
@@ -153,7 +153,7 @@ PM hook.
 Notices
 -------
 
-WnnIM for OS/2  
+WnnIM for OS/2
 (C) 2019 Alexander Taylor
 
 Some of the PM hook logic was derived from `xray` by Michael Shillingford, and
