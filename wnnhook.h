@@ -31,7 +31,8 @@
 // Convert to Kanji/Hanzi/Hanja
 // - In this mode, converted romaji are added to a clause buffer and converted
 //   only when the user selects Convert.
-#define MODE_CJK        0x1000
+#define MODE_CJK        0x1000  // clause conversion is enabled
+#define MODE_CJK_ENTRY  0x2000  // clause entry is underway
 
 
 // Global data shared between DLL and app

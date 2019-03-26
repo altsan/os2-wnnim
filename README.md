@@ -40,7 +40,7 @@ UI consists of two small buttons and a status panel.
    toggle this setting using Ctrl+Space.
  * The button labelled 'C' toggles CJK clause conversion on or off.  (Since
    clause conversion has not been implemented yet, this currently does nothing.)
-   You can also toggle this setting using Ctrl+`.
+   You can also toggle this setting using Ctrl+Shift.
 
 There is also a popup context menu which allows you to do various things, such
 as select the input conversion mode (currently only hiragana and katakana are

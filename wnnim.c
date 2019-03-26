@@ -517,10 +517,10 @@ void SettingsInit( HWND hwnd )
     pShared->usKeyMode    = 0x20;
     pShared->fsVKMode     = KC_SHIFT;
 
-    pShared->usKeyCJK     = 0x60;
-    pShared->fsVKCJK      = KC_CTRL;
+    pShared->usKeyCJK     = 0x00;
+    pShared->fsVKCJK      = KC_CTRL | KC_SHIFT;
 
-    pShared->usKeyConvert = ' ';
+    pShared->usKeyConvert = 0x20;
     pShared->fsVKConvert  = 0;
 
     pShared->usKeyAccept  = 0;

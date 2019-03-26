@@ -56,36 +56,36 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
             usVK = SHORT2FROMMP( pQmsg->mp2 );
 
             // Check for hotkey commands first
-            if (( fsFlags & global.fsVKInput ) && ( c == global.usKeyInput )) {
+            if ((( fsFlags & global.fsVKInput ) == global.fsVKInput ) && ( c == global.usKeyInput )) {
                 // toggle input hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_INPUT ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }
-            else if (( fsFlags & global.fsVKCJK ) && ( c == global.usKeyCJK )) {
+            else if ((( fsFlags & global.fsVKCJK ) == global.fsVKCJK ) && ( c == global.usKeyCJK )) {
                 // toggle CJK hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_KANJI ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }
-            else if (( fsFlags & global.fsVKMode ) && ( c == global.usKeyMode )) {
+            else if ((( fsFlags & global.fsVKMode ) == global.fsVKMode ) && ( c == global.usKeyMode )) {
                 // switch input mode hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_MODE ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }
-            else if ( global.fsMode & MODE_CJK ) {      // Only applicable in CJK mode
-                if (( fsFlags & global.fsVKConvert ) && ( c == global.usKeyConvert )) {
+            else if ( global.fsMode & MODE_CJK_ENTRY ) {    // Only applicable during clause entry
+                if ((( fsFlags & global.fsVKConvert ) == global.fsVKConvert ) && ( c == global.usKeyConvert )) {
                     // Convert clause buffer to CJK characters
                     WinPostMsg( g_hwndClient, WM_COMMAND,
                                 MPFROMSHORT( ID_HOTKEY_CONVERT ),
                                 MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                     return TRUE;
                 }
-                if (( fsFlags & global.fsVKAccept ) && ( c == global.usKeyAccept )) {
+                if ((( fsFlags & global.fsVKAccept ) == global.fsVKAccept ) && ( c == global.usKeyAccept )) {
                     // Accept current CJK conversion candidate
                     WinPostMsg( g_hwndClient, WM_COMMAND,
                                 MPFROMSHORT( ID_HOTKEY_ACCEPT ),
