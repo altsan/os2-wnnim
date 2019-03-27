@@ -44,7 +44,7 @@
 // TBD Chinese modes (Pinyin, ABC, etc)?
 
 // Language mode (these are also straight values)
-#define IS_LANGUAGE( fs, val )   (( fs & 0xFF00 ) == val )
+#define IS_LANGUAGE( fs, val )   (( fs & 0xF00 ) == val )
 
 #define MODE_JP         0x100   // Japanese
 #define MODE_KR         0x200   // Korean

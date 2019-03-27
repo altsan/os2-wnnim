@@ -106,7 +106,15 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
     for ( i = 0; i < usLen; i++ ) {
         usChar = (USHORT) pszBuffer[ i ];
 
-        // Some custom input windows can't handle combined double bytes
+        // Some custom input windows can't handle combined double bytes, so
+        // we have a workaround to send each byte separately.  OTOH, the
+        // standard PM controls (and many others) need the double-byte logic
+        // for input to work properly when running under a DBCS codepage.
+        //
+        // Our solution is to use the double-byte logic by default but enable
+        // the workaround for apps (or rather, window classes) which are known
+        // to be problematic.
+
         if ( WinQueryClassName( hwndSource, 100, achClassName ) > 0 ) {
 
             // MED (MrED) text editor
@@ -709,9 +717,6 @@ void NextInputMode( HWND hwnd )
     USHORT usNumModes,      // number of input modes for this language
            usMode;          // new mode ID
 
-    // Get the current mode
-    usMode = pShared->fsMode & 0xFF;
-
     // Get total number of available modes for this language
     if ( IS_LANGUAGE( pShared->fsMode, MODE_JP ))
         usNumModes = 3;
@@ -719,6 +724,9 @@ void NextInputMode( HWND hwnd )
         usNumModes = 1;
     else
         usNumModes = 0;        // other languages TBD
+
+    // Get the current mode
+    usMode = pShared->fsMode & 0xFF;
 
     // Now select the next mode
     usMode++;
