@@ -108,9 +108,15 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
 
         // Some custom input windows can't handle combined double bytes
         if ( WinQueryClassName( hwndSource, 100, achClassName ) > 0 ) {
+
             // MED (MrED) text editor
             if ( strcmp( achClassName, "MRED_BUFWIN_CLASS") == 0 )
                 fWorkAround = TRUE;
+
+            // OpenOffice/StarOffice
+            else if ( strcmp( achClassName, "SALFRAME") == 0 )
+                fWorkAround = TRUE;
+
         }
 
         if ( !fWorkAround && IsDBCSLeadByte( usChar, global.dbcs ))
@@ -670,9 +676,9 @@ void SetInputMode( HWND hwnd, USHORT usNewMode )
     pShared->fsMode &= 0xFF00;
     pShared->fsMode |= usNewMode;
 
-    if (( pShared->fsMode & 0xFF00 ) == MODE_JP )
+    if ( IS_LANGUAGE( pShared->fsMode, MODE_JP ))
         usNumModes = 3;
-    else if (( pShared->fsMode & 0xFF00 ) == MODE_KR )
+    else if ( IS_LANGUAGE( pShared->fsMode, MODE_KR ))
         usNumModes = 1;
     else
         usNumModes = 0;        // other languages TBD
@@ -707,9 +713,9 @@ void NextInputMode( HWND hwnd )
     usMode = pShared->fsMode & 0xFF;
 
     // Get total number of available modes for this language
-    if (( pShared->fsMode & 0xFF00 ) == MODE_JP )
+    if ( IS_LANGUAGE( pShared->fsMode, MODE_JP ))
         usNumModes = 3;
-    else if (( pShared->fsMode & 0xFF00 ) == MODE_KR )
+    else if ( IS_LANGUAGE( pShared->fsMode, MODE_KR ))
         usNumModes = 1;
     else
         usNumModes = 0;        // other languages TBD

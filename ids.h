@@ -18,8 +18,8 @@
 #define IDM_INPUT_BASE      400
 #define IDM_HIRAGANA        ( IDM_INPUT_BASE + 1 )
 #define IDM_KATAKANA        ( IDM_INPUT_BASE + 2 )
-#define IDM_HALFWIDTH       ( IDM_INPUT_BASE + 3 )
-#define IDM_FULLWIDTH       ( IDM_INPUT_BASE + 4 )
+#define IDM_FULLWIDTH       ( IDM_INPUT_BASE + 3 )
+#define IDM_HALFWIDTH       ( IDM_INPUT_BASE + 4 )
 
 #define ID_HOTKEY_INPUT     1000
 #define ID_HOTKEY_MODE      1001
