@@ -1,7 +1,7 @@
 #include <os2.h>
 #include "ids.h"
 
-ICON    ID_ICON  app.ico
+ICON    ID_ICON  ime.ico
 
 MENU IDM_POPUP
 BEGIN

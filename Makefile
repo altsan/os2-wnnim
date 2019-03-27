@@ -5,7 +5,7 @@ CC         = icc
 RC         = rc
 LINK       = ilink
 
-# Set as appropriate 
+# Set as appropriate
 WNNINCLUDE = e:\usr\local\include\wnn
 
 # Compiler flags:
@@ -58,7 +58,7 @@ wnnclient.obj: wnnclient.c $(HEADERS_ALL)
 codepage.obj: codepage.c $(HEADERS_ALL)
         $(CC) /c $(CFLAGS_EXE) $<
 
-$(EXE).res: $(EXE).rc $(EXE).dlg ids.h app.ico
+$(EXE).res: $(EXE).rc $(EXE).dlg ids.h ime.ico
         $(RC) -r $< $@
 
 $(DLL).lib: $(DLL).dll $(DLL).def
