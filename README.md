@@ -14,6 +14,9 @@ Only Presentation Manager (OS/2 graphical) sessions are supported; DOS and
 Win-OS/2 sessions are not.  OS/2 command lines are not supported either,
 _except_ for windowed VIO sessions running on DBCS versions of OS/2.
 
+The current version supports Japanese input.  Support for Korean and Chinese
+input is planned for future releases.
+
 
 For Users
 ---------
@@ -43,8 +46,8 @@ UI consists of two small buttons and a status panel.
    You can also toggle this setting using Ctrl+Shift.
 
 There is also a popup context menu which allows you to do various things, such
-as select the input conversion mode (currently only hiragana and katakana are
-supported), adjust settings, or close the program.
+as select the input conversion mode (currently hiragana, katakana and fullwidth
+ASCII are supported), adjust settings, or close the program.
 
 You can also change the input conversion mode using Shift+Space, which will
 cycle through the available modes.
@@ -83,8 +86,8 @@ with each other: _input mode_ and _CJK conversion mode_.
 The input mode controls how typed characters are converted into basic phonetic
 characters for the language in question.  The number of modes supported varies
 according to language, although 'none' (i.e. no conversion) is always available.
-(Japanese, for example, has Hiragana and Katakana modes; Korean has only
-Hangul.)
+(Japanese, for example, has Hiragana, Katakana, and Fullwidth ASCII modes; 
+Korean has only Hangul.)
 
 If the target language uses phonetic characters, then how it works is that all
 typed characters are saved into a buffer (known internally as the 'romaji
