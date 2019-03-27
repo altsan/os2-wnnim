@@ -22,5 +22,6 @@ BOOL   _Optlink IsDBCSLeadByte( CHAR ch, PBYTE pDBCS );
 USHORT _Optlink GetEucCodepage( USHORT usLang );
 ULONG  _Optlink CreateUconvObject( ULONG ulCP, UconvObject *uconv );
 PCH    _Optlink StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, UconvObject uconvTo );
+USHORT _Optlink ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax );
 
 

@@ -158,4 +158,35 @@ done:
 }
 
 
+/* ------------------------------------------------------------------------- *
+ * ConvertFullWidth                                                          *
+ *                                                                           *
+ * Convert all ASCII chars in the input string to UCS-2 fullwidth forms.     *
+ *                                                                           *
+ * ARGUMENTS:                                                                *
+ *   PSZ      pszInput  : Input string (MBCS encoded)                        *
+ *   UniChar *puczOutput: UCS-2 output buffer (already allocated)            *
+ *   USHORT   usMax     : Size of output buffer                              *
+ *                                                                           *
+ * RETURNS: USHORT                                                           *
+ *   Number of characters converted.                                         *
+ * ------------------------------------------------------------------------- */
+USHORT _Optlink ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax )
+{
+    USHORT  i, j,
+            usInLen;
+    CHAR    c;
+    UniChar uc;
 
+    usInLen = strlen( pszInput );
+    j = 0;
+    for ( i = 0; ( j < usMax ) && ( i < usInLen ); i++ ) {
+        c = pszInput[ i ];
+        if ( ! (( c > 0x20 ) && ( c < 0x7F ))) continue;
+        uc = (UniChar)( c + 0xFEE0 );
+        puczOutput[ j++ ] = uc;
+    }
+    puczOutput[ j ] = 0;
+
+    return ( j );
+}

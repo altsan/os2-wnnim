@@ -205,7 +205,12 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     szChar[ 1 ] = 0;
     strncat( global.szRomaji, szChar, sizeof(global.szRomaji) - 1 );
 
-    bStatus = ConvertPhonetic( pShared->fsMode );
+    if ( IS_INPUT_MODE( pShared->fsMode, MODE_FULLWIDTH ))
+        bStatus = ConvertFullWidth( global.szRomaji, global.uszKana,
+                                    sizeof( global.uszKana ) / sizeof( UniChar )) > 0 ?
+                    KANA_COMPLETE: KANA_INVALID;
+    else
+        bStatus = ConvertPhonetic( pShared->fsMode );
     if ( bStatus != KANA_PENDING ) {
         SupplyCharacter( hwnd, hwndSource, bStatus );
     }
@@ -659,14 +664,16 @@ void ToggleInputConversion( HWND hwnd )
 void SetInputMode( HWND hwnd, USHORT usNewMode )
 {
     USHORT i,
-           usNumModes,
-           usID;
+           usNumModes,      // number of input modes for this language
+           usID;            // menu control ID
 
     pShared->fsMode &= 0xFF00;
     pShared->fsMode |= usNewMode;
 
-    if ( pShared->fsMode & MODE_JP )
-        usNumModes = IDM_FULLWIDTH - IDM_INPUT_BASE;
+    if (( pShared->fsMode & 0xFF00 ) == MODE_JP )
+        usNumModes = 3;
+    else if (( pShared->fsMode & 0xFF00 ) == MODE_KR )
+        usNumModes = 1;
     else
         usNumModes = 0;        // other languages TBD
 
@@ -693,21 +700,19 @@ void SetInputMode( HWND hwnd, USHORT usNewMode )
  * ------------------------------------------------------------------------- */
 void NextInputMode( HWND hwnd )
 {
-    USHORT usNumModes,
-           usMode;
+    USHORT usNumModes,      // number of input modes for this language
+           usMode;          // new mode ID
 
     // Get the current mode
     usMode = pShared->fsMode & 0xFF;
 
-#if 1
-    usNumModes = 2;     // temp
-#else
     // Get total number of available modes for this language
     if (( pShared->fsMode & 0xFF00 ) == MODE_JP )
-        usNumModes = IDM_FULLWIDTH - IDM_INPUT_BASE;
+        usNumModes = 3;
+    else if (( pShared->fsMode & 0xFF00 ) == MODE_KR )
+        usNumModes = 1;
     else
         usNumModes = 0;        // other languages TBD
-#endif
 
     // Now select the next mode
     usMode++;
@@ -1053,6 +1058,7 @@ int main( int argc, char **argv )
     SetupWindow( global.hwndClient );
     SetupDBCSLanguage( MODE_JP );                                   // for now
     SetInputMode( global.hwndClient, MODE_HIRAGANA );               // for now
+    ToggleInputConversion( global.hwndClient );                     // for now - turn off by default
 
     // Now do our stuff
     DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );      // increment the DLL use counter for safety
