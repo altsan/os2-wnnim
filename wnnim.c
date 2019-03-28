@@ -99,43 +99,54 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
     USHORT i,
            usLen,
            usChar;
-    CHAR   achClassName[ 100 ] = {0};
+    CHAR   achClassName[ 50 ] = {0};
     BOOL   fWorkAround = FALSE;
+
+
+    // Some custom input windows can't handle combined double bytes, so
+    // we have a workaround to send each byte separately.  OTOH, the
+    // standard PM controls (and many others) need the double-byte logic
+    // for input to work properly when running under a DBCS codepage.
+    // Also, the workaround only works for applications which interpret
+    // characters as byte values under the current codepage.
+    //
+    // Our solution is to use the double-byte logic by default but enable
+    // the workaround for apps (or rather, window classes) which are known
+    // to be problematic.
+
+    if ( WinQueryClassName( hwndSource, sizeof( achClassName ), achClassName ) > 0 )
+    {
+
+        // MED (MrED) text editor
+        if ( strcmp( achClassName, "MRED_BUFWIN_CLASS") == 0 )
+            fWorkAround = TRUE;
+
+/*
+        // OpenOffice/StarOffice (this won't actually result in the correct
+        // characters getting entered, since OO converts internally to Unicode
+        // before displaying)
+        else if ( strcmp( achClassName, "SALFRAME") == 0 )
+            fWorkAround = TRUE;
+ */
+
+    }
 
     usLen = strlen( pszBuffer );
     for ( i = 0; i < usLen; i++ ) {
         usChar = (USHORT) pszBuffer[ i ];
 
-        // Some custom input windows can't handle combined double bytes, so
-        // we have a workaround to send each byte separately.  OTOH, the
-        // standard PM controls (and many others) need the double-byte logic
-        // for input to work properly when running under a DBCS codepage.
-        //
-        // Our solution is to use the double-byte logic by default but enable
-        // the workaround for apps (or rather, window classes) which are known
-        // to be problematic.
-
-        if ( WinQueryClassName( hwndSource, 100, achClassName ) > 0 ) {
-
-            // MED (MrED) text editor
-            if ( strcmp( achClassName, "MRED_BUFWIN_CLASS") == 0 )
-                fWorkAround = TRUE;
-
-            // OpenOffice/StarOffice
-            else if ( strcmp( achClassName, "SALFRAME") == 0 )
-                fWorkAround = TRUE;
-
-        }
-
         if ( !fWorkAround && IsDBCSLeadByte( usChar, global.dbcs ))
             usChar |= pszBuffer[ ++i ] << 0x8;
+
         WinSendMsg( hwndSource, WM_CHAR,
                     MPFROMSH2CH( KC_CHAR, 1, 0 ),
                     MPFROM2SHORT( usChar, 0 ));
 
-        // Force a window redraw if workaround was used
-        if ( fWorkAround ) WinInvalidateRect( hwndSource, NULL, FALSE );
+        if ( i > MAX_KANA_BUFZ ) break;     // sanity check
     }
+
+    // Force a window redraw if workaround was used
+    if ( fWorkAround ) WinInvalidateRect( hwndSource, NULL, FALSE );
 }
 
 
@@ -152,6 +163,8 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
 void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
 {
     static CHAR szKana[ MAX_KANA_BUFZ ];
+
+    memset( szKana, 0, sizeof( szKana ));
 
     /*
     if ( bStatus == KANA_CANDIDATE )
