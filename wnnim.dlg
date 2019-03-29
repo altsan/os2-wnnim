@@ -5,15 +5,65 @@ DLGINCLUDE 1 "ids.h"
 
 DLGTEMPLATE DLG_ABOUT LOADONCALL MOVEABLE DISCARDABLE
 BEGIN
-    DIALOG  "", DLG_ABOUT, 5, 4, 187, 93, WS_VISIBLE, FCF_SYSMENU |
-            FCF_TITLEBAR
+    DIALOG  "Product Information", DLG_ABOUT, 5, 4, 187, 93, WS_VISIBLE,
+            FCF_SYSMENU | FCF_TITLEBAR | FCF_CLOSEBUTTON
     BEGIN
         DEFPUSHBUTTON   "OK", ID_ICON, 40, 2, 40, 12
-        ICON            ID_ICON, 201, 8, 52, 16, 15, WS_GROUP
+        ICON            ID_ICON, IDD_ICON, 8, 52, 16, 15, WS_GROUP
         LTEXT           "WnnIM for OS/2", -1, 40, 81, 129, 8
         LTEXT           "", IDD_VERSION, 40, 71, 128, 8
         MLE             "", IDD_NOTICES, 40, 18, 143, 49, MLS_READONLY |
                         MLS_WORDWRAP | MLS_VSCROLL | WS_GROUP
-                        PRESPARAMS PP_BACKGROUNDCOLORINDEX, SYSCLR_DIALOGBACKGROUND
+                        PRESPARAMS PP_BACKGROUNDCOLORINDEX, 0xFFFFFFDEL
+    END
+END
+
+DLGTEMPLATE DLG_SETTINGS LOADONCALL MOVEABLE DISCARDABLE
+BEGIN
+    DIALOG  "Settings", DLG_SETTINGS, 1, 10, 241, 176, WS_VISIBLE,
+            FCF_SYSMENU | FCF_TITLEBAR | FCF_CLOSEBUTTON
+    BEGIN
+        GROUPBOX        "Options", -1, 3, 120, 234, 52
+        GROUPBOX        "Hotkeys", -1, 3, 19, 234, 97
+        DEFPUSHBUTTON   "OK", ID_ICON, 3, 2, 40, 13
+        PUSHBUTTON      "Cancel", DID_CANCEL, 46, 2, 40, 13
+        LTEXT           "Startup mode:", -1, 8, 153, 65, 8
+        CONTROL         "", IDD_STARTUP_MODE, 76, 124, 156, 39, WC_COMBOBOX,
+                        CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VISIBLE
+        LTEXT           "Toggle input conversion:", -1, 8, 97, 112, 8, DT_VCENTER
+        LTEXT           "Toggle clause conversion:", -1, 8, 73, 112, 8,  DT_VCENTER
+        LTEXT           "Switch input mode:", -1, 8, 85, 112, 8, DT_VCENTER
+        LTEXT           "Convert clause:", -1, 8, 61, 112, 8, DT_VCENTER
+        LTEXT           "First/next sub-clause:", -1, 8, 37, 112, 8, DT_VCENTER
+        LTEXT           "Previous sub-clause:", -1, 8, 25, 112, 8, DT_VCENTER
+        LTEXT           "Accept current candidate:", -1, 8, 49, 112, 8, DT_VCENTER
+        CONTROL         "", IDD_INPUT_KEY, 122, 56, 40, 50, WC_COMBOBOX,
+                        CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VISIBLE
+        CONTROL         "", IDD_MODE_KEY, 122, 44, 40, 50, WC_COMBOBOX,
+                        CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VISIBLE
+        CONTROL         "", IDD_CLAUSE_KEY, 122, 32, 40, 50, WC_COMBOBOX,
+                        CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VISIBLE
+        CONTROL         "", IDD_CONVERT_KEY, 122, 20, 40, 50, WC_COMBOBOX,
+                        CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VISIBLE
+        CONTROL         "", IDD_ACCEPT_KEY, 122, 8, 40, 50, WC_COMBOBOX,
+                        CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VISIBLE
+        CONTROL         "", IDD_NEXT_KEY, 122, 0, 40, 46, WC_COMBOBOX,
+                        CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VISIBLE
+        CONTROL         "", IDD_PREV_KEY, 122, 0, 40, 34, WC_COMBOBOX,
+                        CBS_DROPDOWNLIST | WS_GROUP | WS_TABSTOP | WS_VISIBLE
+        AUTOCHECKBOX    "Ctrl",  IDD_MODE_CTRL, 171, 96, 28, 10
+        AUTOCHECKBOX    "Shift",  IDD_MODE_SHIFT, 202, 96, 32, 10
+        AUTOCHECKBOX    "Ctrl",  IDD_INPUT_CTRL, 171, 84, 28, 10
+        AUTOCHECKBOX    "Shift",  IDD_INPUT_SHIFT, 202, 84, 32, 10
+        AUTOCHECKBOX    "Ctrl",  IDD_CLAUSE_CTRL, 171, 72, 28, 10
+        AUTOCHECKBOX    "Shift",  IDD_CLAUSE_SHIFT, 202, 72, 32, 10
+        AUTOCHECKBOX    "Ctrl",  IDD_CONVERT_CTRL, 171, 60, 28, 10
+        AUTOCHECKBOX    "Shift",  IDD_CONVERT_SHIFT, 202, 60, 32, 10
+        AUTOCHECKBOX    "Ctrl",  IDD_ACCEPT_CTRL, 171, 48, 28, 10
+        AUTOCHECKBOX    "Shift",  IDD_ACCEPT_SHIFT, 202, 48, 32, 10
+        AUTOCHECKBOX    "Ctrl",  IDD_NEXT_CTRL, 171, 36, 28, 10
+        AUTOCHECKBOX    "Shift",  IDD_NEXT_SHIFT, 202, 36, 32, 10
+        AUTOCHECKBOX    "Ctrl",  IDD_PREV_CTRL, 171, 24, 28, 10
+        AUTOCHECKBOX    "Shift",  IDD_PREV_SHIFT, 202, 24, 32, 10
     END
 END

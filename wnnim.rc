@@ -10,6 +10,8 @@ BEGIN
     MENUITEM "~Fullwidth ASCII",    IDM_FULLWIDTH
     MENUITEM SEPARATOR
     MENUITEM "~Always on top",      IDM_FLOAT
+    MENUITEM "~Settings...",        IDM_SETTINGS
+    MENUITEM SEPARATOR
     MENUITEM "~About...",           IDM_ABOUT
     MENUITEM SEPARATOR
     MENUITEM "~Close",              IDM_CLOSE

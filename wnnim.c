@@ -38,12 +38,46 @@
 #include "wnnclient.h"
 
 
+// --------------------------------------------------------------------------
+// FUNCTION DECLARATIONS
+//
+
+MRESULT EXPENTRY AboutDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+MRESULT EXPENTRY ButtonProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+void             ClearInputBuffer( void );
+void             ClearClauseBuffer( void );
+MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
+VOID APIENTRY    ExeTrap( void );
+void             NextInputMode( HWND hwnd );
+void             PaintIMEButton( PUSERBUTTON pBtnData );
+MRESULT          PassStdEvent( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+void             ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 );
+void             SendCharacter( HWND hwndSource, PSZ pszBuffer );
+void             SetInputMode( HWND hwnd, USHORT usNewMode );
+void             SetTopmost( HWND hwnd );
+BOOL             SetupDBCSLanguage( USHORT usLangMode );
+void             SetupWindow( HWND hwnd );
+void             SizeWindow( HWND hwnd );
+void             SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus );
+MRESULT EXPENTRY StaticTextProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+void             ToggleKanjiConversion( HWND hwnd );
+void             ToggleInputConversion( HWND hwnd );
+void             UpdateStatus( HWND hwnd );
+
+// settings.c
+MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+void             SettingsInit( HWND hwnd );
+
+
 
 IMCLIENTDATA global = {0};      // our window's global data
 
 // Subclassed window procedures
 PFNWP pfnBtnProc;
 PFNWP pfnTxtProc;
+
+
 
 
 // ==========================================================================
@@ -531,36 +565,6 @@ void SetupWindow( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
- * SettingsInit                                                              *
- *                                                                           *
- * Set the initial program settings.                                         *
- *                                                                           *
- * PARAMETERS:                                                               *
- *   HWND hwnd: Our window handle.                                           *
- *                                                                           *
- * RETURNS: n/a                                                              *
- * ------------------------------------------------------------------------- */
-void SettingsInit( HWND hwnd )
-{
-    // Default hotkeys (should eventually be configurable)
-    pShared->usKeyInput   = 0x20;
-    pShared->fsVKInput    = KC_CTRL;
-
-    pShared->usKeyMode    = 0x20;
-    pShared->fsVKMode     = KC_SHIFT;
-
-    pShared->usKeyCJK     = 0x00;
-    pShared->fsVKCJK      = KC_CTRL | KC_SHIFT;
-
-    pShared->usKeyConvert = 0x20;
-    pShared->fsVKConvert  = 0;
-
-    pShared->usKeyAccept  = 0;
-    pShared->fsVKAccept   = VK_NEWLINE;
-}
-
-
-/* ------------------------------------------------------------------------- *
  * Set the status text to show the current mode.                             *
  *                                                                           *
  * PARAMETERS:                                                               *
@@ -747,6 +751,7 @@ void NextInputMode( HWND hwnd )
     SetInputMode( hwnd, usMode );
 }
 
+
 /* ------------------------------------------------------------------------- *
  * ------------------------------------------------------------------------- */
 void Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset )
@@ -891,7 +896,8 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     break;
 
                 case ID_HOTKEY_MODE:
-                    NextInputMode( hwnd );
+                    if ( ! IS_INPUT_MODE( pShared->fsMode, MODE_NONE ))
+                        NextInputMode( hwnd );
                     break;
 
                 case IDD_KANJI:
@@ -921,6 +927,10 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
                 case IDM_FLOAT:
                     SetTopmost( hwnd );
+                    return 0;
+
+                case IDM_SETTINGS:
+                    WinDlgBox( HWND_DESKTOP, hwnd, SettingsDlgProc, NULLHANDLE, DLG_SETTINGS, NULL );
                     return 0;
 
                 case IDM_CLOSE:

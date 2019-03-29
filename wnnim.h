@@ -89,3 +89,9 @@ typedef struct _WnnClientData {
 PWNNSHARED   pShared;           // data shared with the dll
 
 
+// --------------------------------------------------------------------------
+// COMMON FUNCTIONS
+//
+
+void CentreWindow( HWND hwndCentre, HWND hwndRelative, ULONG flFlags );
+

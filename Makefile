@@ -27,7 +27,7 @@ LFLAGS_DLL = /NOE /DLL /NOLOGO /MAP
 HEADERS_ALL = ids.h wnnhook.h codepage.h wnnclient.h wnnim.h
 
 EXE      = wnnim
-OBJS_EXE = $(EXE).obj codepage.obj wnnclient.obj
+OBJS_EXE = $(EXE).obj codepage.obj settings.obj wnnclient.obj
 LIBS_EXE = libuls.lib libconv.lib wnn0_dll.lib
 
 DLL = wnnhook
@@ -40,12 +40,12 @@ OBJS_DLL = $(DLL).obj
     LFLAGS_DLL = $(LFLAGS_DLL) /DEBUG
 !endif
 
-.c.obj: $(HEADERS)
+.c.obj:
         $(CC) /c $(CFLAGS_EXE) $<
 
 .all: $(DLL).dll $(EXE).exe
 
-$(EXE).exe: $(OBJS_EXE) $(EXE).res $(DLL).lib
+$(EXE).exe: $(OBJS_EXE) $(EXE).res $(DLL).lib $(HEADERS_ALL)
         $(LINK) $(LFLAGS_EXE) $(OBJS_EXE) $(DLL).lib $(LIBS_EXE) /OUT:$@
         rc -x $(EXE).res $(EXE).exe
 
@@ -54,9 +54,6 @@ $(EXE).obj: $(EXE).c $(HEADERS_ALL)
 
 wnnclient.obj: wnnclient.c $(HEADERS_ALL)
         $(CC) /c /Mc $(CFLAGS_EXE) $<
-
-codepage.obj: codepage.c $(HEADERS_ALL)
-        $(CC) /c $(CFLAGS_EXE) $<
 
 $(EXE).res: $(EXE).rc $(EXE).dlg ids.h ime.ico
         $(RC) -r $< $@
