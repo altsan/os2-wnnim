@@ -28,31 +28,7 @@
 #include "ids.h"
 #include "wnnhook.h"
 #include "wnnim.h"
-
-
-// --------------------------------------------------------------------------
-// CONSTANTS
-//
-#define SZ_DEFAULTFONT  "8.Helv"
-
-
-// --------------------------------------------------------------------------
-// MACROS
-//
-
-#define LIST_ADD_STRING( hw, ctl, str ) \
-            (SHORT) WinSendDlgItemMsg( hw, ctl, LM_INSERTITEM,  MPFROMSHORT( LIT_END ), MPFROMP( str ))
-#define LIST_SET_ITEMDATA( hw, ctl, idx, val ) \
-            WinSendDlgItemMsg( hw, ctl, LM_SETITEMHANDLE, MPFROMSHORT( idx ), MPFROMLONG( val ))
-#define LIST_GET_ITEMDATA( hw, ctl, idx ) \
-            (ULONG)(WinSendDlgItemMsg( hw, ctl, LM_QUERYITEMHANDLE, MPFROMSHORT( idx ), 0L ))
-#define LIST_SELECT_ITEM( hw, ctl, idx ) \
-            WinSendDlgItemMsg( hw, ctl, LM_SELECTITEM, MPFROMSHORT( idx ), MPFROMSHORT( TRUE ))
-
-
-// ==========================================================================
-// IMPLEMENTATION
-// ==========================================================================
+#include "settings.h"
 
 
 /* ------------------------------------------------------------------------- *

@@ -146,6 +146,8 @@ directly or running it through WnnIM's conversion logic.
 implements most of the actual keypress processing logic (triggered as needed by
 the PM hook), for the sake of keeping the hook DLL as lightweight as possible.
 
+`settings.*` contains client routines specific to managing user settings.
+
 `codepage.*` contains various useful functions for dealing with text
 encodings.
 

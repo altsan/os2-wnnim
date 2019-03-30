@@ -24,7 +24,7 @@ CFLAGS_DLL = /Ge- /Rn /O /Ss /Wuse
 LFLAGS_EXE = /NOE /PMTYPE:PM /NOLOGO /MAP /STACK:0x50000
 LFLAGS_DLL = /NOE /DLL /NOLOGO /MAP
 
-HEADERS_ALL = ids.h wnnhook.h codepage.h wnnclient.h wnnim.h
+HEADERS_ALL = codepage.h ids.h settings.h wnnclient.h wnnhook.h wnnim.h 
 
 EXE      = wnnim
 OBJS_EXE = $(EXE).obj codepage.obj settings.obj wnnclient.obj

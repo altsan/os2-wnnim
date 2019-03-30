@@ -36,6 +36,7 @@
 #include "ids.h"
 #include "wnnim.h"
 #include "wnnclient.h"
+#include "settings.h"
 
 
 // --------------------------------------------------------------------------
@@ -64,11 +65,6 @@ MRESULT EXPENTRY StaticTextProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ToggleKanjiConversion( HWND hwnd );
 void             ToggleInputConversion( HWND hwnd );
 void             UpdateStatus( HWND hwnd );
-
-// settings.c
-MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
-void             SettingsInit( HWND hwnd );
-
 
 
 IMCLIENTDATA global = {0};      // our window's global data
