@@ -31,17 +31,21 @@
 #include "settings.h"
 
 
+extern IMCLIENTDATA global;
+
+
 /* ------------------------------------------------------------------------- *
  * SettingsInit                                                              *
  *                                                                           *
  * Set the initial program settings.                                         *
  *                                                                           *
  * PARAMETERS:                                                               *
- *   HWND hwnd: Our window handle.                                           *
+ *   HWND    hwnd   : Our window handle.                                     *
+ *   PPOINTL pptl   : Pointer to window position.                            *
  *                                                                           *
  * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
-void SettingsInit( HWND hwnd )
+void SettingsInit( HWND hwnd, PPOINTL pptl )
 {
     LONG  lClr;
 
@@ -54,6 +58,14 @@ void SettingsInit( HWND hwnd )
     // Font
     WinSetPresParam( hwnd, PP_FONTNAMESIZE,
                      strlen(SZ_DEFAULTFONT)+1, (PVOID) SZ_DEFAULTFONT );
+
+    // Position
+    pptl->x = -1;
+    pptl->y = -1;
+
+    // Startup mode
+    global.sDefMode = -1;
+    global.fsLastMode = 1;
 
     // Default hotkeys
     pShared->usKeyInput   = 0x20;
@@ -186,7 +198,7 @@ void SettingsDlgPopulate( HWND hwnd )
         sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Hangul");
         LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_HANGUL );
     }
-    LIST_SELECT_ITEM( hwnd, IDD_STARTUP_MODE, 1 );
+    LIST_SELECT_ITEM( hwnd, IDD_STARTUP_MODE, (SHORT)(global.sDefMode) + 1 );
 
     SettingsPopulateKeyList( hwnd, IDD_INPUT_KEY );
     ListSelectDataItem( hwnd, IDD_INPUT_KEY, pShared->usKeyInput );

@@ -60,23 +60,30 @@
 // TYPES
 //
 
+// Global client data which does not have to be shared with wnnhook.dll.
 typedef struct _WnnClientData {
-    HWND     hwndFrame,                     // our frame
-             hwndClient,                    // our client window
-             hwndMenu,                      // our context menu
-             hwndLast;                      // last window to have focus
-    BYTE     dbcs[ 12 ];                    // DBCS information vector (byte-ranges)
-    ULONG    codepage;                      // DBCS target codepage
-    USHORT   fsLastMode;                    // last input mode
-    CHAR     szRomaji[ MAX_CHAR_BUFZ ];     // current phonetic input buffer
-    UniChar  uszKana[ MAX_KANA_BUFZ ];      // current phonetic conversion/output buffer
-    UniChar  uszPending[ MAX_KANA_BUFZ ];   // current phonetic conversion/output buffer
-    UniChar *puszClause;                    // current clause conversion buffer
+    // Window handles
+    HWND        hwndFrame,              // our frame
+                hwndClient,             // our client window
+                hwndMenu,               // our context menu
+                hwndLast;               // last window to have focus
 
-    UconvObject uconvOut;                   // conversion object for target codepage
+    // User options
+    SHORT       sDefMode;               // default input mode (MODE_* or 0xFF for last used)
 
-    CHAR szDicPath[ CCHMAXPATH ];           // location of input dictionary files (romkan)
-    CHAR szEngineError[ MAX_ENGINE_ERRZ ];  // may hold error messages from the IME engine
+    // General state variables
+    BYTE        dbcs[ 12 ];             // DBCS information vector (byte-ranges)
+    ULONG       codepage;               // DBCS output codepage
+    USHORT      fsLastMode;             // last active input mode
+
+    // Current conversion data
+    CHAR        szRomaji[ MAX_CHAR_BUFZ ];         // input buffer (characters as typed)
+    UniChar     uszKana[ MAX_KANA_BUFZ ];          // buffer for converted phonetic characters
+    UniChar     uszPending[ MAX_KANA_BUFZ ];       // buffer for 'candidate' phonetic characters (Korean only)
+    UniChar *   puszClause;                        // current clause conversion buffer
+    UconvObject uconvOut;                          // conversion object for DBCS output codepage
+    CHAR        szEngineError[ MAX_ENGINE_ERRZ ];  // error messages from the IME engine
+
 } IMCLIENTDATA, *PIMCLIENTDATA;
 
 

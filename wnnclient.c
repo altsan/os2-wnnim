@@ -81,9 +81,9 @@ UconvObject uconvEUC  = NULL;   // conversion object (EUC to UCS-2)
 XformObject xfKatakana = NULL;   // transformation object for fullwidth katakana
 
 
-// ============================================================================
+// =========================================================================
 // CALLBACK FUNCTIONS
-// ============================================================================
+// =========================================================================
 
 /* ------------------------------------------------------------------------- *
  * NextCharacter                                                             *
@@ -112,7 +112,7 @@ letter _cdecl NextCharacter()
  *                                                                           *
  * Callback function registered with romkan_init(): returns whether an       *
  * input character value is a single- or double-byte character for the       *
- * active input codepage.  Also used by romkan_next() via romkan_getc().     *
+ * active input codepage.  Used by romkan_next() via romkan_getc().          *
  *                                                                           *
  * Since we don't use romkan_getc(), this is presumably unused in practice.  *
  * ------------------------------------------------------------------------- */
@@ -139,9 +139,9 @@ int _cdecl ErrorFunc( const char *pcsz )
 
 
 
-// ============================================================================
+// =========================================================================
 // OTHER FUNCTIONS
-// ============================================================================
+// =========================================================================
 
 /* ------------------------------------------------------------------------- *
  * InitConversionMethod                                                      *
@@ -379,7 +379,7 @@ BYTE _Optlink PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ 
     PSZ    pszInput;
     BYTE   result = KANA_PENDING;
 
-    if (( fsMode & 0xFF ) == MODE_KATAKANA ) {
+    if ( IS_INPUT_MODE( fsMode, MODE_KATAKANA )) {
         pszInput = (PSZ)(global.szRomaji) + *pusIn;
         for ( index = 0; index < NUM_SPEC_KATAKANA; index++ ) {
             if ( strcmpi( pszInput, aszSpcKataIn[ index ] ) == 0 ) {
@@ -521,10 +521,10 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
         StrConvert( szOutput, (PCH)(global.uszKana), uconvEUC, NULL );
 
         // Apply any special transformations (e.g. hiragana to katakana)
-        if ( fsMode & MODE_JP ) {
-            if ( fsMode & MODE_KATAKANA )
+        if ( IS_LANGUAGE( fsMode, MODE_JP )) {
+            if ( IS_INPUT_MODE( fsMode, MODE_KATAKANA ))
                 MakeKatakana();
-            else if ( fsMode & MODE_HALFWIDTH )
+            else if ( IS_INPUT_MODE( fsMode, MODE_HALFWIDTH ))
                 MakeHalfKana();
         }
 

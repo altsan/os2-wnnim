@@ -59,7 +59,7 @@ void             SetInputMode( HWND hwnd, USHORT usNewMode );
 void             SetTopmost( HWND hwnd );
 BOOL             SetupDBCSLanguage( USHORT usLangMode );
 void             SetupWindow( HWND hwnd );
-void             SizeWindow( HWND hwnd );
+void             SizeWindow( HWND hwnd, POINTL ptl );
 void             SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus );
 MRESULT EXPENTRY StaticTextProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ToggleKanjiConversion( HWND hwnd );
@@ -471,11 +471,12 @@ void SetTopmost( HWND hwnd )
  * directly resizable but we set the size dynamically based on the font.)    *
  *                                                                           *
  * PARAMETERS:                                                               *
- *   HWND hwnd: Our window handle.                                           *
+ *   HWND hwnd : Our window handle.                                          *
+ *   POINTL ptl: Window position to set (or -1,-1 to set default position).  *
  *                                                                           *
  * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
-void SizeWindow( HWND hwnd )
+void SizeWindow( HWND hwnd, POINTL ptl )
 {
     FONTMETRICS fm;
     HPS         hps;
@@ -514,7 +515,10 @@ void SizeWindow( HWND hwnd )
                      xPos, cyBorder, cxCtrl, cyWin - (2 * cyBorder), SWP_SIZE | SWP_MOVE );
 
     cxWin = xPos + cxCtrl + ( 2 * cxBorder );
-    WinSetWindowPos( global.hwndFrame, 0, cxDesktop - cxWin, 0,
+
+    if ( ptl.x < 0 ) ptl.x = cxDesktop - cxWin;
+    if ( ptl.y < 0 ) ptl.y = 0;
+    WinSetWindowPos( global.hwndFrame, 0, ptl.x, ptl.y,
                      cxWin, cyWin, SWP_MOVE | SWP_SIZE | SWP_SHOW | SWP_ACTIVATE );
 }
 
@@ -548,7 +552,6 @@ void SetupWindow( HWND hwnd )
     pfnBtnProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_KANJI), (PFNWP) ButtonProc );
     pfnTxtProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_STATUS), (PFNWP) StaticTextProc );
 
-    SizeWindow( hwnd );
     SetTopmost( global.hwndFrame );
 }
 
@@ -849,7 +852,9 @@ void PaintIMEButton( PUSERBUTTON pBtnData )
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
     HWND   hwndFocus;
-    POINTL ptlMouse;
+    POINTL ptlWin,
+           ptlMouse;
+    SWP    swp;
     LONG   cb, lClr;
     RECTL  rcl;
     HPS    hps;
@@ -967,14 +972,20 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case WM_PRESPARAMCHANGED:
             switch ( (ULONG) mp1 ) {
                 case PP_FONTNAMESIZE:
-                    SizeWindow( hwnd );
+                    WinQueryWindowPos( hwnd, &swp );
+                    ptlWin.x = swp.x;
+                    ptlWin.y = swp.y;
+                    SizeWindow( hwnd, ptlWin );
                     break;
                 default: break;
             }
             break;
 
         case WM_SIZE:
-            SizeWindow( hwnd );
+            WinQueryWindowPos( hwnd, &swp );
+            ptlWin.x = swp.x;
+            ptlWin.y = swp.y;
+            SizeWindow( hwnd, ptlWin );
             break;
 
 
@@ -1064,11 +1075,12 @@ VOID APIENTRY ExeTrap()
 int main( int argc, char **argv )
 {
     static PSZ clientClass = "WnnIM2";
-    HAB   hab;
-    HMQ   hmq;
-    QMSG  qmsg;
-    ULONG frameFlags = FCF_TASKLIST;
+    HAB     hab;
+    HMQ     hmq;
+    QMSG    qmsg;
+    ULONG   frameFlags = FCF_TASKLIST;
     HMODULE hm;
+    POINTL  ptl;
     CHAR    szErr[ 256 ];
 
     pShared = WnnGlobalData();
@@ -1083,12 +1095,13 @@ int main( int argc, char **argv )
     global.hwndFrame = WinCreateStdWindow( HWND_DESKTOP, 0L, &frameFlags, clientClass,
                                            "WnnIM", 0L, 0, ID_ICON, &global.hwndClient );
 
-    SetupDBCSLanguage( MODE_JP );                                   // for now
+    SetupDBCSLanguage( MODE_JP );
 
-    SettingsInit( global.hwndClient );
+    SettingsInit( global.hwndClient, &ptl );
     SetupWindow( global.hwndClient );
-    SetInputMode( global.hwndClient, MODE_HIRAGANA );               // for now
-    ToggleInputConversion( global.hwndClient );                     // for now - turn off by default
+    SizeWindow( global.hwndClient, ptl );
+    SetInputMode( global.hwndClient, (global.sDefMode < 0) ?
+                                        global.fsLastMode: global.sDefMode );
 
     // Now do our stuff
     DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );      // increment the DLL use counter for safety

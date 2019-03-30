@@ -45,6 +45,6 @@
 //
 
 MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
-void    _Optlink SettingsInit( HWND hwnd );
+void    _Optlink SettingsInit( HWND hwnd, PPOINTL pptl );
 
 
