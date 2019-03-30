@@ -23,7 +23,7 @@
 // CONSTANTS
 //
 
-#define SZ_VERSION      "0.1"
+#define SZ_VERSION      "0.1.0"
 #define SZ_COPYRIGHT    "2019"
 #define MAX_VERSTRZ     32
 #define MAX_STATUSZ     64
@@ -32,8 +32,6 @@
 #define MAX_KANA_BUFZ   32
 #define MAX_ENGINE_ERRZ 128
 #define CLAUSE_INCZ     32
-
-#define SZ_DEFAULTFONT  "8.Helv"
 
 // Status returned by ConvertPhonetic()
 #define KANA_INVALID   -1   // Phonetic conversion failed

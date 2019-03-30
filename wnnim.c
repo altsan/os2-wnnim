@@ -449,6 +449,7 @@ void SetTopmost( HWND hwnd )
 {
     USHORT usState;
     ULONG  fl;
+    BOOL   fCheck;
 
     if ( !global.hwndMenu ) return;
     usState = (USHORT) WinSendMsg( global.hwndMenu, MM_QUERYITEMATTR,
@@ -456,12 +457,13 @@ void SetTopmost( HWND hwnd )
                                    MPFROMSHORT( MIA_CHECKED ));
     if ( usState == MIA_CHECKED ) {
         fl = 0;
-        WinCheckMenuItem( global.hwndMenu, IDM_FLOAT, FALSE );
+        fCheck = FALSE;
     }
     else {
         fl = WS_TOPMOST;
-        WinCheckMenuItem( global.hwndMenu, IDM_FLOAT, TRUE );
+        fCheck = TRUE;
     }
+    WinCheckMenuItem( global.hwndMenu, IDM_FLOAT, fCheck );
     WinSetWindowBits( global.hwndFrame, QWL_STYLE, fl, WS_TOPMOST );
 }
 
@@ -534,15 +536,6 @@ void SizeWindow( HWND hwnd )
 void SetupWindow( HWND hwnd )
 {
     ULONG flBtn = WS_VISIBLE | BS_PUSHBUTTON | BS_NOPOINTERFOCUS | BS_USERBUTTON;
-    LONG  lClr;
-
-    lClr = SYSCLR_DIALOGBACKGROUND;
-    WinSetPresParam( hwnd, PP_BACKGROUNDCOLORINDEX, sizeof( lClr ), &lClr );
-    lClr = SYSCLR_WINDOWTEXT;
-    WinSetPresParam( hwnd, PP_FOREGROUNDCOLORINDEX, sizeof( lClr ), &lClr );
-
-    WinSetPresParam( hwnd, PP_FONTNAMESIZE,
-                     strlen(SZ_DEFAULTFONT)+1, (PVOID) SZ_DEFAULTFONT );
 
     WinCreateWindow( hwnd, WC_BUTTON, "I", flBtn, 0, 0, 0, 0,
                      hwnd, HWND_TOP, IDD_INPUT, NULL, NULL );
@@ -697,6 +690,7 @@ void SetInputMode( HWND hwnd, USHORT usNewMode )
     USHORT i,
            usNumModes,      // number of input modes for this language
            usID;            // menu control ID
+    BOOL   fCheck;
 
     pShared->fsMode &= 0xFF00;
     pShared->fsMode |= usNewMode;
@@ -711,9 +705,10 @@ void SetInputMode( HWND hwnd, USHORT usNewMode )
     for ( i = 1; i <= usNumModes; i++ ) {
         usID = IDM_INPUT_BASE + i;
         if ( i == usNewMode )
-            WinCheckMenuItem( global.hwndMenu, usID, TRUE );
+            fCheck = TRUE;
         else
-            WinCheckMenuItem( global.hwndMenu, usID, FALSE );
+            fCheck = FALSE;
+        WinCheckMenuItem( global.hwndMenu, usID, fCheck );
     }
     UpdateStatus( hwnd );
 }
@@ -1090,10 +1085,12 @@ int main( int argc, char **argv )
 
     WinRegisterClass( hab, clientClass, ClientWndProc, CS_CLIPCHILDREN, 0 );
     global.hwndFrame = WinCreateStdWindow( HWND_DESKTOP, 0L, &frameFlags, clientClass,
-                                           "FreeWnnIME", 0L, 0, ID_ICON, &global.hwndClient );
+                                           "WnnIM", 0L, 0, ID_ICON, &global.hwndClient );
+
+    SetupDBCSLanguage( MODE_JP );                                   // for now
+
     SettingsInit( global.hwndClient );
     SetupWindow( global.hwndClient );
-    SetupDBCSLanguage( MODE_JP );                                   // for now
     SetInputMode( global.hwndClient, MODE_HIRAGANA );               // for now
     ToggleInputConversion( global.hwndClient );                     // for now - turn off by default
 

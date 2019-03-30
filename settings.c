@@ -31,6 +31,12 @@
 
 
 // --------------------------------------------------------------------------
+// CONSTANTS
+//
+#define SZ_DEFAULTFONT  "8.Helv"
+
+
+// --------------------------------------------------------------------------
 // MACROS
 //
 
@@ -38,6 +44,8 @@
             (SHORT) WinSendDlgItemMsg( hw, ctl, LM_INSERTITEM,  MPFROMSHORT( LIT_END ), MPFROMP( str ))
 #define LIST_SET_ITEMDATA( hw, ctl, idx, val ) \
             WinSendDlgItemMsg( hw, ctl, LM_SETITEMHANDLE, MPFROMSHORT( idx ), MPFROMLONG( val ))
+#define LIST_SELECT_ITEM( hw, ctl, idx ) \
+            WinSendDlgItemMsg( hw, ctl, LM_SELECTITEM, MPFROMSHORT( idx ), MPFROMSHORT( TRUE ))
 
 
 // ==========================================================================
@@ -57,7 +65,19 @@
  * ------------------------------------------------------------------------- */
 void SettingsInit( HWND hwnd )
 {
-    // Default hotkeys (should eventually be configurable)
+    LONG  lClr;
+
+    // Colours
+    lClr = SYSCLR_DIALOGBACKGROUND;
+    WinSetPresParam( hwnd, PP_BACKGROUNDCOLORINDEX, sizeof( lClr ), &lClr );
+    lClr = SYSCLR_WINDOWTEXT;
+    WinSetPresParam( hwnd, PP_FOREGROUNDCOLORINDEX, sizeof( lClr ), &lClr );
+
+    // Font
+    WinSetPresParam( hwnd, PP_FONTNAMESIZE,
+                     strlen(SZ_DEFAULTFONT)+1, (PVOID) SZ_DEFAULTFONT );
+
+    // Default hotkeys
     pShared->usKeyInput   = 0x20;
     pShared->fsVKInput    = KC_CTRL;
 
@@ -70,8 +90,8 @@ void SettingsInit( HWND hwnd )
     pShared->usKeyConvert = 0x20;
     pShared->fsVKConvert  = 0;
 
-    pShared->usKeyAccept  = 0;
-    pShared->fsVKAccept   = VK_NEWLINE;
+    pShared->usKeyAccept  = 0x0D;
+    pShared->fsVKAccept   = 0;
 }
 
 
@@ -79,29 +99,52 @@ void SettingsInit( HWND hwnd )
  * ------------------------------------------------------------------------- */
 void SettingsPopulateKeyList( HWND hwnd, USHORT usID )
 {
-    LIST_ADD_STRING( hwnd, usID, "Space");
-    LIST_ADD_STRING( hwnd, usID, "Enter");
-    LIST_ADD_STRING( hwnd, usID, "`");
-    LIST_ADD_STRING( hwnd, usID, ".");
-    LIST_ADD_STRING( hwnd, usID, ",");
-    LIST_ADD_STRING( hwnd, usID, "/");
-    LIST_ADD_STRING( hwnd, usID, "Left");
-    LIST_ADD_STRING( hwnd, usID, "Right");
-    LIST_ADD_STRING( hwnd, usID, "Up");
-    LIST_ADD_STRING( hwnd, usID, "Down");
-    LIST_ADD_STRING( hwnd, usID, "F1");
-    LIST_ADD_STRING( hwnd, usID, "F2");
-    LIST_ADD_STRING( hwnd, usID, "F3");
-    LIST_ADD_STRING( hwnd, usID, "F4");
-    LIST_ADD_STRING( hwnd, usID, "F5");
-    LIST_ADD_STRING( hwnd, usID, "F6");
-    LIST_ADD_STRING( hwnd, usID, "F7");
-    LIST_ADD_STRING( hwnd, usID, "F8");
-    LIST_ADD_STRING( hwnd, usID, "F9");
-    LIST_ADD_STRING( hwnd, usID, "F10");
-    LIST_ADD_STRING( hwnd, usID, "F11");
-    LIST_ADD_STRING( hwnd, usID, "F12");
-    LIST_ADD_STRING( hwnd, usID, "(none)");
+    SHORT sIdx;
+    sIdx = LIST_ADD_STRING( hwnd, usID, "Space");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, 0x20 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "Enter");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, 0x0D );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "`");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, (ULONG)'`');
+    sIdx = LIST_ADD_STRING( hwnd, usID, ".");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, (ULONG)'.');
+    sIdx = LIST_ADD_STRING( hwnd, usID, ",");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, (ULONG)',');
+    sIdx = LIST_ADD_STRING( hwnd, usID, "/");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, (ULONG)',');
+    sIdx = LIST_ADD_STRING( hwnd, usID, "Left");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_LEFT );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "Right");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_RIGHT );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "Up");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_UP );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "Down");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_DOWN );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F1");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F1 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F2");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F2 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F3");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F3 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F4");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F4 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F5");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F5 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F6");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F6 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F7");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F7 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F8");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F8 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F9");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F9 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F10");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F10 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F11");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F11 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "F12");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, VK_F12 );
+    sIdx = LIST_ADD_STRING( hwnd, usID, "");
 }
 
 
@@ -127,17 +170,26 @@ void SettingsDlgPopulate( HWND hwnd )
         sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Hangul");
         LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_HANGUL );
     }
-
-    WinSendDlgItemMsg( hwnd, IDD_STARTUP_MODE, LM_SELECTITEM,
-                       MPFROMSHORT( 1 ), MPFROMSHORT( TRUE ));      // temp
+    LIST_SELECT_ITEM( hwnd, IDD_STARTUP_MODE, 1 );
 
     SettingsPopulateKeyList( hwnd, IDD_INPUT_KEY );
+    WinCheckButton( hwnd, IDD_INPUT_CTRL, (pShared->fsVKInput & KC_CTRL)? TRUE: FALSE );
+    WinCheckButton( hwnd, IDD_INPUT_SHIFT, (pShared->fsVKInput & KC_SHIFT)? TRUE: FALSE );
     SettingsPopulateKeyList( hwnd, IDD_MODE_KEY );
+    WinCheckButton( hwnd, IDD_MODE_CTRL, (pShared->fsVKMode & KC_CTRL)? TRUE: FALSE );
+    WinCheckButton( hwnd, IDD_MODE_SHIFT, (pShared->fsVKMode & KC_SHIFT)? TRUE: FALSE );
     SettingsPopulateKeyList( hwnd, IDD_CLAUSE_KEY );
+    WinCheckButton( hwnd, IDD_CLAUSE_CTRL, (pShared->fsVKCJK & KC_CTRL)? TRUE: FALSE );
+    WinCheckButton( hwnd, IDD_CLAUSE_SHIFT, (pShared->fsVKCJK & KC_SHIFT)? TRUE: FALSE );
     SettingsPopulateKeyList( hwnd, IDD_CONVERT_KEY );
+    WinCheckButton( hwnd, IDD_CONVERT_CTRL, (pShared->fsVKConvert & KC_CTRL)? TRUE: FALSE );
+    WinCheckButton( hwnd, IDD_CONVERT_SHIFT, (pShared->fsVKConvert & KC_SHIFT)? TRUE: FALSE );
     SettingsPopulateKeyList( hwnd, IDD_ACCEPT_KEY );
+    WinCheckButton( hwnd, IDD_ACCEPT_CTRL, (pShared->fsVKAccept & KC_CTRL)? TRUE: FALSE );
+    WinCheckButton( hwnd, IDD_ACCEPT_SHIFT, (pShared->fsVKAccept & KC_SHIFT)? TRUE: FALSE );
     SettingsPopulateKeyList( hwnd, IDD_NEXT_KEY );
     SettingsPopulateKeyList( hwnd, IDD_PREV_KEY );
+
 }
 
 
