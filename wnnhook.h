@@ -72,6 +72,8 @@ typedef struct _Wnn_Global_Data {
     USHORT usKeyCJK,     fsVKCJK;       // CJK toggle hotkey (default Ctrl+`)
     USHORT usKeyConvert, fsVKConvert;   // CJK convert hotkey (default Space)
     USHORT usKeyAccept,  fsVKAccept;    // CJK accept hotkey (default Enter)
+    USHORT usKeyNext,    fsVKNext;      // Next subclause hotkey (default Ctrl+Right)
+    USHORT usKeyPrev,    fsVKPrev;      // Previous subclause hotkey (default Ctrl+Left)
     ATOM   wmAddChar;                   // custom message ID - send intercepted character
     ATOM   wmDelChar;                   // custom message ID - send backspace
 } WNNSHARED, *PWNNSHARED;

@@ -55,6 +55,10 @@ $(EXE).obj: $(EXE).c $(HEADERS_ALL)
 wnnclient.obj: wnnclient.c $(HEADERS_ALL)
         $(CC) /c /Mc $(CFLAGS_EXE) $<
 
+codepage.obj: codepage.c $(HEADERS_ALL)
+
+settings.obj: settings.c $(HEADERS_ALL)
+
 $(EXE).res: $(EXE).rc $(EXE).dlg ids.h ime.ico
         $(RC) -r $< $@
 
