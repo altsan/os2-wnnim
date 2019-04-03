@@ -18,6 +18,18 @@
  *                                                                          *
  ****************************************************************************/
 
+// Codepage numbers
+#define CP_UNICODE          1200        // UCS-2
+#define CP_EUC_JP           954         // EUC-JP
+#define CP_EUC_KR           970         // EUC-KR
+#define CP_EUC_CN           1383        // EUC-CN
+#define CP_EUC_TW           964         // EUC-TW
+#define CP_SJIS             932         // Japanese Shift-JIS
+#define CP_KSCODE           949         // Korean KS-Code
+#define CP_BIG5             950         // Taiwanese BIG-5
+#define CP_GBK              1386        // Chinese GBK
+
+
 BOOL   _Optlink IsDBCSLeadByte( CHAR ch, PBYTE pDBCS );
 USHORT _Optlink GetEucCodepage( USHORT usLang );
 ULONG  _Optlink CreateUconvObject( ULONG ulCP, UconvObject *uconv );
