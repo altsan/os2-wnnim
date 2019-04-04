@@ -18,6 +18,12 @@
  *                                                                          *
  ****************************************************************************/
 
+#define WNN_SERVER_ENV_JA   "JSERVER"
+#define WNN_SERVER_ENV_KR   "KSERVER"
+#define WNN_SERVER_ENV_CN   "CSERVER"
+#define WNN_SERVER_ENV_TW   "TSERVER"
+
+
 INT  _Optlink InitConversionMethod( USHORT usLang, PVOID *ppSession );
 INT  _Optlink InitInputMethod( PSZ pszPath, USHORT usLang );
 void _Optlink FinishInputMethod( void );

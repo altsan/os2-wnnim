@@ -9,7 +9,7 @@
 #define IDD_STARTUP_MODE            201
 #define IDD_MODE_KEY                210
 #define IDD_MODE_CTRL               211
-#define IDD_MODE_SHIFT                212
+#define IDD_MODE_SHIFT              212
 #define IDD_INPUT_KEY               213
 #define IDD_INPUT_CTRL              214
 #define IDD_INPUT_SHIFT             215

@@ -1,7 +1,9 @@
 /****************************************************************************
- * wnnim.c                                                                  *
- *                                                                          *
+ * wnnclient.c                                                              *
+ * Interface to the IME engine (FreeWnn).                                   *
  * NOTE: This module must be compiled with _cdecl linkage (with ICC: /Mc).  *
+ *                                                                          *
+ ****************************************************************************
  *                                                                          *
  *  This program is free software; you can redistribute it and/or modify    *
  *  it under the terms of the GNU General Public License as published by    *
@@ -159,6 +161,7 @@ INT _Optlink InitConversionMethod( USHORT usLang, PVOID *ppSession )
     PSZ     pszEnv,                 // Return pointer for getenv()
             pszServer,              // Host address of jserver
             pszUser;                // User/environment name to use on the server
+    CHAR    szLang[ 6 ];
     CHAR    fzk[ 1024 ] = {0};
     INT     result = 0;
 
@@ -166,13 +169,31 @@ INT _Optlink InitConversionMethod( USHORT usLang, PVOID *ppSession )
     if ( uconvEUC == NULL ) return 2;
 
     // Get the server and user names to use.
-    pszEnv = getenv("JSERVER");
+    switch ( usLang ) {
+        default:
+        case MODE_JA:
+            pszEnv = getenv( WNN_SERVER_ENV_JA );
+            strcpy( szLang, "ja_JP");
+            break;
+        case MODE_KR:
+            pszEnv = getenv( WNN_SERVER_ENV_KR );
+            strcpy( szLang, "ko_KR");
+            break;
+        case MODE_CN:
+            pszEnv = getenv( WNN_SERVER_ENV_CN );
+            strcpy( szLang, "zh_CN");
+            break;
+        case MODE_TW:
+            pszEnv = getenv( WNN_SERVER_ENV_TW );
+            strcpy( szLang, "zh_TW");
+            break;
+    }
     pszServer = strdup( pszEnv? pszEnv: "localhost");
     pszEnv = getenv("USER");
     pszUser = strdup( pszEnv? pszEnv: "root");
 
     // Connect to the server.
-    bdata = jl_open_lang( pszUser, pszServer, "ja_JP", NULL, *ErrorFunc, *ErrorFunc, 0 );
+    bdata = jl_open_lang( pszUser, pszServer, szLang, NULL, *ErrorFunc, *ErrorFunc, 0 );
     if (( bdata == NULL ) || ( jl_isconnect( bdata ) == 0 )) {
         if ( WnnErrorBuf[0] )
             strncpy( global.szEngineError, WnnErrorBuf, sizeof( global.szEngineError ) - 1 );
