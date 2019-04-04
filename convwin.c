@@ -42,15 +42,16 @@
 
 
 #define FTYPE_NOTFOUND 0    // font does not exist
-#define FTYPE_BITMAP   1    // font is a bitmap font (always non-Unicode)
-#define FTYPE_UNICODE  2    // font is a Unicode-capable outline font
-#define FTYPE_NOTUNI   3    // font is a non-Unicode outline font
+#define FTYPE_FOUND    1    // font name was found
+#define FTYPE_LANGUAGE 2    // font supports requested charset
+#define FTYPE_UNICODE  4    // font supports Unicode
+#define FTYPE_BITMAP   8    // font is a bitmap font
 
 
 
 MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl );
-BYTE             ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell );
+BYTE             ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT flLang );
 BOOL             SetFont( HWND hwnd, PCWDATA pCtl );
 LONG             GetCurrentDPI( HWND hwnd );
 
@@ -101,9 +102,11 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             else {
                 // Caller didn't give us anything, so set some sensible defaults
                 pCtl->ctldata.cb = sizeof( CWCTLDATA );
+                pCtl->ctldata.fsMode = 0;
             }
             pCtl->id = ((PCREATESTRUCT)mp2)->id;
             pCtl->lDPI = GetCurrentDPI( hwnd );
+            SetFont( hwnd, pCtl );
 
             // Save it to the window words
             WinSetWindowPtr( hwnd, 0, pCtl );
@@ -435,15 +438,13 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
  *   PSZ     pszFontFace: Face name of the font being requested.             *
  *   PFATTRS pfAttrs    : Address of a FATTRS object to receive the results. *
  *   LONG    lCell      : The requested character-cell size height           *
+ *   USHORT  fsLang     : Requested language (charset) support flags         *
+ *                        (if 0, Unicode is assumed to be requested)         *
  *                                                                           *
  * RETURNS: BYTE                                                             *
- *   One of the following:                                                   *
- *   FTYPE_NOTFOUND: requested font name could not be found (no such font)   *
- *   FTYPE_BITMAP  : font is a non-Unicode bitmap font                       *
- *   FTYPE_NOTUNI  : font is a non-Unicode outline font                      *
- *   FTYPE_UNICODE : font is a Unicode-capable outline font                  *
+ *   One or more FTYPE_* flags                                               *
  * ------------------------------------------------------------------------- */
-BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell )
+BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT fsLang )
 {
     PFONTMETRICS pfm;               // array of FONTMETRICS objects
     LONG         i,                 // loop index
@@ -452,8 +453,10 @@ BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell )
                  cFonts    = 0,     // number of fonts found
                  cCount    = 0;     // number of fonts to return
     BOOL         bOutline  = FALSE, // does font include an outline version?
-                 bUnicode  = FALSE, // is font a Unicode font?
+                 bLanguage = FALSE, // does font support requested language(s)?
+                 bUnicode  = FALSE, // does font support Unicode?
                  bFound    = FALSE; // did we find a suitable bitmap font?
+    BYTE         bResult   = 0;
 
 
     // Find the specific fonts which match the given face name
@@ -465,8 +468,11 @@ BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell )
     GpiQueryFonts( hps, QF_PUBLIC, pszFontFace,
                    &cFonts, sizeof(FONTMETRICS), pfm );
 
-    // Look for the largest bitmap font that fits within the requested height
-    for ( i = 0; i < cFonts; i++ ) {
+    // Look for either an outline font, or the largest bitmap font that fits within the requested height
+    for ( i = 0; !bOutline && ( i < cFonts ); i++ ) {
+        bOutline  = FALSE;
+        bLanguage = FALSE;
+        bUnicode  = FALSE;
         if ( !( pfm[i].fsDefn & FM_DEFN_OUTLINE )) {
             if (( lSmIdx < 0 ) || ( pfm[i].lMaxBaselineExt < pfm[lSmIdx].lMaxBaselineExt ))
                 lSmIdx = i;
@@ -478,11 +484,18 @@ BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell )
                 pfAttrs->idRegistry      = pfm[i].idRegistry;
                 pfAttrs->lMaxBaselineExt = pfm[i].lMaxBaselineExt;
                 pfAttrs->lAveCharWidth   = pfm[i].lAveCharWidth;
+                if ( pfm[i].fsSelection & fsLang ) bLanguage = TRUE;
+                if ( pfm[i].fsType & FM_TYPE_UNICODE ) bUnicode = TRUE;
             }
         } else {
             bOutline = TRUE;
-            if ( pfm[i].fsType & FM_TYPE_UNICODE )
-                bUnicode = TRUE;
+            strcpy( pfAttrs->szFacename, pfm[i].szFacename );
+            pfAttrs->lMatch          = pfm[i].lMatch;
+            pfAttrs->idRegistry      = pfm[i].idRegistry;
+            pfAttrs->lMaxBaselineExt = pfm[i].lMaxBaselineExt;
+            pfAttrs->lAveCharWidth   = pfm[i].lAveCharWidth;
+            if ( pfm[i].fsSelection & fsLang ) bLanguage = TRUE;
+            if ( pfm[i].fsType & FM_TYPE_UNICODE ) bUnicode = TRUE;
         }
     }
 
@@ -495,14 +508,14 @@ BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell )
         pfAttrs->lMaxBaselineExt = pfm[lSmIdx].lMaxBaselineExt;
         pfAttrs->lAveCharWidth   = pfm[lSmIdx].lAveCharWidth;
     }
-
     free( pfm );
-    if ( bUnicode )
-        return FTYPE_UNICODE;
-    else if ( bOutline )
-        return FTYPE_NOTUNI;
-    else
-        return FTYPE_BITMAP;
+
+    bResult = FTYPE_FOUND;
+    if ( !bOutline )            bResult |= FTYPE_BITMAP;
+    if ( bLanguage || !fsLang ) bResult |= FTYPE_LANGUAGE;
+    if ( bUnicode )             bResult |= FTYPE_UNICODE;
+
+    return bResult;
 }
 
 
@@ -518,8 +531,8 @@ BOOL SetFont( HWND hwnd, PCWDATA pCtl )
 {
     FONTMETRICS fm;                     // current font metrics
     BYTE        fbType;                 // font type
-    BOOL        bUnicode;               // OK to use Unicode encoding?
     RECTL       rcl;                    // client window dimensions
+    USHORT      fsSel;                  // desired language selection flag
     LONG        lCell,                  // desired character-cell height
                 lHeight, lWidth;        // dimensions of client window
     CHAR        szFont[ FACESIZE+4 ];   // current font pres.param
@@ -529,6 +542,16 @@ BOOL SetFont( HWND hwnd, PCWDATA pCtl )
 
 
     if ( !pCtl ) return FALSE;
+
+    if ( IS_LANGUAGE( MODE_JP, pCtl->ctldata.fsMode ))
+        fsSel = FM_SEL_JAPAN;
+    else if ( IS_LANGUAGE( MODE_CN, pCtl->ctldata.fsMode ))
+        fsSel = FM_SEL_CHINA;
+    else if ( IS_LANGUAGE( MODE_TW, pCtl->ctldata.fsMode ))
+        fsSel = FM_SEL_TAIWAN;
+    else if ( IS_LANGUAGE( MODE_KR, pCtl->ctldata.fsMode ))
+        fsSel = FM_SEL_KOREA;
+    else fsSel = 0;
 
     // Determine our basic dimensions
     WinQueryWindowRect( hwnd, &rcl );
@@ -542,27 +565,31 @@ BOOL SetFont( HWND hwnd, PCWDATA pCtl )
     pCtl->fattrs.fsType         = FATTR_TYPE_MBCS;
     pCtl->fattrs.fsFontUse      = FATTR_FONTUSE_NOMIX;
 
-    bUnicode = FALSE;
+    hps = WinGetPS( hwnd );
+    fbType = 0;
     rc = WinQueryPresParam( hwnd, PP_FONTNAMESIZE, 0, NULL,
                             sizeof( szFont ), szFont, QPF_NOINHERIT );
     if ( rc ) {
         pszFontName = strchr( szFont, '.') + 1;
-        strncpy( pCtl->fattrs.szFacename, pszFontName, FACESIZE-1 );
-        hps = WinGetPS( hwnd );
-        fbType = ResolveFont( hps, pszFontName, &(pCtl->fattrs), lCell );
-        WinReleasePS( hps );
+        fbType = ResolveFont( hps, pszFontName, &(pCtl->fattrs), lCell, fsSel );
         if ( fbType == FTYPE_NOTFOUND )
             rc = 0;
-        else if ( fbType == FTYPE_UNICODE )
-            bUnicode = TRUE;
-        else
-            bUnicode = FALSE;
     }
-    if ( !rc ) {
-        strcpy( pCtl->fattrs.szFacename, "Times New Roman MT 30");
-        bUnicode = TRUE;
+
+    // Make sure we not only have a font, but it supports both Unicode (for the
+    // output codepage) and the requested language (for the actual characters).
+    if ( !rc || !( fbType & FTYPE_UNICODE ) || !( fbType & FTYPE_LANGUAGE )) {
+        strcpy( szFont, "Times New Roman MT 30");
+        pszFontName = strchr( szFont, '.') + 1;
+        fbType = ResolveFont( hps, pszFontName, &(pCtl->fattrs), lCell, fsSel );
     }
-    pCtl->fattrs.usCodePage = bUnicode ? CP_UNICODE : 0;
+    WinReleasePS( hps );
+
+    if ( fbType & FTYPE_UNICODE )
+        pCtl->fattrs.usCodePage = CP_UNICODE;
+    else
+        pCtl->fattrs.usCodePage = 0;
+
     return TRUE;
 }
 
