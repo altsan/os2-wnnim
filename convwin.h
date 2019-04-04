@@ -1,14 +1,59 @@
+/****************************************************************************
+ * convwin.h                                                                *
+ *                                                                          *
+ * Clause conversion overlay window.  This is the input window for kana/    *
+ * phonetic characters which are waiting to be converted to CJK ideographs. *
+ * It appears as an overlay over the current input window (ideally at the   *
+ * current cursor position, although this depends on the application        *
+ * properly handling the WM_QUERYCONVERTPOS message).                       *
+ *                                                                          *
+ * The current, complete text sequence is referred to as the 'clause'.  The *
+ * clause may optionally be subdivided into phrases (that is, word-phrases  *
+ * in the linguistic sense, generally one or two words with particles).     *
+ * By default, the whole text is considered the active conversion target;   *
+ * however, a specific phrase can be made active ('selected'), meaning that *
+ * it becomes the sole target for the next conversion operation.  The user  *
+ * can add or delete characters (but only at the end of the clause), change *
+ * the selected phrase, trigger conversion of the active phrase or clause,  *
+ * or accept the current text causing it to be inserted into the current    *
+ * application window.  (These last two operations must be handled by our   *
+ * parent (the IME); this control window only concerns itself with managing *
+ * the text contents and phrase boundaries.)                                *
+ *                                                                          *
+ * This window stores (and displays) all its text as UCS-2 Unicode (i.e.    *
+ * UniChar strings).  This requires it to use a Unicode-capable font.       *
+ *                                                                          *
+ ****************************************************************************
+ *                                                                          *
+ *  This program is free software; you can redistribute it and/or modify    *
+ *  it under the terms of the GNU General Public License as published by    *
+ *  the Free Software Foundation; either version 2 of the License, or       *
+ *  (at your option) any later version.                                     *
+ *                                                                          *
+ *  This program is distributed in the hope that it will be useful,         *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ *  GNU General Public License for more details.                            *
+ *                                                                          *
+ *  You should have received a copy of the GNU General Public License       *
+ *  along with this program; if not, write to the Free Software             *
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA                *
+ *  02111-1307  USA                                                         *
+ *                                                                          *
+ ****************************************************************************/
+
 // Window class name
 #define WC_WNNIMCONVWIN    "WnnImConvWin"
 
 // Custom window messages
 
-#define CWM_QUERYTEXTLENGTH     (WM_USER + 100)   // query phrase or clause text length
-#define CWM_GETTEXT             (WM_USER + 101)   // get phrase or clause text
-#define CWM_SETTEXT             (WM_USER + 102)   // set phrase or clause text
-#define CWM_ADDCHAR             (WM_USER + 103)   // append character to the clause
-#define CWM_DELCHAR             (WM_USER + 104)   // delete last character from the clause
-#define CWM_SELECTPRASE         (WM_USER + 105)   // next, prev, or none
+#define CWM_QUERYTEXTLENGTH     (WM_USER + 100)
+#define CWM_GETTEXT             (WM_USER + 101)
+#define CWM_SETTEXT             (WM_USER + 102)
+#define CWM_ADDCHAR             (WM_USER + 103)
+#define CWM_DELCHAR             (WM_USER + 104)
+#define CWM_SETPHRASES          (WM_USER + 105)
+#define CWM_SELECTPRASE         (WM_USER + 106)
 
 #define CWT_ALL                 0xFFFF
 #define CWT_NONE                0xFFFE
@@ -35,10 +80,9 @@ typedef struct _COW_Private_Data {
     ULONG       flFlags;                // internal flags (TBD)
     UniChar   * puszText;               // current control text (in UCS-2)
     USHORT      usTextLen;              // length of text (in UniChars)
-    IPT         ipt;                    // current input position
-    ULONG       ulNumPhrases;           // total number of sub-phrases
-    ULONG       ulCurrentPhrase;        // number of the current sub-phrase
-    PUSHORT     pusPhraseOffset;        // array of phrase offsets
+    USHORT      usPhraseCount;          // total number of sub-phrases
+    USHORT      usCurrentPhrase;        // number of the current sub-phrase
+    PUSHORT     pusPhraseEnd;           // array of phrase-end positions
     LONG        lDPI;                   // current font DPI
     FATTRS      fattrs;                 // attributes of the display font
 } CWDATA, *PCWDATA;

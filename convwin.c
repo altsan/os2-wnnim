@@ -1,6 +1,6 @@
 /****************************************************************************
  * convwin.c                                                                *
- * Conversion overlay and candidate selection windows.                      *
+ * Conversion overlay window.                                               *
  *                                                                          *
  ****************************************************************************
  *                                                                          *
@@ -84,6 +84,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
     PCWDATA     pCtl;           // pointer to private control data
     HPS         hps;
     USHORT      usPhrase,
+                usStart,
                 usLen;
 
     switch( msg ) {
@@ -199,18 +200,16 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case CWM_QUERYTEXTLENGTH:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) 0;
+
             usLen = 0;
             usPhrase = SHORT1FROMMP( mp1 );
             if ( usPhrase == CWT_ALL )
                 usLen = pCtl->usTextLen;
-            else if ( usPhrase >= pCtl->ulNumPhrases )
+            else if ( usPhrase >= pCtl->usPhraseCount )
                 usLen = 0;
-            else if ( pCtl->pusPhraseOffset != NULL ) {
-                // TODO get length of current phrase:
-                //   endPos = ( usPhrase + 1 ) < pCtl->ulNumPhrases ?
-                //              pusPhraseOffset[ usPhrase+1 ]
-                //              pCtl->usTextLen;
-                //   usLen = endPos - pusPhraseOffset[ usPhrase ];
+            else if ( pCtl->pusPhraseEnd != NULL ) {
+                usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase - 1 ]: 0;
+                usLen = pCtl->pusPhraseEnd[ usPhrase ] - usStart;
             }
             return (MRESULT) usLen;
 
@@ -229,10 +228,20 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) FALSE;
             if ( !pCtl->puszText ) return (MRESULT) FALSE;
-            // TODO support individual phrase
-            usLen = SHORT2FROMMP( mp1 );
-            if ( usLen < pCtl->usTextLen + 1 ) return FALSE;
-            UniStrncpy( (UniChar *)mp2, pCtl->puszText, usLen );
+
+            usPhrase = SHORT1FROMMP( mp1 );
+            if ( usPhrase == CWT_ALL ) {
+                usStart = 0;
+                usLen = min( SHORT2FROMMP( mp1 ), pCtl->usTextLen );
+            }
+            else if ( usPhrase >= pCtl->usPhraseCount )
+                return (MRESULT) FALSE;     // invalid phrase number
+            else if ( pCtl->pusPhraseEnd != NULL ) {
+                usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase - 1 ]: 0;
+                usLen = min( SHORT2FROMMP( mp1 ),
+                             pCtl->pusPhraseEnd[ usPhrase ] - usStart );
+            }
+            UniStrncpy( (UniChar *)mp2, pCtl->puszText + usStart, usLen );
             return (MRESULT) TRUE;
 
 
@@ -280,6 +289,25 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          *  Returns                                                           *
          * .................................................................. */
         case CWM_DELCHAR:
+            pCtl = WinQueryWindowPtr( hwnd, 0 );
+            if ( !pCtl ) return (MRESULT) 0;
+
+            return (MRESULT) 0;
+
+
+        /* .................................................................. *
+         * CWN_SETPHRASES                                                     *
+         * Set the component phrase boundaries within the current text.  Any  *
+         * previously-defined phrase boundaries are cleared.                  *
+         *  - mp1:                                                            *
+         *     USHORT:  Number of phrase boundaries.                          *
+         *  - mp2:                                                            *
+         *     PUSHORT: Array of USHORT character indices indicating the      *
+         *              final character of each phrase.  These are offsets    *
+         *              in puszText.                                          *
+         *  Returns                                                           *
+         * .................................................................. */
+        case CWM_SETPHRASES:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) 0;
 
@@ -507,6 +535,8 @@ BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT 
         pfAttrs->idRegistry      = pfm[lSmIdx].idRegistry;
         pfAttrs->lMaxBaselineExt = pfm[lSmIdx].lMaxBaselineExt;
         pfAttrs->lAveCharWidth   = pfm[lSmIdx].lAveCharWidth;
+        if ( pfm[lSmIdx].fsSelection & fsLang ) bLanguage = TRUE;
+        if ( pfm[lSmIdx].fsType & FM_TYPE_UNICODE ) bUnicode = TRUE;
     }
     free( pfm );
 
@@ -575,11 +605,11 @@ BOOL SetFont( HWND hwnd, PCWDATA pCtl )
         if ( fbType == FTYPE_NOTFOUND )
             rc = 0;
     }
-
-    // Make sure we not only have a font, but it supports both Unicode (for the
+    // Make sure we not only have a font, but that it supports Unicode (for the
     // output codepage) and the requested language (for the actual characters).
     if ( !rc || !( fbType & FTYPE_UNICODE ) || !( fbType & FTYPE_LANGUAGE )) {
-        strcpy( szFont, "Times New Roman MT 30");
+        // Hmm, that font isn't appropriate.  Try and fall back to a good default.
+        strcpy( szFont, "10.Times New Roman MT 30");
         pszFontName = strchr( szFont, '.') + 1;
         fbType = ResolveFont( hps, pszFontName, &(pCtl->fattrs), lCell, fsSel );
     }
