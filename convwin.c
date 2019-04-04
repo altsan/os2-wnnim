@@ -85,7 +85,12 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
     HPS         hps;
     USHORT      usPhrase,
                 usStart,
-                usLen;
+                usLen,
+                usBuf,
+                i;
+    PUSHORT     pusArray;
+    UniChar    *puszTemp;
+
 
     switch( msg ) {
 
@@ -107,6 +112,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             }
             pCtl->id = ((PCREATESTRUCT)mp2)->id;
             pCtl->lDPI = GetCurrentDPI( hwnd );
+            pCtl->usCurrentPhrase = CWT_NONE;
             SetFont( hwnd, pCtl );
 
             // Save it to the window words
@@ -118,6 +124,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             // Deallocate our private data
             if (( pCtl = WinQueryWindowPtr( hwnd, 0 )) != NULL ) {
                 if ( pCtl->puszText ) free( pCtl->puszText );
+                if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
                 free( pCtl );
             }
             break;
@@ -179,6 +186,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             return (MRESULT) 0;
 
 
+
         // --------------------------------------------------------------------
         // Custom messages defined for this control
         //
@@ -208,7 +216,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             else if ( usPhrase >= pCtl->usPhraseCount )
                 usLen = 0;
             else if ( pCtl->pusPhraseEnd != NULL ) {
-                usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase - 1 ]: 0;
+                usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase-1 ]: 0;
                 usLen = pCtl->pusPhraseEnd[ usPhrase ] - usStart;
             }
             return (MRESULT) usLen;
@@ -237,20 +245,25 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             else if ( usPhrase >= pCtl->usPhraseCount )
                 return (MRESULT) FALSE;     // invalid phrase number
             else if ( pCtl->pusPhraseEnd != NULL ) {
-                usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase - 1 ]: 0;
+                usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase-1 ]: 0;
                 usLen = min( SHORT2FROMMP( mp1 ),
                              pCtl->pusPhraseEnd[ usPhrase ] - usStart );
             }
+            else
+                return (MRESULT) FALSE;
             UniStrncpy( (UniChar *)mp2, pCtl->puszText + usStart, usLen );
             return (MRESULT) TRUE;
 
 
         /* .................................................................. *
          * CWM_SETTEXT                                                        *
-         * Set phrase or clause text.                                         *
+         * Set phrase or clause text.  If setting a specific phrase, the      *
+         * phrase boundaries will be updated automatically as needed.  If     *
+         * setting the entire clause text, all phrase boundaries will be      *
+         * cleared.                                                           *
          *  - mp1:                                                            *
          *     USHORT: Phrase number (from 0), or CWT_ALL for entire clause.  *
-         *     USHORT: Length of string in UniChars.                          *
+         *     USHORT: Length of string in UniChars (not including terminator)*
          *  - mp2:                                                            *
          *     UniChar *: Pointer to UCS-2 string, or NULL to clear text.     *
          *  Returns BOOL                                                      *
@@ -258,60 +271,137 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case CWM_SETTEXT:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) FALSE;
-            // TODO support individual phrase
+
             usLen = SHORT2FROMMP( mp1 );
-            if ( pCtl->puszText ) free( pCtl->puszText );
-            pCtl->puszText = (UniChar *) malloc( usLen + 1 );
-            if ( !pCtl->puszText ) return FALSE;
-            UniStrncpy( pCtl->puszText, (UniChar *)mp2, usLen );
+            usPhrase = SHORT1FROMMP( mp1 );
+            if ( usPhrase == CWT_ALL ) {
+                // Replace entire text
+                if ( !pCtl->puszText || (( usLen + 1 ) > pCtl->usBufLen )) {
+                    usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usLen + 1 );
+                    puszTemp = (UniChar *) malloc( usBuf );
+                    if ( !puszTemp ) return FALSE;
+                    if ( pCtl->puszText ) free( pCtl->puszText );
+                    pCtl->puszText = puszTemp;
+                    pCtl->usBufLen = usBuf;
+                }
+                UniStrncpy( pCtl->puszText, (UniChar *)mp2, usLen );
+                pCtl->usTextLen = usLen;
+                if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
+                pCtl->usPhraseCount = 0;
+            }
+            else if ( usPhrase >= pCtl->usPhraseCount )
+                return (MRESULT) FALSE;     // invalid phrase number
+            else if ( pCtl->puszText && pCtl->pusPhraseEnd ) {
+                // Replace only the indicated phrase
+                usBuf = pCtl->usTextLen + usLen + 1;
+                if ( usBuf > pCtl->usBufLen )
+                    usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usBuf );
+                puszTemp = (UniChar *) malloc( usBuf );
+                if ( !puszTemp ) return (MRESULT) FALSE;
+
+                // Add all phrases before the modified one to new buffer
+                puszTemp[ 0 ] = 0;
+                usStart = 0;
+                for ( i = 0; i < usPhrase; i++ ) {
+                    usLen = pCtl->pusPhraseEnd[ i ] - usStart + 1;
+                    UniStrncat( puszTemp,
+                                pCtl->puszText + usStart,
+                                usLen );
+                    usStart = pCtl->pusPhraseEnd[ i ] + 1;
+                }
+                // Move the start position past the phrase to be replaced
+                usStart = pCtl->pusPhraseEnd[ usPhrase ] + 1;
+
+                // Append the modified phrase and set its end position
+                usLen = SHORT2FROMMP( mp1 );
+                UniStrncat( puszTemp, (UniChar *) mp2, usLen );
+                pCtl->pusPhraseEnd[ usPhrase ] = ( usPhrase > 0 )?
+                                                    pCtl->pusPhraseEnd[ usPhrase-1 ] + usLen - 1:
+                                                    usLen - 1;
+                // Append all subsequent phrases and update their end positions
+                for ( i = usPhrase + 1; i < pCtl->usPhraseCount; i++ ) {
+                    usLen = pCtl->pusPhraseEnd[ i ] - usStart + 1;
+                    UniStrncat( puszTemp,
+                                pCtl->puszText + usStart,
+                                usLen );
+                    pCtl->pusPhraseEnd[ i ] = usStart + usLen - 1;
+                    usStart += usLen;
+                }
+                free( pCtl->puszText );
+                pCtl->puszText = puszTemp;
+                pCtl->usTextLen = UniStrlen( puszTemp );
+                pCtl->usBufLen = usBuf;
+            }
+            else
+                return (MRESULT) FALSE;
             return (MRESULT) TRUE;
 
 
         /* .................................................................. *
          * CWM_ADDCHAR                                                        *
-         * Append character to clause.                                        *
+         * Append character to clause.  If phrases are defined, the last      *
+         * phrase will be automatically expanded to include the new character.*
          *  - mp1:                                                            *
          *  - mp2:                                                            *
-         *  Returns                                                           *
+         *  Returns BOOL                                                      *
          * .................................................................. */
         case CWM_ADDCHAR:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if ( !pCtl ) return (MRESULT) 0;
+            if ( !pCtl ) return (MRESULT) FALSE;
 
-            return (MRESULT) 0;
+            return (MRESULT) TRUE;
 
 
         /* .................................................................. *
          * CWM_DELCHAR                                                        *
-         * Delete last character from clause.                                 *
+         * Delete last character from clause (and from the last phrase, if    *
+         * defined).                                                          *
          *  - mp1:                                                            *
          *  - mp2:                                                            *
-         *  Returns                                                           *
+         *  Returns BOOL                                                      *
          * .................................................................. */
         case CWM_DELCHAR:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if ( !pCtl ) return (MRESULT) 0;
+            if ( !pCtl ) return (MRESULT) FALSE;
 
-            return (MRESULT) 0;
+            return (MRESULT) TRUE;
 
 
         /* .................................................................. *
-         * CWN_SETPHRASES                                                     *
+         * CWM_SETPHRASES                                                     *
          * Set the component phrase boundaries within the current text.  Any  *
          * previously-defined phrase boundaries are cleared.                  *
+         * NOTE: The last phrase boundary must always be the last character   *
+         * of the current string.  The processing of this message will ensure *
+         * this if necessary.                                                 *
          *  - mp1:                                                            *
          *     USHORT:  Number of phrase boundaries.                          *
          *  - mp2:                                                            *
          *     PUSHORT: Array of USHORT character indices indicating the      *
          *              final character of each phrase.  These are offsets    *
          *              in puszText.                                          *
-         *  Returns                                                           *
+         *  Returns BOOL                                                      *
          * .................................................................. */
         case CWM_SETPHRASES:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if ( !pCtl ) return (MRESULT) 0;
+            if ( !pCtl ) return (MRESULT) FALSE;
 
-            return (MRESULT) 0;
+            // Create the new boundary array
+            usPhrase = (USHORT) mp1;
+            pusArray = (PUSHORT) calloc( usPhrase, sizeof( USHORT ));
+            if ( !pusArray ) return (MRESULT) FALSE;
+            if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
+            pCtl->pusPhraseEnd = pusArray;
+            pCtl->usPhraseCount = usPhrase;
+
+            // Copy the new values
+            pusArray = (PUSHORT)mp2;
+            for ( i = 0; i < usPhrase; i++ ) {
+                pCtl->pusPhraseEnd[ i ] = ( i + 1 == usPhrase )?
+                                            pCtl->usTextLen - 1:
+                                            pusArray[ i ];
+            }
+            return (MRESULT) TRUE;
 
 
         /* .................................................................. *
@@ -321,19 +411,50 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          * individual components within the clause to be changed by the user. *
          *  - mp1:                                                            *
          *     USHORT: One of:                                                *
-         *               CWT_NEXT   Select the next phrase                    *
-         *               CWT_PREV   Select the previous phrase                *
+         *               CWT_NEXT   Select the next phrase (or the first      *
+         *                          phrase if none is currently selected)     *
+         *               CWT_PREV   Select the previous phrase (or the last   *
+         *                          phrase if none is currently selected)     *
          *               CWT_FIRST  Select the first phrase in the clause     *
          *               CWT_LAST   Select the last phrase in the clause      *
          *               CWT_NONE   Deselect all phrases                      *
          *  - mp2:                                                            *
-         *  Returns                                                           *
+         *  Returns BOOL                                                      *
          * .................................................................. */
         case CWM_SELECTPRASE:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if ( !pCtl ) return (MRESULT) 0;
+            if ( !pCtl ) return (MRESULT) FALSE;
+            usPhrase = (USHORT) mp1;
+            switch ( usPhrase ) {
+                default:
+                case CWT_NONE:
+                    pCtl->usCurrentPhrase = CWT_NONE;
+                    break;
+                case CWT_FIRST:
+                    pCtl->usCurrentPhrase = 0;
+                    break;
+                case CWT_LAST:
+                    pCtl->usCurrentPhrase = pCtl->usPhraseCount - 1;
+                    break;
+                case CWT_NEXT:
+                    if ( pCtl->usCurrentPhrase == CWT_NONE )
+                        pCtl->usCurrentPhrase = 0;
+                    else if ( 1 + pCtl->usCurrentPhrase >= pCtl->usPhraseCount )
+                        return (MRESULT) FALSE;     // no next phrase!
+                    else
+                        pCtl->usCurrentPhrase++;
+                    break;
+                case CWT_PREV:
+                    if ( pCtl->usCurrentPhrase == CWT_NONE )
+                        pCtl->usCurrentPhrase = pCtl->usPhraseCount - 1;
+                    else if ( pCtl->usCurrentPhrase < 1 )
+                        return (MRESULT) FALSE;     // no previous phrase!
+                    else
+                        pCtl->usCurrentPhrase--;
+                    break;
+            }
 
-            return (MRESULT) 0;
+            return (MRESULT) TRUE;
 
 
         /* .................................................................. *
@@ -344,9 +465,9 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          * .................................................................. *
         case :
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if ( !pCtl ) return (MRESULT) 0;
+            if ( !pCtl ) return (MRESULT) FALSE;
 
-            return (MRESULT) 0;
+            return (MRESULT) TRUE;
         */
 
     }

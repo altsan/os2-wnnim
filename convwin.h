@@ -65,6 +65,8 @@
 #define MAX_PHRASES             127     // Seems reasonable...
 #define MAX_CLAUSE_LENGTH       1024    // Ditto
 
+#define BUFFER_INCREMENT        32      // Default text buffer increment (in UniChars)
+
 
 // Public control data for the conversion overlay window, used by WM_CREATE
 typedef struct _COW_Ctl_Data {
@@ -80,6 +82,7 @@ typedef struct _COW_Private_Data {
     ULONG       flFlags;                // internal flags (TBD)
     UniChar   * puszText;               // current control text (in UCS-2)
     USHORT      usTextLen;              // length of text (in UniChars)
+    USHORT      usBufLen;               // length of preallocated text buffer (in UniChars)
     USHORT      usPhraseCount;          // total number of sub-phrases
     USHORT      usCurrentPhrase;        // number of the current sub-phrase
     PUSHORT     pusPhraseEnd;           // array of phrase-end positions
