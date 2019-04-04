@@ -53,7 +53,7 @@
 #define CWM_ADDCHAR             (WM_USER + 103)
 #define CWM_DELCHAR             (WM_USER + 104)
 #define CWM_SETPHRASES          (WM_USER + 105)
-#define CWM_SELECTPRASE         (WM_USER + 106)
+#define CWM_SELECTPHRASE        (WM_USER + 106)
 
 #define CWT_ALL                 0xFFFF
 #define CWT_NONE                0xFFFE

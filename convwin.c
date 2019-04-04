@@ -217,7 +217,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 usLen = 0;
             else if ( pCtl->pusPhraseEnd != NULL ) {
                 usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase-1 ]: 0;
-                usLen = pCtl->pusPhraseEnd[ usPhrase ] - usStart;
+                usLen = pCtl->pusPhraseEnd[ usPhrase ] - usStart + 1;
             }
             return (MRESULT) usLen;
 
@@ -405,7 +405,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
 
         /* .................................................................. *
-         * CWM_SELECTPRASE                                                    *
+         * CWM_SELECTPHRASE                                                   *
          * Set the specified phrase active.  The active or selected phrase is *
          * used as the target for word-phrase conversion.  This allows        *
          * individual components within the clause to be changed by the user. *
@@ -419,9 +419,10 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          *               CWT_LAST   Select the last phrase in the clause      *
          *               CWT_NONE   Deselect all phrases                      *
          *  - mp2:                                                            *
+         *     Unused, should be 0.                                           *
          *  Returns BOOL                                                      *
          * .................................................................. */
-        case CWM_SELECTPRASE:
+        case CWM_SELECTPHRASE:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) FALSE;
             usPhrase = (USHORT) mp1;
@@ -490,19 +491,22 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
                 lCell;                  // desired character-cell height
     PCH         pchText;                // pointer to current output text
     POINTL      ptl;                    // current drawing position
-    RECTL       rcl;
+    POINTL      aptl[ TXTBOX_COUNT ];
+    RECTL       rcl,
+                rclPhrase;
     LONG        lClrBG,
                 lClrFG;
     ULONG       ulID;
     double      dSizeAdjust;
+    USHORT      usStart,
+                i;
     APIRET      rc;
 
 
     if ( !pCtl ) return;
 
-    GpiCreateLogColorTable( hps, LCOL_RESET, LCOLF_RGB, 0, 0, NULL );
-
     // Get the current colours
+    GpiCreateLogColorTable( hps, LCOL_RESET, LCOLF_RGB, 0, 0, NULL );
     rc = WinQueryPresParam( hwnd, PP_FOREGROUNDCOLOR, PP_FOREGROUNDCOLORINDEX,
                             &ulID, sizeof( LONG ), &lClrFG, QPF_ID2COLORINDEX );
     if ( !rc ) lClrFG = SYSCLR_WINDOWTEXT;
@@ -546,18 +550,43 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
 
     // Draw the text
     if ( pCtl->puszText ) {
-        pchText = (PCH) pCtl->puszText;
-        cb = UniStrlen( pCtl->puszText ) * 2;
         ptl.x = 1;
         ptl.y = fm.lMaxDescender;
+        GpiMove( hps, &ptl );
 
-        // TODO If pCtl->ulCurrentPhrase && pCtl->pusPhraseOffset,
-        //        split string at pusPhraseOffset[]s.
-        //      Invert fg/bg colour for current phrase text.
-
-        GpiSetColor( hps, lClrFG );
-        GpiCharStringPosAt( hps, &ptl, &rcl, CHS_CLIP, cb, pchText, NULL );
-        //GpiCharStringAt( hps, &ptl, cb, pchText );
+        if (( pCtl->usCurrentPhrase != CWT_NONE ) &&
+             pCtl->usPhraseCount && pCtl->pusPhraseEnd )
+        {
+            // Draw each phrase, inverting fg/bg for the current phrase
+            for ( i = 0, usStart = 0; i < pCtl->usPhraseCount; i++ ) {
+                pchText = (PCH) pCtl->puszText + ( usStart * 2 );
+                cb = ( 1 + pCtl->pusPhraseEnd[ i ] - usStart ) * 2;
+                if ( i == pCtl->usCurrentPhrase ) {
+                    GpiSetColor( hps, lClrBG );
+                    GpiSetBackColor( hps, lClrFG );
+                }
+                else {
+                    GpiSetColor( hps, lClrFG );
+                    GpiSetBackColor( hps, lClrBG );
+                }
+                GpiQueryTextBox( hps, cb, pchText, TXTBOX_COUNT, aptl );
+                GpiQueryCurrentPosition( hps, &ptl );
+                rclPhrase.xLeft = aptl[ TXTBOX_BOTTOMLEFT ].x + ptl.x;
+                rclPhrase.xRight = aptl[ TXTBOX_TOPRIGHT ].x + ptl.x;
+                rclPhrase.yBottom = aptl[ TXTBOX_BOTTOMLEFT ].y + ptl.y;
+                rclPhrase.yTop = aptl[ TXTBOX_TOPRIGHT ].y + ptl.y;
+                GpiCharStringPos( hps, &rclPhrase, CHS_CLIP | CHS_OPAQUE, cb, pchText, NULL );
+                usStart = pCtl->pusPhraseEnd[ i ] + 1;
+            }
+        }
+        else {
+            // Draw the whole string at once
+            pchText = (PCH) pCtl->puszText;
+            cb = UniStrlen( pCtl->puszText ) * 2;
+            GpiSetColor( hps, lClrFG );
+            GpiSetBackColor( hps, lClrBG );
+            GpiCharString( hps, cb, pchText );
+        }
     }
 
 }
