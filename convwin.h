@@ -87,6 +87,7 @@ typedef struct _COW_Private_Data {
     USHORT      usCurrentPhrase;        // number of the current sub-phrase
     PUSHORT     pusPhraseEnd;           // array of phrase-end positions
     LONG        lDPI;                   // current font DPI
+    LONG        lCursorHeight;          // current cursor height
     FATTRS      fattrs;                 // attributes of the display font
 } CWDATA, *PCWDATA;
 

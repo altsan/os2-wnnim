@@ -84,6 +84,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
     PWNDPARAMS  pwp;            // pointer to window parameters
     PCWDATA     pCtl;           // pointer to private control data
     HPS         hps;
+    RECTL       rcl;
     USHORT      usPhrase,
                 usStart,
                 usLen,
@@ -156,6 +157,20 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             break;
 
 
+        case WM_SETFOCUS:
+            if ( SHORT1FROMMP( mp2 )) {     // Got focus
+                pCtl = WinQueryWindowPtr( hwnd, 0 );
+                WinCreateCursor( hwnd, 0, 0,
+                                 0, pCtl? pCtl->lCursorHeight : 0,
+                                 CURSOR_SOLID | CURSOR_FLASH, NULL );
+                WinShowCursor( hwnd, TRUE );
+                WinInvalidateRect( hwnd, NULL, FALSE );
+            }
+            else                            // Lost focus
+                WinDestroyCursor( hwnd );
+            break;
+
+
         case WM_QUERYWINDOWPARAMS:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             pwp = (PWNDPARAMS) mp1;
@@ -186,6 +201,12 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             }
             return (MRESULT) 0;
 
+
+        case WM_SIZE:
+            pCtl = WinQueryWindowPtr( hwnd, 0 );
+            WinQueryWindowRect( hwnd, &rcl );
+            pCtl->lCursorHeight = rcl.yTop;
+            break;
 
 
         // --------------------------------------------------------------------
@@ -591,16 +612,28 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
             GpiCharString( hps, cb, pchText );
         }
     }
+    GpiQueryCurrentPosition( hps, &ptl2 );
 
+    // Position the cursor
+    WinCreateCursor( hwnd, ptl2.x, 0, 0, 0, CURSOR_SETPOS, &rcl );
+
+#if 0
     // Paint a dashed border
     GpiSetLineType( hps, LINETYPE_LONGDASH );
-    GpiQueryCurrentPosition( hps, &ptl2 );
-    ptl2.x += 1;
-    ptl2.y = rcl.yTop - 1;
     ptl.x = 0;
     ptl.y = 0;
+    ptl2.x += fm.lEmInc - 1;
+    ptl2.y = rcl.yTop - 1;
     GpiMove( hps, &ptl );
     GpiBox( hps, DRO_OUTLINE, &ptl2, 0, 0 );
+#else
+    // Underline the text
+    ptl.x = 0;
+    ptl.y = ptl2.y - (fm.lLowerCaseDescent / 2);
+    ptl2.y = ptl.y;
+    GpiMove( hps, &ptl );
+    GpiLine( hps, &ptl2 );
+#endif
 
 }
 
@@ -717,12 +750,11 @@ BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT 
  * Update the current font attributes from the presentation parameters.      *
  * Note that instead of using the point size from the PP, we ignore it and   *
  * instead set the text size dynamically based on the client window height.  *
- * Therefore, this function should be called whenever the font presentation  *
- * parameter _or_ the window height is changed.                              *
+ * (This will not happen for bitmap fonts, unless this function is called    *
+ * whenever the window is resized.)                                          *
  * ------------------------------------------------------------------------- */
 BOOL SetFont( HWND hwnd, PCWDATA pCtl )
 {
-    FONTMETRICS fm;                     // current font metrics
     BYTE        fbType;                 // font type
     RECTL       rcl;                    // client window dimensions
     USHORT      fsSel;                  // desired language selection flag
@@ -869,6 +901,8 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
     sfCell.cx = sfCell.cy;
     GpiSetCharBox( hps, &sfCell );
     GpiSetCharSet( hps, 1L );
+    GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
+    pCtl->lCursorHeight = rcl.yTop;
 
     // Since we're only interested in the string width, the y position is irrelevant
     ptl.x = 1;
@@ -879,6 +913,6 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
     GpiQueryTextBox( hps, cb, pchText, TXTBOX_COUNT, aptl );
 
     // Update the window width
-    WinSetWindowPos( hwndParent, HWND_TOP, 0, 0, aptl[ TXTBOX_CONCAT ].x + 2, lHeight, SWP_SIZE );
+    WinSetWindowPos( hwndParent, HWND_TOP, 0, 0, aptl[ TXTBOX_CONCAT ].x + fm.lEmInc, lHeight, SWP_SIZE );
 }
 
