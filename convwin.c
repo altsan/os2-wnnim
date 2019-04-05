@@ -54,6 +54,7 @@ void             DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl );
 BYTE             ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT flLang );
 BOOL             SetFont( HWND hwnd, PCWDATA pCtl );
 LONG             GetCurrentDPI( HWND hwnd );
+void             UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl );
 
 
 
@@ -334,6 +335,9 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             }
             else
                 return (MRESULT) FALSE;
+            hps = WinGetPS( hwnd );
+            UpdateWidth( hwnd, hps, pCtl );
+            WinReleasePS( hps );
             return (MRESULT) TRUE;
 
 
@@ -479,8 +483,6 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
 /* ------------------------------------------------------------------------- *
  * DoPaint                                                                   *
- *                                                                           *
- *                                                                           *
  * ------------------------------------------------------------------------- */
 void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
 {
@@ -490,7 +492,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
                 lHeight, lWidth,        // dimensions of control rectangle (minus border)
                 lCell;                  // desired character-cell height
     PCH         pchText;                // pointer to current output text
-    POINTL      ptl;                    // current drawing position
+    POINTL      ptl,                    // current drawing position
+                ptl2;
     POINTL      aptl[ TXTBOX_COUNT ];
     RECTL       rcl,
                 rclPhrase;
@@ -573,8 +576,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
                 GpiQueryCurrentPosition( hps, &ptl );
                 rclPhrase.xLeft = aptl[ TXTBOX_BOTTOMLEFT ].x + ptl.x;
                 rclPhrase.xRight = aptl[ TXTBOX_TOPRIGHT ].x + ptl.x;
-                rclPhrase.yBottom = aptl[ TXTBOX_BOTTOMLEFT ].y + ptl.y;
-                rclPhrase.yTop = aptl[ TXTBOX_TOPRIGHT ].y + ptl.y;
+                rclPhrase.yBottom = 1; // aptl[ TXTBOX_BOTTOMLEFT ].y + ptl.y;
+                rclPhrase.yTop = rcl.yTop - 2; // aptl[ TXTBOX_TOPRIGHT ].y + ptl.y;
                 GpiCharStringPos( hps, &rclPhrase, CHS_CLIP | CHS_OPAQUE, cb, pchText, NULL );
                 usStart = pCtl->pusPhraseEnd[ i ] + 1;
             }
@@ -588,6 +591,16 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
             GpiCharString( hps, cb, pchText );
         }
     }
+
+    // Paint a dashed border
+    GpiSetLineType( hps, LINETYPE_LONGDASH );
+    GpiQueryCurrentPosition( hps, &ptl2 );
+    ptl2.x += 1;
+    ptl2.y = rcl.yTop - 1;
+    ptl.x = 0;
+    ptl.y = 0;
+    GpiMove( hps, &ptl );
+    GpiBox( hps, DRO_OUTLINE, &ptl2, 0, 0 );
 
 }
 
@@ -800,4 +813,72 @@ LONG GetCurrentDPI( HWND hwnd )
     return lDPI;
 }
 
+
+
+/* ------------------------------------------------------------------------- *
+ * UpdateWidth                                                               *
+ * Update the window width based on the current text.                        *
+ * ------------------------------------------------------------------------- */
+void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
+{
+    HWND        hwndParent;
+    FONTMETRICS fm;
+    RECTL       rcl;
+    POINTL      ptl;
+    SIZEF       sfCell;                 // character cell size
+    LONG        lHeight,
+                lCell;
+    ULONG       cb;
+    PCH         pchText;
+    double      dSizeAdjust;
+    POINTL      aptl[ TXTBOX_COUNT ];
+
+
+    if ( !pCtl ) return;
+
+    hwndParent = WinQueryWindow( hwnd, QW_PARENT );
+    if ( hwndParent == NULLHANDLE ) return;
+
+    // Get the parent window's size
+    WinQueryWindowRect( hwndParent, &rcl );
+    lHeight = rcl.yTop;
+
+    // If there's no text, just set the width to 0 and return
+    if ( !pCtl->puszText || !pCtl->usTextLen ) {
+        WinSetWindowPos( hwndParent, HWND_TOP, 0, 0, 0, lHeight, SWP_SIZE );
+        return;
+    }
+
+    // Get the current control area
+    WinQueryWindowRect( hwnd, &rcl );
+
+    // Set up the font face
+    if (( GpiCreateLogFont( hps, NULL, 1L, &(pCtl->fattrs) )) == GPI_ERROR ) return;
+
+    // Set the text size
+    lCell = rcl.yTop - rcl.yBottom - 2;
+    GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
+    // Adjust the cell height to take the maximum character bbox into account
+    dSizeAdjust = (double)(fm.lEmHeight) / fm.lMaxBaselineExt;
+    if ( dSizeAdjust > 0 ) {
+        if ( dSizeAdjust > 1 ) dSizeAdjust = 1;
+        else if ( dSizeAdjust < 0.75 ) dSizeAdjust = 0.75;
+        lCell *= dSizeAdjust;
+    }
+    sfCell.cy = MAKEFIXED( lCell, 0 );
+    sfCell.cx = sfCell.cy;
+    GpiSetCharBox( hps, &sfCell );
+    GpiSetCharSet( hps, 1L );
+
+    // Since we're only interested in the string width, the y position is irrelevant
+    ptl.x = 1;
+    ptl.y = 1;
+    GpiSetTextAlignment( hps, TA_LEFT, TA_BOTTOM );
+    pchText = (PCH) pCtl->puszText;
+    cb = UniStrlen( pCtl->puszText ) * 2;
+    GpiQueryTextBox( hps, cb, pchText, TXTBOX_COUNT, aptl );
+
+    // Update the window width
+    WinSetWindowPos( hwndParent, HWND_TOP, 0, 0, aptl[ TXTBOX_CONCAT ].x + 2, lHeight, SWP_SIZE );
+}
 
