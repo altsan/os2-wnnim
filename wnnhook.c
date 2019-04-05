@@ -67,14 +67,14 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                 return TRUE;
             }
             else if ((( fsFlags & global.fsVKCJK ) == global.fsVKCJK ) && ( c == global.usKeyCJK )) {
-                // toggle CJK hotkey
+                // Toggle CJK hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_KANJI ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }
             else if ((( fsFlags & global.fsVKMode ) == global.fsVKMode ) && ( c == global.usKeyMode )) {
-                // switch input mode hotkey
+                // Switch input mode hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_MODE ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
@@ -95,15 +95,21 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                                 MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                     return TRUE;
                 }
+                // TODO cancel key (Esc?)
             }
 
             // Check for input characters
             if ( fsFlags & KC_CHAR ) {
-                if ( global.fsMode & 0xFF ) {           // any conversion mode is active
+                if ( global.fsMode & 0xFF ) {           // Any conversion mode is active
                     if ( !( usVK & VK_NUMLOCK ) && ( c > 0x20 && c < 0x7E )) {
                         // Convertible byte value
                         global.hwndSource = pQmsg->hwnd;
                         WinPostMsg( g_hwndClient, global.wmAddChar, pQmsg->mp1, pQmsg->mp2 );
+                        return TRUE;
+                    }
+                    else if ( global.fsMode & MODE_CJK_ENTRY ) {
+                        // Don't pass keys through to the source window if we're
+                        // in the middle of clause entry.
                         return TRUE;
                     }
                 }

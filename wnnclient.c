@@ -171,7 +171,7 @@ INT _Optlink InitConversionMethod( USHORT usLang, PVOID *ppSession )
     // Get the server and user names to use.
     switch ( usLang ) {
         default:
-        case MODE_JA:
+        case MODE_JP:
             pszEnv = getenv( WNN_SERVER_ENV_JA );
             strcpy( szLang, "ja_JP");
             break;
