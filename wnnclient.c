@@ -43,7 +43,7 @@
 
 extern void     _cdecl romkan_set_lang( char * );
 extern int      _cdecl romkan_init( char*, letter, char, letter (* _cdecl keyinfn)(),int (* _cdecl bytcntfn)() );
-extern letter   _cdecl romkan_getc( void );
+// extern letter   _cdecl romkan_getc( void );
 extern letter * _cdecl romkan_henkan( letter );
 extern void     _cdecl romkan_clear( void );
 
@@ -69,6 +69,10 @@ extern int              _cdecl jl_zenkouho( register struct wnn_buf *buf, int bu
 extern int              _cdecl jl_zenkouho_dai( register struct wnn_buf *buf, int bun_no, int bun_no2, int use_maep, int uniq_level );
 extern int              _cdecl wnn_get_area( struct wnn_buf *buf, register int bun_no, register int bun_no2, w_char *area, int kanjip );
 
+// Convert from fixed-width 2-byte EUC to usual (packed) EUC and vice versa
+extern int              _cdecl wnn_sStrcpy ( register char *c, register w_char *w );
+extern int              _cdecl wnn_Sstrcpy ( w_char *w, unsigned char *c );
+
 
 // --------------------------------------------------------------------------
 
@@ -77,9 +81,9 @@ extern IMCLIENTDATA global;
 char   WnnErrorBuf[ 128 ] = {0};
 BOOL   fInitRK            = FALSE;
 BOOL   fInitCJK           = FALSE;
-USHORT usCharIdx;               // index of next input character to be converted
+USHORT usCharIdx;                // index of next input character to be converted
 
-UconvObject uconvEUC  = NULL;   // conversion object (EUC to UCS-2)
+UconvObject uconvEUC   = NULL;   // conversion object (EUC to UCS-2)
 XformObject xfKatakana = NULL;   // transformation object for fullwidth katakana
 
 
@@ -214,6 +218,28 @@ done_connect:
     free( pszServer );
     free( pszUser );
     return result;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * FinishConversionMethod                                                    *
+ *                                                                           *
+ * Close down the clause conversion IME engine and free any associated       *
+ * resources.                                                                *
+ * ------------------------------------------------------------------------- */
+void _Optlink FinishConversionMethod( PVOID pSession )
+{
+    struct wnn_buf *bdata = pSession;
+
+    if ( bdata && jl_isconnect( bdata )) {
+        // Free anything left over in the conversion buffer.
+        if ( jl_bun_suu( bdata ))
+            jl_kill( bdata, 0, -1 );
+
+        // Now close the connection (also frees the buffer)
+        if ( jl_isconnect( bdata ))
+            jl_close( bdata );
+    }
 }
 
 
@@ -561,3 +587,54 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
 }
 
 
+/* ------------------------------------------------------------------------- *
+ * ConvertClause                                                             *
+ *                                                                           *
+ * Convert a phonetic character string (clause) into CJK ideographic text    *
+ * for the current language.                                                 *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *                                                                           *
+ * RETURNS:                                                                  *
+ * Result of the conversion attempt.  One of:                                *
+ *   CONV_CONNECT  No connection to server.                                  *
+ *   CONV_FAILED   Conversion failed.                                        *
+ *   CONV_OK       Conversion succeeded.                                     *
+ * ------------------------------------------------------------------------- */
+BYTE _Optlink ConvertClause( PVOID pSession )
+{
+    CHAR szTemp[ MAX_KANA_BUFZ * 3 ] = {0};     // Temporary conversion buffer
+    INT  iLen,                                  // Buffer length
+         iResult;                               // Conversion result
+    w_char         *yomi;                       // Input string in fixed-width EUC format
+    struct wnn_buf *bdata = pSession;           // Wnn session buffer
+
+/*
+    // Double-check we are connected to the server
+    if ( ! jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+
+    // Convert the UCS-2 kana string into EUC
+    StrConvert( global.uszKana, szTemp, NULL, uconvEUC );
+
+    // Now convert that into the fixed-width format expected by Wnn jlib
+    iLen = strlen( szTemp ) + 1;
+    yomi = (w_char *) calloc( iLen, sizeof( w_char ));
+    wnn_Sstrcpy( yomi, szTemp );
+
+    // Tell Wnn to convert the full clause
+    iResult = jl_ren_conv( bdata, yomi, 0, -1, WNN_USE_MAE );
+    if ( iResult == -1 ) {
+        if ( WnnErrorBuf[0] )
+            strncpy( global.szEngineError, WnnErrorBuf, sizeof( global.szEngineError ) - 1 );
+        else
+            strcpy( global.szEngineError, "Error converting text.");
+        return CONV_FAILED;
+    }
+
+    free( yomi );
+*/
+    return CONV_OK;
+}

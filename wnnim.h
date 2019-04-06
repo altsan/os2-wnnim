@@ -39,6 +39,11 @@
 #define KANA_COMPLETE   1   // Phonetic sequence is valid and complete
 #define KANA_CANDIDATE  2   // Phonetic sequence is valid as-is but may still be modifiable
 
+// Status returned by ConvertClause()
+#define CONV_FAILED    -1   // Conversion failed (check error message from Wnn)
+#define CONV_CONNECT    0   // Conversion not attempted due to no connection to server
+#define CONV_OK         1   // Conversion succeeded
+
 #ifndef WS_TOPMOST
 #define WS_TOPMOST      0x00200000L
 #endif

@@ -25,6 +25,7 @@
 
 
 INT  _Optlink InitConversionMethod( USHORT usLang, PVOID *ppSession );
+void _Optlink FinishConversionMethod( PVOID pSession );
 INT  _Optlink InitInputMethod( PSZ pszPath, USHORT usLang );
 void _Optlink FinishInputMethod( void );
 BYTE _Optlink ConvertPhonetic( USHORT fsMode );
