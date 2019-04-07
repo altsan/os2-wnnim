@@ -45,6 +45,10 @@
 // Window class name
 #define WC_WNNIMCONVWIN    "WnnImConvWin"
 
+// Window style flags
+
+#define CWS_BORDER              0x1
+
 // Custom window messages
 
 #define CWM_QUERYTEXTLENGTH     (WM_USER + 100)
@@ -79,7 +83,7 @@ typedef struct _COW_Ctl_Data {
 typedef struct _COW_Private_Data {
     CWCTLDATA   ctldata;                // public control data
     USHORT      id;                     // our window ID
-    ULONG       flFlags;                // internal flags (TBD)
+    ULONG       flFlags;                // internal flags
     UniChar   * puszText;               // current control text (in UCS-2)
     USHORT      usTextLen;              // length of text (in UniChars)
     USHORT      usBufLen;               // length of preallocated text buffer (in UniChars)

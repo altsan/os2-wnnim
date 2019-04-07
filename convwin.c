@@ -597,8 +597,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
                 GpiQueryCurrentPosition( hps, &ptl );
                 rclPhrase.xLeft = aptl[ TXTBOX_BOTTOMLEFT ].x + ptl.x;
                 rclPhrase.xRight = aptl[ TXTBOX_TOPRIGHT ].x + ptl.x;
-                rclPhrase.yBottom = 1; // aptl[ TXTBOX_BOTTOMLEFT ].y + ptl.y;
-                rclPhrase.yTop = rcl.yTop - 2; // aptl[ TXTBOX_TOPRIGHT ].y + ptl.y;
+                rclPhrase.yBottom = 1;
+                rclPhrase.yTop = rcl.yTop - 2;
                 GpiCharStringPos( hps, &rclPhrase, CHS_CLIP | CHS_OPAQUE, cb, pchText, NULL );
                 usStart = pCtl->pusPhraseEnd[ i ] + 1;
             }
@@ -617,8 +617,16 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     // Position the cursor
     WinCreateCursor( hwnd, ptl2.x, 0, 0, 0, CURSOR_SETPOS, &rcl );
 
+    // Underline the text
+    GpiSetLineType( hps, LINETYPE_SOLID );
+    ptl.x = 0;
+    ptl.y = ptl2.y - (fm.lLowerCaseDescent / 2);
+    ptl2.y = ptl.y;
+    GpiMove( hps, &ptl );
+    GpiLine( hps, &ptl2 );
+
 #if 0
-    // Paint a dashed border
+    // Paint a border
     GpiSetLineType( hps, LINETYPE_LONGDASH );
     ptl.x = 0;
     ptl.y = 0;
@@ -626,13 +634,6 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     ptl2.y = rcl.yTop - 1;
     GpiMove( hps, &ptl );
     GpiBox( hps, DRO_OUTLINE, &ptl2, 0, 0 );
-#else
-    // Underline the text
-    ptl.x = 0;
-    ptl.y = ptl2.y - (fm.lLowerCaseDescent / 2);
-    ptl2.y = ptl.y;
-    GpiMove( hps, &ptl );
-    GpiLine( hps, &ptl2 );
 #endif
 
 }
