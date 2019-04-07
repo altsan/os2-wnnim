@@ -38,6 +38,13 @@
 #include "wnnclient.h"
 
 
+
+// (In wnnconv.c) Convert between fixed-width 2-byte EUC and normal (packed) EUC
+int _cdecl wnn_sStrcpy ( register char *c, register w_char *w );
+int _cdecl wnn_Sstrcpy ( w_char *w, unsigned char *c );
+
+
+
 // Romkan API functions exported by WNN library (just the ones we actually use).
 //
 
@@ -68,10 +75,6 @@ extern int              _cdecl jl_yomi_len( struct wnn_buf *buf, register int bu
 extern int              _cdecl jl_zenkouho( register struct wnn_buf *buf, int bun_no, int use_maep, int uniq_level );
 extern int              _cdecl jl_zenkouho_dai( register struct wnn_buf *buf, int bun_no, int bun_no2, int use_maep, int uniq_level );
 extern int              _cdecl wnn_get_area( struct wnn_buf *buf, register int bun_no, register int bun_no2, w_char *area, int kanjip );
-
-// Convert from fixed-width 2-byte EUC to usual (packed) EUC and vice versa
-extern int              _cdecl wnn_sStrcpy ( register char *c, register w_char *w );
-extern int              _cdecl wnn_Sstrcpy ( w_char *w, unsigned char *c );
 
 
 // --------------------------------------------------------------------------
@@ -591,9 +594,14 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
  * ConvertClause                                                             *
  *                                                                           *
  * Convert a phonetic character string (clause) into CJK ideographic text    *
- * for the current language.                                                 *
+ * for the current language.  The input is taken from the global.uszKana     *
+ * buffer; the output is (for now) saved in the Wnn buffer (pSession).  If   *
+ * the conversion was successful, the client can subsequently retrieve the   *
+ * candidates for the full converted clause, and/or split the clause into    *
+ * individual phrases and get the candidates for each phrase.                *
  *                                                                           *
  * PARAMETERS:                                                               *
+ *   PVOID pSession: Pointer to Wnn data buffer.                             *
  *                                                                           *
  * RETURNS:                                                                  *
  * Result of the conversion attempt.  One of:                                *
@@ -604,12 +612,12 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
 BYTE _Optlink ConvertClause( PVOID pSession )
 {
     CHAR szTemp[ MAX_KANA_BUFZ * 3 ] = {0};     // Temporary conversion buffer
-    INT  iLen,                                  // Buffer length
-         iResult;                               // Conversion result
+    INT             iLen,                       // Buffer length
+                    iResult;                    // Conversion result code from jlib
     w_char         *yomi;                       // Input string in fixed-width EUC format
     struct wnn_buf *bdata = pSession;           // Wnn session buffer
 
-/*
+
     // Double-check we are connected to the server
     if ( ! jl_isconnect( bdata )) {
         strcpy( global.szEngineError, "Lost connection to server.");
@@ -617,7 +625,7 @@ BYTE _Optlink ConvertClause( PVOID pSession )
     }
 
     // Convert the UCS-2 kana string into EUC
-    StrConvert( global.uszKana, szTemp, NULL, uconvEUC );
+    StrConvert( (PCH)(global.uszKana), szTemp, NULL, uconvEUC );
 
     // Now convert that into the fixed-width format expected by Wnn jlib
     iLen = strlen( szTemp ) + 1;
@@ -635,6 +643,107 @@ BYTE _Optlink ConvertClause( PVOID pSession )
     }
 
     free( yomi );
-*/
     return CONV_OK;
 }
+
+
+
+/* ------------------------------------------------------------------------- *
+ * Get a converted kanji string from the Wnn buffer and return it in a       *
+ * displayable format.  This could be a phrase in the unconverted clause     *
+ * (for which specify a phrase range with fReading = TRUE), or a candidate   *
+ * conversion result for the whole clause (iPhrase = 0, iCount = -1) or a    *
+ * word phrase range.                                                        *
+ *                                                                           *
+ * NOTES:                                                                    *
+ * - Before any of this can work, jl_ren_conv must have been called on the   *
+ *   the clause buffer (i.e. using ConvertClause).                           *
+ * - Obtaining an individual phrase also requires jl_tan_conv to have been   *
+ *   called subsequently (i.e. using PreparePhrases).                        *
+ * - To obtain a conversion candidate, jl_zenkouhou and jl_next/jl_previous  *
+ *   must then have been called as well (i.e. using PrepareCandidates and    *
+ *   SetCandidate).                                                          *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   PVOID pSession: Pointer to Wnn data buffer.                             *
+ *   INT   iPhrase : First phrase in the clause to retrieve (first = 0)      *
+ *   INT   iCount  : Number of phrases to retrieve (-1 for rest of clause)   *
+ *   BOOL  fReading: If TRUE, return unconverted reading instead of kanji.   *
+ *   UniChar **ppuszString: Pointer to UCS-2 string containing the result.   *
+ *                          String will be allocated by this function and    *
+ *                          should be free()d by the caller.                 *
+ *                                                                           *
+ * RETURNS:                                                                  *
+ * One of:                                                                   *
+ *   CONV_CONNECT  No connection to server.                                  *
+ *   CONV_FAILED   Failed to retrieve string.                                *
+ *   CONV_OK       String retrieved successfully.                            *
+ * ------------------------------------------------------------------------- */
+BYTE _Optlink GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOOL fReading, UniChar **ppuszString )
+{
+    INT     iLen;                       // Buffer length
+    BYTE    bResult = CONV_FAILED;      // Return code from this function
+    PSZ     pszEUC;                     // Converted kanji string in standard EUC format
+    w_char *kanji;                      // Converted string in fixed-width EUC format
+    struct wnn_buf *bdata = pSession;   // Wnn session buffer
+
+
+    // Double-check we are connected to the server
+    if ( ! jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+
+    // Get the requested string length
+    iLen = fReading? jl_yomi_len( bdata, iPhrase, iCount ) :
+                     jl_kanji_len( bdata, iPhrase, iCount );
+    if ( !iLen ) return bResult;
+
+    // Allocate a buffer for the string
+    kanji = (w_char *) calloc( iLen+1, sizeof( w_char ));
+    if ( !kanji ) return bResult;
+
+    // Now retrieve the requested string or substring(s)
+    iLen = fReading? jl_get_yomi( bdata, iPhrase, iCount, kanji ) :
+                     jl_get_kanji( bdata, iPhrase, iCount, kanji );
+    if ( iLen > 0 ) {
+        // Convert to standard EUC, allowing up to 3 bytes per input character
+        iLen *= 3;
+        pszEUC = (PSZ) calloc( iLen+1, sizeof( CHAR ));
+        if ( !pszEUC ) goto done;
+        wnn_sStrcpy( pszEUC, kanji );
+        // Now convert that to UCS-2 for return to the caller
+        *ppuszString = (UniChar *) calloc( iLen, sizeof( UniChar ));
+        if ( *ppuszString ) {
+            StrConvert( (PCH)pszEUC, (PCH)(*ppuszString), uconvEUC, NULL );
+            bResult = CONV_OK;
+        }
+        free( pszEUC );
+    }
+
+done:
+    free( kanji );
+    return bResult;
+}
+
+
+/*
+INT _Optlink PreparePhrases( PVOID pSession )
+{
+    // Split into phrases with jl_tan_conv()
+    // Return jl_bun_suu()
+}
+
+
+INT _Optlink PrepareCandidates( PVOID pSession )
+{
+    // Add candidates to buffer with jl_zenkouhou()
+    // Return jl_zenkouho_suu()
+}
+
+
+INT _Optlink SetCandidate( PVOID pSession )
+{
+    // Move to the next/previous candidate with jl_next()/jl_previous()
+}
+*/
