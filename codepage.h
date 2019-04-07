@@ -30,10 +30,9 @@
 #define CP_GBK              1386        // Chinese GBK
 
 
-BOOL   _Optlink IsDBCSLeadByte( CHAR ch, PBYTE pDBCS );
-USHORT _Optlink GetEucCodepage( USHORT usLang );
-ULONG  _Optlink CreateUconvObject( ULONG ulCP, UconvObject *uconv );
-PCH    _Optlink StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, UconvObject uconvTo );
-USHORT _Optlink ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax );
-
+BOOL   _System IsDBCSLeadByte( CHAR ch, PBYTE pDBCS );
+USHORT _System GetEucCodepage( USHORT usLang );
+ULONG  _System CreateUconvObject( ULONG ulCP, UconvObject *uconv );
+ULONG  _System StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, UconvObject uconvTo );
+USHORT _System ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax );
 

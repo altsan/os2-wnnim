@@ -39,6 +39,7 @@
 
 
 
+
 // (In wnnconv.c) Convert between fixed-width 2-byte EUC and normal (packed) EUC
 int _cdecl wnn_sStrcpy ( register char *c, register w_char *w );
 int _cdecl wnn_Sstrcpy ( w_char *w, unsigned char *c );
@@ -78,17 +79,31 @@ extern int              _cdecl jl_zenkouho_dai( register struct wnn_buf *buf, in
 extern int              _cdecl wnn_get_area( struct wnn_buf *buf, register int bun_no, register int bun_no2, w_char *area, int kanjip );
 
 
+// Internal utility functions
+//
+INT  _Optlink StrTransform( UniChar *puszString, INT iMax, XformObject xform );
+INT  _Optlink MakeKatakana( void );
+INT  _Optlink MakeHalfKana( void );
+BYTE _Optlink PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput, USHORT cbOutput );
+
+
+
 // --------------------------------------------------------------------------
+// Common variables
+
 
 extern IMCLIENTDATA global;
 
-char   WnnErrorBuf[ 128 ] = {0};
-BOOL   fInitRK            = FALSE;
-BOOL   fInitCJK           = FALSE;
-USHORT usCharIdx;                // index of next input character to be converted
+char   WnnErrorBuf[ 128 ] = {0};    // Error messages from error handler
 
-UconvObject uconvEUC   = NULL;   // conversion object (EUC to UCS-2)
-XformObject xfKatakana = NULL;   // transformation object for fullwidth katakana
+BOOL   fInitRK            = FALSE;  // Has phonetic input method been initialized?
+BOOL   fInitCJK           = FALSE;  // Has clause conversion method been initiated?
+
+USHORT usCharIdx;                   // Index of next input character to be converted
+
+UconvObject uconvEUC      = NULL;   // Conversion object (EUC to UCS-2)
+XformObject xfKatakana    = NULL;   // Transformation object for fullwidth katakana
+
 
 
 // =========================================================================
@@ -141,7 +156,7 @@ int _cdecl CharacterByteCount( char *pChar )
 int _cdecl ErrorFunc( const char *pcsz )
 {
     if ( pcsz && *pcsz )
-        strncpy( WnnErrorBuf, pcsz, sizeof( WnnErrorBuf ));
+        strncpy( WnnErrorBuf, pcsz, sizeof( WnnErrorBuf ) - 1 );
     else
         WnnErrorBuf[ 0 ] = 0;
     return 1;
@@ -150,101 +165,8 @@ int _cdecl ErrorFunc( const char *pcsz )
 
 
 // =========================================================================
-// OTHER FUNCTIONS
+// FUNCTIONS RELATED TO PHONETIC/INPUT CONVERSION
 // =========================================================================
-
-/* ------------------------------------------------------------------------- *
- * InitConversionMethod                                                      *
- *                                                                           *
- * Initialize the CJK conversion engine.  In this implementation (FreeWnn),  *
- * this involves connecting to the FreeWnn server and initializing the       *
- * associated environment.                                                   *
- *                                                                           *
- * ------------------------------------------------------------------------- */
-INT _Optlink InitConversionMethod( USHORT usLang, PVOID *ppSession )
-{
-    struct wnn_env *wnnenv = NULL;  // Wnn environment object
-    struct wnn_buf *bdata = NULL;   // Wnn session buffer
-
-    PSZ     pszEnv,                 // Return pointer for getenv()
-            pszServer,              // Host address of jserver
-            pszUser;                // User/environment name to use on the server
-    CHAR    szLang[ 6 ];
-    CHAR    fzk[ 1024 ] = {0};
-    INT     result = 0;
-
-    if ( !fInitRK ) return 1;
-    if ( uconvEUC == NULL ) return 2;
-
-    // Get the server and user names to use.
-    switch ( usLang ) {
-        default:
-        case MODE_JP:
-            pszEnv = getenv( WNN_SERVER_ENV_JA );
-            strcpy( szLang, "ja_JP");
-            break;
-        case MODE_KR:
-            pszEnv = getenv( WNN_SERVER_ENV_KR );
-            strcpy( szLang, "ko_KR");
-            break;
-        case MODE_CN:
-            pszEnv = getenv( WNN_SERVER_ENV_CN );
-            strcpy( szLang, "zh_CN");
-            break;
-        case MODE_TW:
-            pszEnv = getenv( WNN_SERVER_ENV_TW );
-            strcpy( szLang, "zh_TW");
-            break;
-    }
-    pszServer = strdup( pszEnv? pszEnv: "localhost");
-    pszEnv = getenv("USER");
-    pszUser = strdup( pszEnv? pszEnv: "root");
-
-    // Connect to the server.
-    bdata = jl_open_lang( pszUser, pszServer, szLang, NULL, *ErrorFunc, *ErrorFunc, 0 );
-    if (( bdata == NULL ) || ( jl_isconnect( bdata ) == 0 )) {
-        if ( WnnErrorBuf[0] )
-            strncpy( global.szEngineError, WnnErrorBuf, sizeof( global.szEngineError ) - 1 );
-        result = 1;
-        goto done_connect;
-    }
-
-    if ( jl_fuzokugo_get( bdata, fzk ) == -1 ) {
-        //  Environment isn't active on server, so initialize it now.
-        wnnenv = jl_env_get( bdata );
-        jl_set_env_wnnrc( wnnenv, "wnnenvrc", (int *) WNN_CREATE, NULL );
-    }
-
-    *ppSession = bdata;
-    fInitCJK = TRUE;
-
-done_connect:
-    free( pszServer );
-    free( pszUser );
-    return result;
-}
-
-
-/* ------------------------------------------------------------------------- *
- * FinishConversionMethod                                                    *
- *                                                                           *
- * Close down the clause conversion IME engine and free any associated       *
- * resources.                                                                *
- * ------------------------------------------------------------------------- */
-void _Optlink FinishConversionMethod( PVOID pSession )
-{
-    struct wnn_buf *bdata = pSession;
-
-    if ( bdata && jl_isconnect( bdata )) {
-        // Free anything left over in the conversion buffer.
-        if ( jl_bun_suu( bdata ))
-            jl_kill( bdata, 0, -1 );
-
-        // Now close the connection (also frees the buffer)
-        if ( jl_isconnect( bdata ))
-            jl_close( bdata );
-    }
-}
 
 
 /* ------------------------------------------------------------------------- *
@@ -591,12 +513,132 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
 }
 
 
+
+// =========================================================================
+// FUNCTIONS RELATED TO CJK/CLAUSE CONVERSION
+// =========================================================================
+
+/* ------------------------------------------------------------------------- *
+ * InitConversionMethod                                                      *
+ *                                                                           *
+ * Initialize the CJK conversion engine.  In this implementation (FreeWnn),  *
+ * this involves connecting to the FreeWnn server and initializing the       *
+ * associated environment.                                                   *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+INT IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSession )
+{
+    struct wnn_env *wnnenv = NULL;  // Wnn environment object
+    struct wnn_buf *bdata = NULL;   // Wnn session buffer
+
+    PSZ     pszEnv,                 // Return pointer for getenv()
+            pszServer,              // Host address of jserver
+            pszUser;                // User/environment name to use on the server
+    USHORT  cpEUC;
+    CHAR    szLang[ 6 ];
+    CHAR    szEnvRC[ CCHMAXPATH ];
+    CHAR    fzk[ 1024 ] = {0};
+    ULONG   rc;
+    INT     result = CONV_OK;
+
+
+    if ( uconvEUC == NULL ) {
+        cpEUC = GetEucCodepage( usLang );
+        rc = CreateUconvObject( cpEUC, &uconvEUC );
+        if ( rc ) {
+            sprintf( global.szEngineError, "Failed to create conversion object for codeoage %u (error %u). The OS/2 codepage file might not be installed.", cpEUC, rc );
+            return CONV_CONNECT;
+        }
+    }
+
+    // Get the server and user names to use.
+    switch ( usLang ) {
+        default:
+        case MODE_JP:
+            pszEnv = getenv( WNN_SERVER_ENV_JA );
+            strcpy( szLang, "ja_JP");
+            break;
+        case MODE_KR:
+            pszEnv = getenv( WNN_SERVER_ENV_KR );
+            strcpy( szLang, "ko_KR");
+            break;
+        case MODE_CN:
+            pszEnv = getenv( WNN_SERVER_ENV_CN );
+            strcpy( szLang, "zh_CN");
+            break;
+        case MODE_TW:
+            pszEnv = getenv( WNN_SERVER_ENV_TW );
+            strcpy( szLang, "zh_TW");
+            break;
+    }
+    pszServer = strdup( pszEnv? pszEnv: "localhost");
+    pszEnv = getenv("USER");
+    pszUser = strdup( pszEnv? pszEnv: "root");
+
+    if ( pszPath == NULL ) {
+        pszPath = getenv("WNNLIB");
+        if ( pszPath )
+            strncpy( szEnvRC, pszPath, CCHMAXPATH - 10 );
+        else
+            sprintf( szEnvRC, "/@unixroot/usr/lib/Wnn/%s", szLang );
+        strncat( szEnvRC, "/wnnenvrc", CCHMAXPATH - 1 );
+    }
+
+    // Connect to the server.
+    bdata = jl_open_lang( pszUser, pszServer, szLang, NULL, *ErrorFunc, *ErrorFunc, 0 );
+    if (( bdata == NULL ) || ( jl_isconnect( bdata ) == 0 )) {
+        if ( WnnErrorBuf[0] )
+            strncpy( global.szEngineError, WnnErrorBuf, sizeof( global.szEngineError ) - 1 );
+        else
+            strcpy( global.szEngineError, "Unknown error in jl_open_lang");
+        result = CONV_CONNECT;
+        goto done_connect;
+    }
+
+    if ( jl_fuzokugo_get( bdata, fzk ) == -1 ) {
+        //  Environment isn't active on server, so initialize it now.
+        wnnenv = jl_env_get( bdata );
+        jl_set_env_wnnrc( wnnenv, szEnvRC, (int *) WNN_CREATE, NULL );
+    }
+    result = CONV_OK;
+    *ppSession = bdata;
+    fInitCJK = TRUE;
+
+done_connect:
+    free( pszServer );
+    free( pszUser );
+    return result;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * FinishConversionMethod                                                    *
+ *                                                                           *
+ * Close down the clause conversion IME engine and free any associated       *
+ * resources.                                                                *
+ * ------------------------------------------------------------------------- */
+void IM_CALLCNV FinishConversionMethod( PVOID pSession )
+{
+    struct wnn_buf *bdata = pSession;
+
+    if ( bdata && jl_isconnect( bdata )) {
+        // Free anything left over in the conversion buffer.
+        if ( jl_bun_suu( bdata ))
+            jl_kill( bdata, 0, -1 );
+
+        // Now close the connection (also frees the buffer)
+        if ( jl_isconnect( bdata ))
+            jl_close( bdata );
+    }
+}
+
+
 /* ------------------------------------------------------------------------- *
  * ConvertClause                                                             *
  *                                                                           *
  * Convert a phonetic character string (clause) into CJK ideographic text    *
- * for the current language.  The input is taken from the global.uszKana     *
- * buffer; the output is (for now) saved in the Wnn buffer (pSession).  If   *
+ * for the current language.  The input is taken as an argument in UCS-2     *
+ * format; the output is (for now) saved in the Wnn buffer (pSession).  If   *
  * the conversion was successful, the client can subsequently retrieve the   *
  * candidates for the full converted clause, and/or split the clause into    *
  * individual phrases and get the candidates for each phrase.                *
@@ -606,27 +648,34 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
  *                                                                           *
  * RETURNS:                                                                  *
  * Result of the conversion attempt.  One of:                                *
- *   CONV_CONNECT  No connection to server.                                  *
+ *   CONV_CONNECT  No connection to IME engine.                              *
  *   CONV_FAILED   Conversion failed.                                        *
  *   CONV_OK       Conversion succeeded.                                     *
  * ------------------------------------------------------------------------- */
-BYTE _Optlink ConvertClause( PVOID pSession )
+BYTE IM_CALLCNV ConvertClause( PVOID pSession, UniChar *puszClause )
 {
     CHAR szTemp[ MAX_KANA_BUFZ * 3 ] = {0};     // Temporary conversion buffer
     INT             iLen,                       // Buffer length
                     iResult;                    // Conversion result code from jlib
+    ULONG           rc;                         // ULS return code
     w_char         *yomi;                       // Input string in fixed-width EUC format
     struct wnn_buf *bdata = pSession;           // Wnn session buffer
 
 
+    if ( !fInitCJK ) return CONV_CONNECT;
+
     // Double-check we are connected to the server
-    if (  !bdata || !jl_isconnect( bdata )) {
+    if ( !bdata || !jl_isconnect( bdata )) {
         strcpy( global.szEngineError, "Lost connection to server.");
         return CONV_CONNECT;
     }
 
     // Convert the UCS-2 kana string into EUC
-    StrConvert( (PCH)(global.uszKana), szTemp, NULL, uconvEUC );
+    rc = StrConvert( (PCH) puszClause, szTemp, NULL, uconvEUC );
+    if ( rc != ULS_SUCCESS ) {
+        sprintf( global.szEngineError, "String conversion failed: 0x%X", rc );
+        return CONV_FAILED;
+    }
 
     // Now convert that into the fixed-width format expected by Wnn jlib
     iLen = strlen( szTemp ) + 1;
@@ -639,7 +688,7 @@ BYTE _Optlink ConvertClause( PVOID pSession )
         if ( WnnErrorBuf[0] )
             strncpy( global.szEngineError, WnnErrorBuf, sizeof( global.szEngineError ) - 1 );
         else
-            strcpy( global.szEngineError, "Error converting text.");
+            strcpy( global.szEngineError, "Unknown error in jl_ren_conv");
         return CONV_FAILED;
     }
 
@@ -663,11 +712,11 @@ BYTE _Optlink ConvertClause( PVOID pSession )
  *                                                                           *
  * RETURNS:                                                                  *
  * Result of the conversion attempt.  One of:                                *
- *   CONV_CONNECT  No connection to server.                                  *
+ *   CONV_CONNECT  No connection to IME engine.                              *
  *   CONV_FAILED   Conversion failed.                                        *
  *   CONV_OK       Conversion succeeded.                                     *
  * ------------------------------------------------------------------------- */
-BYTE _Optlink ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
+BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
 {
     CHAR szTemp[ MAX_KANA_BUFZ * 3 ] = {0};     // Temporary conversion buffer
     INT             iLen,                       // Buffer length
@@ -676,6 +725,8 @@ BYTE _Optlink ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
     struct wnn_buf *bdata = pSession;           // Wnn session buffer
 
 
+    if ( !fInitCJK ) return CONV_CONNECT;
+
     // Double-check we are connected to the server
     if (  !bdata || !jl_isconnect( bdata )) {
         strcpy( global.szEngineError, "Lost connection to server.");
@@ -683,7 +734,7 @@ BYTE _Optlink ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
     }
 
     // Convert the UCS-2 kana string into EUC
-    StrConvert( (PCH)(global.uszKana), szTemp, NULL, uconvEUC );
+    StrConvert( (PCH) puszPhrase, szTemp, NULL, uconvEUC );
 
     // Now convert that into the fixed-width format expected by Wnn jlib
     iLen = strlen( szTemp ) + 1;
@@ -750,11 +801,11 @@ BYTE _Optlink ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
  *                                                                           *
  * RETURNS:                                                                  *
  * One of:                                                                   *
- *   CONV_CONNECT  No connection to server.                                  *
+ *   CONV_CONNECT  No connection to IME engine.                              *
  *   CONV_FAILED   Failed to retrieve string.                                *
  *   CONV_OK       String retrieved successfully.                            *
  * ------------------------------------------------------------------------- */
-BYTE _Optlink GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOOL fReading, UniChar **ppuszString )
+BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOOL fReading, UniChar **ppuszString )
 {
     INT     iLen;                       // Buffer length
     BYTE    bResult = CONV_FAILED;      // Return code from this function
@@ -805,7 +856,7 @@ done:
 /* ------------------------------------------------------------------------- *
  *                                                                           *
  * ------------------------------------------------------------------------- */
-INT _Optlink GetPhraseCount( PVOID pSession )
+INT IM_CALLCNV GetPhraseCount( PVOID pSession )
 {
     struct wnn_buf *bdata = pSession;   // Wnn session buffer
 
@@ -822,7 +873,7 @@ INT _Optlink GetPhraseCount( PVOID pSession )
 /* ------------------------------------------------------------------------- *
  *                                                                           *
  * ------------------------------------------------------------------------- */
-INT _Optlink PrepareCandidates( PVOID pSession )
+INT IM_CALLCNV PrepareCandidates( PVOID pSession )
 {
     struct wnn_buf *bdata = pSession;   // Wnn session buffer
 
@@ -838,11 +889,19 @@ INT _Optlink PrepareCandidates( PVOID pSession )
 
 
 /* ------------------------------------------------------------------------- *
+ * SetCandidate                                                              *
  *                                                                           *
+ * Set the current conversion result from the available candidates.          *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   PVOID pSession: Pointer to Wnn data buffer.                             *
+ *   BOOL  fNext   : If TRUE, select the next available candidate.           *
+ *                   If FALSE, select the previous candidate.                *
  * ------------------------------------------------------------------------- */
-INT _Optlink SetCandidate( PVOID pSession, BOOL fNext )
+INT IM_CALLCNV SetCandidate( PVOID pSession, BOOL fNext )
 {
     struct wnn_buf *bdata = pSession;   // Wnn session buffer
+    INT rc;
 
     // Double-check we are connected to the server
     if ( !bdata || !jl_isconnect( bdata )) {
@@ -851,18 +910,20 @@ INT _Optlink SetCandidate( PVOID pSession, BOOL fNext )
     }
 
     if ( fNext )
-        jl_next( bdata );
+        rc = jl_next( bdata );
     else
-        jl_previous( bdata );
+        rc = jl_previous( bdata );
 
-    return CONV_OK;
+    return rc;
 }
 
 
 /* ------------------------------------------------------------------------- *
+ * ClearConversion                                                           *
  *                                                                           *
+ * Clear the conversion buffer (resetting all clause data).                  *
  * ------------------------------------------------------------------------- */
-BYTE _Optlink ClearConversion( PVOID pSession )
+BYTE IM_CALLCNV ClearConversion( PVOID pSession )
 {
     struct wnn_buf *bdata = pSession;   // Wnn session buffer
 

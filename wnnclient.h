@@ -24,10 +24,23 @@
 #define WNN_SERVER_ENV_TW   "TSERVER"
 
 
-INT  _Optlink InitConversionMethod( USHORT usLang, PVOID *ppSession );
-void _Optlink FinishConversionMethod( PVOID pSession );
-INT  _Optlink InitInputMethod( PSZ pszPath, USHORT usLang );
-void _Optlink FinishInputMethod( void );
-BYTE _Optlink ConvertPhonetic( USHORT fsMode );
+// Calling convention to use for functions in this module
+#define IM_CALLCNV  _Optlink
 
+
+// Phonetic conversion functions
+BYTE _Optlink ConvertPhonetic( USHORT fsMode );
+void _Optlink FinishInputMethod( void );
+INT  _Optlink InitInputMethod( PSZ pszPath, USHORT usLang );
+
+// Clause conversion functions
+BYTE IM_CALLCNV ClearConversion( PVOID pSession );
+BYTE IM_CALLCNV ConvertClause( PVOID pSession, UniChar *puszClause );
+BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase );
+void IM_CALLCNV FinishConversionMethod( PVOID pSession );
+BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOOL fReading, UniChar **ppuszString );
+INT  IM_CALLCNV GetPhraseCount( PVOID pSession );
+INT  IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSession );
+INT  IM_CALLCNV PrepareCandidates( PVOID pSession );
+INT  IM_CALLCNV SetCandidate( PVOID pSession, BOOL fNext );
 

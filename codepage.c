@@ -41,7 +41,7 @@
  *                                                                           *
  * RETURNS: BOOL                                                             *
  * ------------------------------------------------------------------------- */
-BOOL _Optlink IsDBCSLeadByte( CHAR ch, PBYTE pDBCS )
+BOOL _System IsDBCSLeadByte( CHAR ch, PBYTE pDBCS )
 {
    while ( *pDBCS )
       if (( ch >= *pDBCS++ ) && ( ch <= *pDBCS++ )) return TRUE;
@@ -58,7 +58,7 @@ BOOL _Optlink IsDBCSLeadByte( CHAR ch, PBYTE pDBCS )
  * RETURNS: USHORT                                                           *
  * The codepage number.                                                      *
  * ------------------------------------------------------------------------- */
-USHORT _Optlink GetEucCodepage( USHORT usLang )
+USHORT _System GetEucCodepage( USHORT usLang )
 {
     switch ( usLang ) {
         case MODE_JP: return 954;
@@ -84,7 +84,7 @@ USHORT _Optlink GetEucCodepage( USHORT usLang )
  * RETURNS: ULONG                                                            *
  *   ULS API return code                                                     *
  * ------------------------------------------------------------------------- */
-ULONG _Optlink CreateUconvObject( ULONG ulCP, UconvObject *uconv )
+ULONG _System CreateUconvObject( ULONG ulCP, UconvObject *uconv )
 {
     UniChar suCP[ 32 ];         // conversion specifier (UCS-2 string)
     ULONG   rc = ULS_SUCCESS;
@@ -109,16 +109,18 @@ ULONG _Optlink CreateUconvObject( ULONG ulCP, UconvObject *uconv )
  *                                                                           *
  * ARGUMENTS:                                                                *
  *   PCH         pchInput:  Input string to be converted.                    *
- *   PCH         pchOutput: Output buffer (must be at least 4*input length). *
+ *   PCH         pchOutput: Output buffer (if converting to UCS-2, must be   *
+ *                          at least 2x the length of pchInput; otherwise,   *
+ *                          must be at least 4x the length of pszInput).     *
  *   UconvObject uconvFrom: Conversion object for the source codepage.       *
  *                          If NULL, convert from UCS-2.                     *
  *   UconvObject uconvTo:   Conversion object for the target codepage.       *
  *                          If NULL, convert to UCS-2.                       *
  *                                                                           *
- * RETURNS: PCH                                                              *
- *   Pointer to the output buffer.                                           *
+ * RETURNS: ULONG                                                            *
+ *   ULS return code.                                                        *
  * ------------------------------------------------------------------------- */
-PCH _Optlink StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, UconvObject uconvTo )
+ULONG _System StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, UconvObject uconvTo )
 {
     UniChar *psu;               // UCS-2 conversion buffer
     ULONG   in_len,
@@ -126,7 +128,7 @@ PCH _Optlink StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, Uco
             rc;
 
     if ( !uconvFrom && !uconvTo )       // no conversion objects --> no conversion!
-        return pchOutput;
+        return 0;
 
     in_len  = 2 * strlen( pchInput );   // allow up to double the input string length
 
@@ -154,7 +156,7 @@ PCH _Optlink StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, Uco
     if ( uconvFrom ) free( psu );
 
 done:
-    return pchOutput;
+    return rc;
 }
 
 
@@ -171,7 +173,7 @@ done:
  * RETURNS: USHORT                                                           *
  *   Number of characters converted.                                         *
  * ------------------------------------------------------------------------- */
-USHORT _Optlink ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax )
+USHORT _System ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax )
 {
     USHORT  i, j,
             usInLen;
@@ -190,3 +192,4 @@ USHORT _Optlink ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMa
 
     return ( j );
 }
+
