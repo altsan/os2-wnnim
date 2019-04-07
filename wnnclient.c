@@ -72,6 +72,7 @@ extern int              _cdecl jl_kill( struct wnn_buf *buf, register int bun_no
 extern int              _cdecl jl_ren_conv( register struct wnn_buf *buf, register w_char *yomi, int bun_no, int bun_no2, int use_maep );
 extern int              _cdecl jl_tan_conv( register struct wnn_buf *buf, w_char *yomi, register int bun_no, register int bun_no2, int use_maep, int ich_shop );
 extern int              _cdecl jl_yomi_len( struct wnn_buf *buf, register int bun_no, register int bun_no2 );
+extern int              _cdecl jl_set_jikouho( register struct wnn_buf *buf, register int offset );
 extern int              _cdecl jl_zenkouho( register struct wnn_buf *buf, int bun_no, int use_maep, int uniq_level );
 extern int              _cdecl jl_zenkouho_dai( register struct wnn_buf *buf, int bun_no, int bun_no2, int use_maep, int uniq_level );
 extern int              _cdecl wnn_get_area( struct wnn_buf *buf, register int bun_no, register int bun_no2, w_char *area, int kanjip );
@@ -619,7 +620,7 @@ BYTE _Optlink ConvertClause( PVOID pSession )
 
 
     // Double-check we are connected to the server
-    if ( ! jl_isconnect( bdata )) {
+    if (  !bdata || !jl_isconnect( bdata )) {
         strcpy( global.szEngineError, "Lost connection to server.");
         return CONV_CONNECT;
     }
@@ -647,19 +648,93 @@ BYTE _Optlink ConvertClause( PVOID pSession )
 }
 
 
+/* ------------------------------------------------------------------------- *
+ * ConvertPhrase                                                             *
+ *                                                                           *
+ * Convert a word-phrase from phonetic characters into CJK ideographic text  *
+ * for the current language.  The input is taken as an argument in UCS-2     *
+ * format; the output is (for now) saved in the Wnn buffer (pSession).  If   *
+ * the conversion was successful, the client can subsequently retrieve the   *
+ * candidates for the converted phrase.                                      *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   PVOID    pSession  : Pointer to Wnn data buffer.                        *
+ *   UniChar *puszPhrase: Phrase string to convert.                          *
+ *                                                                           *
+ * RETURNS:                                                                  *
+ * Result of the conversion attempt.  One of:                                *
+ *   CONV_CONNECT  No connection to server.                                  *
+ *   CONV_FAILED   Conversion failed.                                        *
+ *   CONV_OK       Conversion succeeded.                                     *
+ * ------------------------------------------------------------------------- */
+BYTE _Optlink ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
+{
+    CHAR szTemp[ MAX_KANA_BUFZ * 3 ] = {0};     // Temporary conversion buffer
+    INT             iLen,                       // Buffer length
+                    iResult;                    // Conversion result code from jlib
+    w_char         *yomi;                       // Input string in fixed-width EUC format
+    struct wnn_buf *bdata = pSession;           // Wnn session buffer
+
+
+    // Double-check we are connected to the server
+    if (  !bdata || !jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+
+    // Convert the UCS-2 kana string into EUC
+    StrConvert( (PCH)(global.uszKana), szTemp, NULL, uconvEUC );
+
+    // Now convert that into the fixed-width format expected by Wnn jlib
+    iLen = strlen( szTemp ) + 1;
+    yomi = (w_char *) calloc( iLen, sizeof( w_char ));
+    wnn_Sstrcpy( yomi, szTemp );
+
+    // Tell Wnn to convert the full clause
+    iResult = jl_tan_conv( bdata, yomi, 0, -1, WNN_USE_ZENGO, WNN_DAI );
+    if ( iResult == -1 ) {
+        if ( WnnErrorBuf[0] )
+            strncpy( global.szEngineError, WnnErrorBuf, sizeof( global.szEngineError ) - 1 );
+        else
+            strcpy( global.szEngineError, "Error converting text.");
+        return CONV_FAILED;
+    }
+
+    free( yomi );
+    return CONV_OK;
+}
+
 
 /* ------------------------------------------------------------------------- *
- * Get a converted kanji string from the Wnn buffer and return it in a       *
- * displayable format.  This could be a phrase in the unconverted clause     *
- * (for which specify a phrase range with fReading = TRUE), or a candidate   *
- * conversion result for the whole clause (iPhrase = 0, iCount = -1) or a    *
- * word phrase range.                                                        *
+ * GetConvertedString                                                        *
+ *                                                                           *
+ * Get a converted clause or phrase string from the Wnn buffer, in a         *
+ * displayable format.  This can be used to obtain a phrase or phrase group  *
+ * within the clause, or a conversion result (for a phrase or clause).       *
+ *                                                                           *
+ * ConvertClause (i.e. jl_ren_conv) must have been called on the phonetic    *
+ * clause buffer first.  This function can then be used to retrieve either:  *
+ *                                                                           *
+ * A. A word phrase within the clause.  One of the things jl_ren_conv does   *
+ *    is split the input clause into grammatical word phrases which can then *
+ *    be enumerated with GetPhraseCount (i.e. jl_bun_suu) and then be        *
+ *    retrieved with this function.  This is useful if the client wants to   *
+ *    split the input string into sub-sections to allow the user to try      *
+ *    converting them individually.  (For this purpose you generally want to *
+ *    work on the phrase in uncoverted form, so set fReading to TRUE.)       *
+ *                                                                           *
+ * B. A conversion result for a phrase or clause.  If called immediately     *
+ *    after ConvertClause, this will return the default conversion result    *
+ *    for the entire clause.  If SetCandidate was called in between, then    *
+ *    the indicated candidate (i.e. alternate result) will be returned.      *
+ *    If ConvertPhrase was called after ConvertClause, then the conversion   *
+ *    result (or candidate) for the converted phrase will be returned.
  *                                                                           *
  * NOTES:                                                                    *
  * - Before any of this can work, jl_ren_conv must have been called on the   *
  *   the clause buffer (i.e. using ConvertClause).                           *
  * - Obtaining an individual phrase also requires jl_tan_conv to have been   *
- *   called subsequently (i.e. using PreparePhrases).                        *
+ *   called subsequently on that phrase (i.e. using ConvertPhrase).          *
  * - To obtain a conversion candidate, jl_zenkouhou and jl_next/jl_previous  *
  *   must then have been called as well (i.e. using PrepareCandidates and    *
  *   SetCandidate).                                                          *
@@ -689,7 +764,7 @@ BYTE _Optlink GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOOL 
 
 
     // Double-check we are connected to the server
-    if ( ! jl_isconnect( bdata )) {
+    if (  !bdata || !jl_isconnect( bdata )) {
         strcpy( global.szEngineError, "Lost connection to server.");
         return CONV_CONNECT;
     }
@@ -727,23 +802,77 @@ done:
 }
 
 
-/*
-INT _Optlink PreparePhrases( PVOID pSession )
+/* ------------------------------------------------------------------------- *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+INT _Optlink GetPhraseCount( PVOID pSession )
 {
-    // Split into phrases with jl_tan_conv()
-    // Return jl_bun_suu()
+    struct wnn_buf *bdata = pSession;   // Wnn session buffer
+
+    // Double-check we are connected to the server
+    if (  !bdata || !jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+
+    return jl_bun_suu( bdata );
 }
 
 
+/* ------------------------------------------------------------------------- *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
 INT _Optlink PrepareCandidates( PVOID pSession )
 {
-    // Add candidates to buffer with jl_zenkouhou()
-    // Return jl_zenkouho_suu()
+    struct wnn_buf *bdata = pSession;   // Wnn session buffer
+
+    // Double-check we are connected to the server
+    if (  !bdata || !jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+
+    jl_zenkouho( bdata, 0, WNN_USE_MAE, WNN_UNIQ );
+    return jl_zenkouho_suu( bdata );
 }
 
 
-INT _Optlink SetCandidate( PVOID pSession )
+/* ------------------------------------------------------------------------- *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+INT _Optlink SetCandidate( PVOID pSession, BOOL fNext )
 {
-    // Move to the next/previous candidate with jl_next()/jl_previous()
+    struct wnn_buf *bdata = pSession;   // Wnn session buffer
+
+    // Double-check we are connected to the server
+    if ( !bdata || !jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+
+    if ( fNext )
+        jl_next( bdata );
+    else
+        jl_previous( bdata );
+
+    return CONV_OK;
 }
-*/
+
+
+/* ------------------------------------------------------------------------- *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+BYTE _Optlink ClearConversion( PVOID pSession )
+{
+    struct wnn_buf *bdata = pSession;   // Wnn session buffer
+
+    // Double-check we are connected to the server
+    if (  !bdata || !jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+    jl_close( bdata );
+
+    return CONV_OK;
+}
+
