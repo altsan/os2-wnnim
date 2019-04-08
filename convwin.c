@@ -298,16 +298,22 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             usPhrase = SHORT1FROMMP( mp1 );
             if ( usPhrase == CWT_ALL ) {
                 // Replace entire text
-                if ( !pCtl->puszText || (( usLen + 1 ) > pCtl->usBufLen )) {
-                    usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usLen + 1 );
-                    puszTemp = (UniChar *) malloc( usBuf );
-                    if ( !puszTemp ) return FALSE;
-                    if ( pCtl->puszText ) free( pCtl->puszText );
-                    pCtl->puszText = puszTemp;
-                    pCtl->usBufLen = usBuf;
+                if (( !mp2 || !usLen ) && pCtl->puszText ) {
+                    memset( pCtl->puszText, 0, pCtl->usBufLen );
+                    pCtl->usTextLen = 0;
                 }
-                UniStrncpy( pCtl->puszText, (UniChar *)mp2, usLen );
-                pCtl->usTextLen = usLen;
+                else {
+                    if ( !pCtl->puszText || (( usLen + 1 ) > pCtl->usBufLen )) {
+                        usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usLen + 1 );
+                        puszTemp = (UniChar *) malloc( usBuf );
+                        if ( !puszTemp ) return FALSE;
+                        if ( pCtl->puszText ) free( pCtl->puszText );
+                        pCtl->puszText = puszTemp;
+                        pCtl->usBufLen = usBuf;
+                    }
+                    UniStrncpy( pCtl->puszText, (UniChar *)mp2, usLen );
+                    pCtl->usTextLen = usLen;
+                }
                 if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
                 pCtl->usPhraseCount = 0;
             }
@@ -336,10 +342,15 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
                 // Append the modified phrase and set its end position
                 usLen = SHORT2FROMMP( mp1 );
-                UniStrncat( puszTemp, (UniChar *) mp2, usLen );
-                pCtl->pusPhraseEnd[ usPhrase ] = ( usPhrase > 0 )?
-                                                    pCtl->pusPhraseEnd[ usPhrase-1 ] + usLen - 1:
-                                                    usLen - 1;
+                if ( usLen && mp2 ) {
+                    UniStrncat( puszTemp, (UniChar *) mp2, usLen );
+                    pCtl->pusPhraseEnd[ usPhrase ] = usPhrase ?
+                                                        pCtl->pusPhraseEnd[ usPhrase-1 ] + usLen - 1 :
+                                                        usLen - 1;
+                }
+                else
+                    pCtl->pusPhraseEnd[ usPhrase ] = usPhrase ? pCtl->pusPhraseEnd[ usPhrase-1 ] : 0;
+
                 // Append all subsequent phrases and update their end positions
                 for ( i = usPhrase + 1; i < pCtl->usPhraseCount; i++ ) {
                     usLen = pCtl->pusPhraseEnd[ i ] - usStart + 1;
@@ -369,13 +380,14 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          *  - mp1:                                                            *
          *  - mp2:                                                            *
          *  Returns BOOL                                                      *
-         * .................................................................. */
+         * .................................................................. *
+        // NOT IMPLEMENTED YET
         case CWM_ADDCHAR:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) FALSE;
 
             return (MRESULT) TRUE;
-
+        */
 
         /* .................................................................. *
          * CWM_DELCHAR                                                        *
@@ -384,13 +396,14 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          *  - mp1:                                                            *
          *  - mp2:                                                            *
          *  Returns BOOL                                                      *
-         * .................................................................. */
+         * .................................................................. *
+        // NOT IMPLEMENTED YET
         case CWM_DELCHAR:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) FALSE;
 
             return (MRESULT) TRUE;
-
+        */
 
         /* .................................................................. *
          * CWM_SETPHRASES                                                     *
@@ -510,7 +523,7 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     FONTMETRICS fm;                     // current font metrics
     SIZEF       sfCell;                 // character cell size
     LONG        cb,                     // length of current text, in bytes
-                lHeight, lWidth,        // dimensions of control rectangle (minus border)
+                lHeight,                // height of control rectangle
                 lCell;                  // desired character-cell height
     PCH         pchText;                // pointer to current output text
     POINTL      ptl,                    // current drawing position
@@ -541,7 +554,6 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
 
     // Get the window area and available text height
     WinQueryWindowRect( hwnd, &rcl );
-    lWidth  = rcl.xRight - rcl.xLeft;
     lHeight = rcl.yTop - rcl.yBottom;
 
     // Set the character cell size.
@@ -618,12 +630,14 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     WinCreateCursor( hwnd, ptl2.x, 0, 0, 0, CURSOR_SETPOS, &rcl );
 
     // Underline the text
-    GpiSetLineType( hps, LINETYPE_SOLID );
-    ptl.x = 0;
-    ptl.y = ptl2.y - (fm.lLowerCaseDescent / 2);
-    ptl2.y = ptl.y;
-    GpiMove( hps, &ptl );
-    GpiLine( hps, &ptl2 );
+    if ( pCtl->puszText ) {
+        GpiSetLineType( hps, LINETYPE_SOLID );
+        ptl.x = 0;
+        ptl.y = ptl2.y - (fm.lLowerCaseDescent / 2);
+        ptl2.y = ptl.y;
+        GpiMove( hps, &ptl );
+        GpiLine( hps, &ptl2 );
+    }
 
 #if 0
     // Paint a border
@@ -760,7 +774,7 @@ BOOL SetFont( HWND hwnd, PCWDATA pCtl )
     RECTL       rcl;                    // client window dimensions
     USHORT      fsSel;                  // desired language selection flag
     LONG        lCell,                  // desired character-cell height
-                lHeight, lWidth;        // dimensions of client window
+                lHeight;                // height of client window
     CHAR        szFont[ FACESIZE+4 ];   // current font pres.param
     PSZ         pszFontName;            // requested font family
     HPS         hps;
@@ -781,7 +795,6 @@ BOOL SetFont( HWND hwnd, PCWDATA pCtl )
 
     // Determine our basic dimensions
     WinQueryWindowRect( hwnd, &rcl );
-    lWidth  = rcl.xRight - rcl.xLeft;
     lHeight = rcl.yTop - rcl.yBottom;
     lCell = lHeight - 2;
 
@@ -854,7 +867,7 @@ LONG GetCurrentDPI( HWND hwnd )
  * ------------------------------------------------------------------------- */
 void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
 {
-    HWND        hwndParent;
+    HWND        hwndTop;
     FONTMETRICS fm;
     RECTL       rcl;
     POINTL      ptl;
@@ -869,18 +882,14 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
 
     if ( !pCtl ) return;
 
-    hwndParent = WinQueryWindow( hwnd, QW_PARENT );
-    if ( hwndParent == NULLHANDLE ) return;
+    // See if we're a top-level window or have a parent
+    hwndTop = WinQueryWindow( hwnd, QW_PARENT );
+    if ( hwndTop == NULLHANDLE ) return;
+    if ( hwndTop == HWND_DESKTOP ) hwndTop = hwnd;
 
-    // Get the parent window's size
-    WinQueryWindowRect( hwndParent, &rcl );
+    // Get the window's size
+    WinQueryWindowRect( hwndTop, &rcl );
     lHeight = rcl.yTop;
-
-    // If there's no text, just set the width to 0 and return
-    if ( !pCtl->puszText || !pCtl->usTextLen ) {
-        WinSetWindowPos( hwndParent, HWND_TOP, 0, 0, 0, lHeight, SWP_SIZE );
-        return;
-    }
 
     // Get the current control area
     WinQueryWindowRect( hwnd, &rcl );
@@ -905,15 +914,21 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
     GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
     pCtl->lCursorHeight = rcl.yTop;
 
+    if ( !pCtl->puszText || !pCtl->usTextLen ) {
+        WinSetWindowPos( hwndTop, HWND_TOP, 0, 0, fm.lEmInc, lHeight, SWP_SIZE );
+        return;
+    }
+
     // Since we're only interested in the string width, the y position is irrelevant
     ptl.x = 1;
     ptl.y = 1;
     GpiSetTextAlignment( hps, TA_LEFT, TA_BOTTOM );
+
     pchText = (PCH) pCtl->puszText;
     cb = UniStrlen( pCtl->puszText ) * 2;
     GpiQueryTextBox( hps, cb, pchText, TXTBOX_COUNT, aptl );
 
     // Update the window width
-    WinSetWindowPos( hwndParent, HWND_TOP, 0, 0, aptl[ TXTBOX_CONCAT ].x + fm.lEmInc, lHeight, SWP_SIZE );
+    WinSetWindowPos( hwndTop, HWND_TOP, 0, 0, aptl[ TXTBOX_CONCAT ].x + fm.lEmInc, lHeight, SWP_SIZE );
 }
 

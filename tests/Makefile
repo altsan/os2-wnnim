@@ -25,15 +25,14 @@ HEADERS_ALL = ..\codepage.h ..\wnnclient.h ..\wnnhook.h ..\wnnim.h
 LIBS = libuls.lib libconv.lib wnn0_dll.lib
 
 !ifdef DEBUG
-    CFLAGS_EXE = $(CFLAGS_EXE) /Ti+ /Tm+
+    CFLAGS_EXE = $(CFLAGS_EXE) /Ti+
     LFLAGS_EXE = $(LFLAGS_EXE) /DEBUG
 !endif
 
 .c.obj:
         $(CC) /c $(CFLAGS_EXE) $<
 
-all: testconv.exe
-# cwtest.exe
+all: testconv.exe cwtest.exe
 
 testconv.exe: testconv.obj wnnclient.obj wnnconv.obj codepage.obj
         $(LINK) $(LFLAGS_EXE) /STACK:0x50000 $** $(LIBS) /OUT:$@

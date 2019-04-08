@@ -59,6 +59,7 @@ int main( void )
     wp.cbCtlData = cwd.cb;
     wp.pCtlData = &cwd;
     WinSendMsg( hwndClient, WM_SETWINDOWPARAMS, MPFROMP( &wp ), 0L );
+    WinSetPresParam( hwndClient, PP_FONTNAMESIZE, 25, "10.Times New Roman MT 30");
 
     win_cx = 300;
     win_cy = 100;
@@ -67,7 +68,7 @@ int main( void )
     WinSetWindowPos( hwndFrame, 0, (scr_cx/2)-(win_cx/2), (scr_cy/2)-(win_cy/2),
                      win_cx, win_cy, SWP_MOVE | SWP_SIZE );
 
-    WinSetPresParam( hwndClient, PP_FONTNAMESIZE, 25, "10.Times New Roman MT 30");
+//    WinSendMsg( hwndClient, CWM_SETTEXT, MPFROM2SHORT( CWT_ALL, 0 ), 0L );
     WinSendMsg( hwndClient, CWM_SETTEXT, MPFROM2SHORT( CWT_ALL, 10 ), MPFROMP( aus ));
     WinSendMsg( hwndClient, CWM_SETPHRASES, MPFROMSHORT( 3 ), MPFROMP( ausPhrase ));
 //    WinSendMsg( hwndClient, CWM_SETTEXT, MPFROM2SHORT( 0, 6 ), MPFROMP( L"Toast "));
