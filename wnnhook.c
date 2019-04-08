@@ -58,7 +58,7 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
             c    = (CHAR)( SHORT1FROMMP( pQmsg->mp2 ) & 0xFF );
             usVK = SHORT2FROMMP( pQmsg->mp2 );
 
-            // Check for hotkey commands first
+            // Check for hotkey commands first (regardless of mode)
             if ((( fsFlags & global.fsVKInput ) == global.fsVKInput ) && ( c == global.usKeyInput )) {
                 // toggle input hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
@@ -95,7 +95,19 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                                 MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                     return TRUE;
                 }
-                // TODO cancel key (Esc?)
+                if ((( fsFlags & KC_VIRTUALKEY ) == KC_VIRTUALKEY ) && ( c == VK_ESC )) {
+                    // Cancel conversion and discard buffer
+                    WinPostMsg( g_hwndClient, WM_COMMAND,
+                                MPFROMSHORT( ID_HOTKEY_CANCEL ),
+                                MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
+                    return TRUE;
+                }
+                if ((( fsFlags & KC_VIRTUALKEY ) == KC_VIRTUALKEY ) && ( c == VK_BACKSPACE )) {
+                    // Delete last character
+                    WinPostMsg( g_hwndClient, global.wmDelChar, pQmsg->mp1, pQmsg->mp2 );
+                    return TRUE;
+                }
+
             }
 
             // Check for input characters

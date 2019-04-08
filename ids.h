@@ -5,6 +5,8 @@
 #define IDD_STATUS                  102
 #define IDD_TESTINPUT               110
 
+#define IDD_CLAUSE                  120
+
 #define DLG_SETTINGS                200
 #define IDD_STARTUP_MODE            201
 #define IDD_MODE_KEY                210
@@ -52,4 +54,5 @@
 #define ID_HOTKEY_KANJI             1002
 #define ID_HOTKEY_CONVERT           1003
 #define ID_HOTKEY_ACCEPT            1004
+#define ID_HOTKEY_CANCEL            1005
 
