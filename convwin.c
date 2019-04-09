@@ -50,6 +50,9 @@
 
 
 MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+BOOL             SetFullText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText );
+BOOL             ReplacePhraseText( HWND hwnd, PCWDATA pCtl, USHORT usPhrase, USHORT usLen, UniChar *puszText );
+BOOL             AppendText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText );
 void             DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl );
 BYTE             ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT flLang );
 BOOL             SetFont( HWND hwnd, PCWDATA pCtl );
@@ -88,10 +91,8 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
     USHORT      usPhrase,
                 usStart,
                 usLen,
-                usBuf,
                 i;
     PUSHORT     pusArray;
-    UniChar    *puszTemp;
 
 
     switch( msg ) {
@@ -298,72 +299,15 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             usPhrase = SHORT1FROMMP( mp1 );
             if ( usPhrase == CWT_ALL ) {
                 // Replace entire text
-                if (( !mp2 || !usLen ) && pCtl->puszText ) {
-                    memset( pCtl->puszText, 0, pCtl->usBufLen );
-                    pCtl->usTextLen = 0;
-                }
-                else {
-                    if ( !pCtl->puszText || (( usLen + 1 ) > pCtl->usBufLen )) {
-                        usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usLen + 1 );
-                        puszTemp = (UniChar *) malloc( usBuf );
-                        if ( !puszTemp ) return FALSE;
-                        if ( pCtl->puszText ) free( pCtl->puszText );
-                        pCtl->puszText = puszTemp;
-                        pCtl->usBufLen = usBuf;
-                    }
-                    UniStrncpy( pCtl->puszText, (UniChar *)mp2, usLen );
-                    pCtl->usTextLen = usLen;
-                }
-                if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
-                pCtl->usPhraseCount = 0;
+                if ( ! SetFullText( hwnd, pCtl, usLen, (UniChar *) mp2 ))
+                    return (MRESULT) FALSE;
             }
             else if ( usPhrase >= pCtl->usPhraseCount )
                 return (MRESULT) FALSE;     // invalid phrase number
             else if ( pCtl->puszText && pCtl->pusPhraseEnd ) {
                 // Replace only the indicated phrase
-                usBuf = pCtl->usTextLen + usLen + 1;
-                if ( usBuf > pCtl->usBufLen )
-                    usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usBuf );
-                puszTemp = (UniChar *) malloc( usBuf );
-                if ( !puszTemp ) return (MRESULT) FALSE;
-
-                // Add all phrases before the modified one to new buffer
-                puszTemp[ 0 ] = 0;
-                usStart = 0;
-                for ( i = 0; i < usPhrase; i++ ) {
-                    usLen = pCtl->pusPhraseEnd[ i ] - usStart + 1;
-                    UniStrncat( puszTemp,
-                                pCtl->puszText + usStart,
-                                usLen );
-                    usStart = pCtl->pusPhraseEnd[ i ] + 1;
-                }
-                // Move the start position past the phrase to be replaced
-                usStart = pCtl->pusPhraseEnd[ usPhrase ] + 1;
-
-                // Append the modified phrase and set its end position
-                usLen = SHORT2FROMMP( mp1 );
-                if ( usLen && mp2 ) {
-                    UniStrncat( puszTemp, (UniChar *) mp2, usLen );
-                    pCtl->pusPhraseEnd[ usPhrase ] = usPhrase ?
-                                                        pCtl->pusPhraseEnd[ usPhrase-1 ] + usLen - 1 :
-                                                        usLen - 1;
-                }
-                else
-                    pCtl->pusPhraseEnd[ usPhrase ] = usPhrase ? pCtl->pusPhraseEnd[ usPhrase-1 ] : 0;
-
-                // Append all subsequent phrases and update their end positions
-                for ( i = usPhrase + 1; i < pCtl->usPhraseCount; i++ ) {
-                    usLen = pCtl->pusPhraseEnd[ i ] - usStart + 1;
-                    UniStrncat( puszTemp,
-                                pCtl->puszText + usStart,
-                                usLen );
-                    pCtl->pusPhraseEnd[ i ] = usStart + usLen - 1;
-                    usStart += usLen;
-                }
-                free( pCtl->puszText );
-                pCtl->puszText = puszTemp;
-                pCtl->usTextLen = UniStrlen( puszTemp );
-                pCtl->usBufLen = usBuf;
+                if ( ! ReplacePhraseText( hwnd, pCtl, usPhrase, usLen, (UniChar *) mp2 ))
+                    return (MRESULT) FALSE;
             }
             else
                 return (MRESULT) FALSE;
@@ -375,35 +319,69 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
         /* .................................................................. *
          * CWM_ADDCHAR                                                        *
-         * Append character to clause.  If phrases are defined, the last      *
-         * phrase will be automatically expanded to include the new character.*
+         * Append characters to clause.  If phrases are defined, the last     *
+         * phrase will be automatically expanded to include the new           *
+         * character(s).                                                      *
          *  - mp1:                                                            *
+         *     USHORT: Number of UniChars being added.                        *
          *  - mp2:                                                            *
+         *     UniChar *: Pointer to UCS-2 string to append to clause text    *
          *  Returns BOOL                                                      *
-         * .................................................................. *
-        // NOT IMPLEMENTED YET
+         * .................................................................. */
         case CWM_ADDCHAR:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) FALSE;
 
+            usLen = SHORT1FROMMP( mp1 );
+            if ( !usLen || !mp2 ) return FALSE;     // nothing to do
+
+            if ( ! AppendText( hwnd, pCtl, usLen, (UniChar *) mp2 ))
+                return (MRESULT) FALSE;
+            hps = WinGetPS( hwnd );
+            UpdateWidth( hwnd, hps, pCtl );
+            WinReleasePS( hps );
             return (MRESULT) TRUE;
-        */
+
 
         /* .................................................................. *
          * CWM_DELCHAR                                                        *
-         * Delete last character from clause (and from the last phrase, if    *
-         * defined).                                                          *
+         * Delete character(s) from end of clause (and from the last phrase,  *
+         * if defined).  If the number of deleted characters would reduce the *
+         * last phrase length to less than 0, clear all phrase settings.      *
          *  - mp1:                                                            *
+         *     USHORT: Number of UniChars to delete.                          *
          *  - mp2:                                                            *
+         *     Unused, should be 0.                                           *
          *  Returns BOOL                                                      *
-         * .................................................................. *
-        // NOT IMPLEMENTED YET
+         * .................................................................. */
         case CWM_DELCHAR:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if ( !pCtl ) return (MRESULT) FALSE;
+            if ( !pCtl || !pCtl->puszText ) return (MRESULT) FALSE;
 
+            usLen = SHORT1FROMMP( mp1 );
+            if ( !usLen || !pCtl->usTextLen ) return FALSE;    // nothing to do
+
+            // Clear the indicated no of characters and update the length
+            i = ( pCtl->usTextLen < usLen ) ? 0 : pCtl->usTextLen - usLen;
+            memset( pCtl->puszText + i, 0, usLen * sizeof( UniChar ));
+            pCtl->usTextLen = i;
+
+            // Now update the phrase boundaries
+            if ( pCtl->usPhraseCount && pCtl->pusPhraseEnd ) {
+                if (( i == 0 ) ||
+                    (( pCtl->usPhraseCount > 1 ) && ( i < pCtl->pusPhraseEnd[ pCtl->usPhraseCount-2 ]))) {
+                    free( pCtl->pusPhraseEnd );
+                    pCtl->usPhraseCount = 0;
+                }
+                else
+                    pCtl->pusPhraseEnd[ pCtl->usPhraseCount-1 ] = i - 1;
+            }
+
+            hps = WinGetPS( hwnd );
+            UpdateWidth( hwnd, hps, pCtl );
+            WinReleasePS( hps );
             return (MRESULT) TRUE;
-        */
+
 
         /* .................................................................. *
          * CWM_SETPHRASES                                                     *
@@ -516,6 +494,153 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
 
 /* ------------------------------------------------------------------------- *
+ * SetFullText                                                               *
+ * ------------------------------------------------------------------------- */
+BOOL SetFullText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText )
+{
+    UniChar *puszTemp;
+    USHORT   usBuf;
+
+    if ( !usLen || !puszText ) {
+        // Clear current text
+        if ( pCtl->puszText != NULL )
+            memset( pCtl->puszText, 0, pCtl->usBufLen * sizeof( UniChar ));
+        pCtl->usTextLen = 0;
+    }
+    else {
+        // Replace current text
+        if ( !pCtl->puszText || ( usLen >= pCtl->usBufLen )) {
+            usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usLen + 1 );
+            puszTemp = (UniChar *) calloc( usBuf, sizeof( UniChar ));
+            if ( !puszTemp ) return FALSE;
+            if ( pCtl->puszText ) free( pCtl->puszText );
+            pCtl->puszText = puszTemp;
+            pCtl->usBufLen = usBuf;
+        }
+        UniStrncpy( pCtl->puszText, puszText, usLen );
+        pCtl->usTextLen = usLen;
+    }
+    if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
+    pCtl->usPhraseCount = 0;
+
+    return TRUE;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * ReplacePhraseText                                                         *
+ * ------------------------------------------------------------------------- */
+BOOL ReplacePhraseText( HWND hwnd, PCWDATA pCtl,
+                        USHORT usPhrase, USHORT usLen, UniChar *puszText )
+{
+    UniChar *puszTemp;
+    USHORT   usBuf,
+             usKeep,
+             usStart,
+             i;
+
+    // Create a new buffer
+    usBuf = pCtl->usTextLen + usLen + 1;
+    if ( usBuf > pCtl->usBufLen )
+        usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usBuf );
+    puszTemp = (UniChar *) calloc( usBuf, sizeof( UniChar ));
+    if ( !puszTemp ) return FALSE;
+
+    // Add all phrases before the modified one to the new buffer
+    usStart = 0;
+    for ( i = 0; i < usPhrase; i++ ) {
+        usKeep = pCtl->pusPhraseEnd[ i ] - usStart + 1;
+        UniStrncat( puszTemp, pCtl->puszText + usStart, usKeep );
+        usStart = pCtl->pusPhraseEnd[ i ] + 1;
+    }
+    // Move the start position past the phrase to be replaced
+    usStart = pCtl->pusPhraseEnd[ usPhrase ] + 1;
+
+    // Append the modified phrase and set its end position
+    if ( usLen && puszText ) {
+        UniStrncat( puszTemp, puszText, usLen );
+        pCtl->pusPhraseEnd[ usPhrase ] = usPhrase ?
+                                            pCtl->pusPhraseEnd[ usPhrase-1 ] + usLen - 1 :
+                                            usLen - 1;
+    }
+    else
+        pCtl->pusPhraseEnd[ usPhrase ] = usPhrase ? pCtl->pusPhraseEnd[ usPhrase-1 ] : 0;
+
+    // Append all subsequent phrases and update their end positions
+    for ( i = usPhrase + 1; i < pCtl->usPhraseCount; i++ ) {
+        usKeep = 1 + pCtl->pusPhraseEnd[ i ] - usStart;
+        UniStrncat( puszTemp,
+                    pCtl->puszText + usStart,
+                    usKeep );
+        pCtl->pusPhraseEnd[ i ] = pCtl->pusPhraseEnd[ i-1 ] + usKeep;
+        usStart += usKeep;
+    }
+
+    // Now replace the old buffer with the new one
+    free( pCtl->puszText );
+    pCtl->puszText = puszTemp;
+    pCtl->usTextLen = UniStrlen( puszTemp );
+    pCtl->usBufLen = usBuf;
+
+    return TRUE;
+}
+
+/*
+char *strconv( UniChar *input )
+{
+    UconvObject uconvTo;
+    unsigned long out_len,
+                  rc;
+    char *output = NULL;
+
+    if ( UniCreateUconvObject(L"@map=display,path=no", &uconvTo ) != ULS_SUCCESS ) {
+        goto done;
+    }
+    out_len = UniStrlen( input ) * 3;
+    output = (char *) calloc( out_len + 1, sizeof( char ));
+    rc = UniStrFromUcs( uconvTo, output, input, out_len+1 );
+    if ( rc != ULS_SUCCESS ) {
+        sprintf( output, "%X", rc );
+    }
+
+done:
+    UniFreeUconvObject( uconvTo );
+    return output;
+}
+*/
+
+
+/* ------------------------------------------------------------------------- *
+ * AppendText                                                                *
+ * ------------------------------------------------------------------------- */
+BOOL AppendText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText )
+{
+    UniChar *puszTemp;
+    USHORT   usBuf;
+
+    if ( !pCtl->puszText || ( usLen >= pCtl->usBufLen )) {
+        usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usLen + 1 );
+        puszTemp = (UniChar *) calloc( usBuf, sizeof( UniChar ));
+        if ( !puszTemp ) return FALSE;
+        if ( pCtl->puszText ) {
+            UniStrncpy( puszTemp, pCtl->puszText, pCtl->usTextLen );
+            free( pCtl->puszText );
+        }
+        pCtl->puszText = puszTemp;
+        pCtl->usBufLen = usBuf;
+    }
+    UniStrncat( pCtl->puszText, puszText, usLen );
+    pCtl->usTextLen += usLen;
+
+    if ( pCtl->usPhraseCount && pCtl->pusPhraseEnd ) {
+        pCtl->pusPhraseEnd[ pCtl->usPhraseCount-1 ] = pCtl->usTextLen - 1;
+    }
+
+    return TRUE;
+}
+
+
+/* ------------------------------------------------------------------------- *
  * DoPaint                                                                   *
  * ------------------------------------------------------------------------- */
 void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
@@ -523,7 +648,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     FONTMETRICS fm;                     // current font metrics
     SIZEF       sfCell;                 // character cell size
     LONG        cb,                     // length of current text, in bytes
-                lHeight,                // height of control rectangle
+                lHeight,                // height of control
+                lWidth,                 // width of control
                 lCell;                  // desired character-cell height
     PCH         pchText;                // pointer to current output text
     POINTL      ptl,                    // current drawing position
@@ -554,7 +680,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
 
     // Get the window area and available text height
     WinQueryWindowRect( hwnd, &rcl );
-    lHeight = rcl.yTop - rcl.yBottom;
+    lHeight = rcl.yTop;
+    lWidth  = rcl.xRight;
 
     // Set the character cell size.
     lCell = lHeight - 2;
@@ -639,16 +766,16 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
         GpiLine( hps, &ptl2 );
     }
 
-#if 0
-    // Paint a border
-    GpiSetLineType( hps, LINETYPE_LONGDASH );
-    ptl.x = 0;
-    ptl.y = 0;
-    ptl2.x += fm.lEmInc - 1;
-    ptl2.y = rcl.yTop - 1;
-    GpiMove( hps, &ptl );
-    GpiBox( hps, DRO_OUTLINE, &ptl2, 0, 0 );
-#endif
+    if ( pCtl->ctldata.flFlags & CWS_BORDER ) {
+        // Paint a border
+        GpiSetLineType( hps, LINETYPE_ALTERNATE );
+        ptl.x = 0;
+        ptl.y = 0;
+        ptl2.x = lWidth - 1;
+        ptl2.y = lHeight - 1;
+        GpiMove( hps, &ptl );
+        GpiBox( hps, DRO_OUTLINE, &ptl2, 0, 0 );
+    }
 
 }
 
@@ -882,10 +1009,13 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
 
     if ( !pCtl ) return;
 
+#if 0
     // See if we're a top-level window or have a parent
     hwndTop = WinQueryWindow( hwnd, QW_PARENT );
     if ( hwndTop == NULLHANDLE ) return;
-    if ( hwndTop == HWND_DESKTOP ) hwndTop = hwnd;
+    if ( hwndTop == HWND_DESKTOP )
+#endif
+        hwndTop = hwnd;
 
     // Get the window's size
     WinQueryWindowRect( hwndTop, &rcl );

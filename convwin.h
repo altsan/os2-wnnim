@@ -74,8 +74,9 @@
 
 // Public control data for the conversion overlay window, used by WM_CREATE
 typedef struct _COW_Ctl_Data {
-    USHORT      cb;                       // size of this data structure
-    USHORT      fsMode;                   // mode flags
+    USHORT      cb;                     // size of this data structure
+    USHORT      fsMode;                 // mode flags
+    ULONG       flFlags;                // style flags
 } CWCTLDATA, *PCWCTLDATA;
 
 
@@ -83,7 +84,6 @@ typedef struct _COW_Ctl_Data {
 typedef struct _COW_Private_Data {
     CWCTLDATA   ctldata;                // public control data
     USHORT      id;                     // our window ID
-    ULONG       flFlags;                // internal flags
     UniChar   * puszText;               // current control text (in UCS-2)
     USHORT      usTextLen;              // length of text (in UniChars)
     USHORT      usBufLen;               // length of preallocated text buffer (in UniChars)
