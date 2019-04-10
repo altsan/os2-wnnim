@@ -80,34 +80,37 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }
-            else if ( global.fsMode & MODE_CJK_ENTRY ) {    // Only applicable during clause entry
-                if ((( fsFlags & global.fsVKConvert ) == global.fsVKConvert ) && ( c == global.usKeyConvert )) {
+
+            // The following are only applicable during clause entry
+            else if ( global.fsMode & MODE_CJK_ENTRY ) {
+                if (( fsFlags & KC_VIRTUALKEY ) &&
+                         (( usVK == VK_BACKSPACE ) || ( usVK == VK_DELETE )))
+                {
+                    // Delete last character
+                    WinPostMsg( g_hwndClient, global.wmDelChar, pQmsg->mp1, pQmsg->mp2 );
+                    return TRUE;
+                }
+                else if ((( fsFlags & global.fsVKConvert ) == global.fsVKConvert ) && ( c == global.usKeyConvert )) {
                     // Convert clause buffer to CJK characters
                     WinPostMsg( g_hwndClient, WM_COMMAND,
                                 MPFROMSHORT( ID_HOTKEY_CONVERT ),
                                 MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                     return TRUE;
                 }
-                if ((( fsFlags & global.fsVKAccept ) == global.fsVKAccept ) && ( c == global.usKeyAccept )) {
+                else if ((( fsFlags & global.fsVKAccept ) == global.fsVKAccept ) && ( c == global.usKeyAccept )) {
                     // Accept current CJK conversion candidate
                     WinPostMsg( g_hwndClient, WM_COMMAND,
                                 MPFROMSHORT( ID_HOTKEY_ACCEPT ),
                                 MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                     return TRUE;
                 }
-                if ((( fsFlags & KC_VIRTUALKEY ) == KC_VIRTUALKEY ) && ( c == VK_ESC )) {
-                    // Cancel conversion and discard buffer
+                else if (( fsFlags & KC_VIRTUALKEY ) && ( usVK == VK_ESC )) {
+                    // Cancel conversion
                     WinPostMsg( g_hwndClient, WM_COMMAND,
                                 MPFROMSHORT( ID_HOTKEY_CANCEL ),
                                 MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                     return TRUE;
                 }
-                if ((( fsFlags & KC_VIRTUALKEY ) == KC_VIRTUALKEY ) && ( c == VK_BACKSPACE )) {
-                    // Delete last character
-                    WinPostMsg( g_hwndClient, global.wmDelChar, pQmsg->mp1, pQmsg->mp2 );
-                    return TRUE;
-                }
-
             }
 
             // Check for input characters
@@ -119,13 +122,14 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                         WinPostMsg( g_hwndClient, global.wmAddChar, pQmsg->mp1, pQmsg->mp2 );
                         return TRUE;
                     }
-                    else if ( global.fsMode & MODE_CJK_ENTRY ) {
-                        // Don't pass keys through to the source window if we're
-                        // in the middle of clause entry.
-                        return TRUE;
-                    }
                 }
             }
+
+            // Don't pass keys through if we're in the middle of clause entry
+            if ( global.fsMode & MODE_CJK_ENTRY )
+                return TRUE;
+
+            // Otherwise pass everything else through to the source window
             break;
 
     }

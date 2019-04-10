@@ -27,7 +27,7 @@ LFLAGS_DLL = /NOE /DLL /NOLOGO /MAP
 HEADERS_ALL = codepage.h ids.h settings.h wnnclient.h wnnhook.h wnnim.h
 
 EXE      = wnnim
-OBJS_EXE = $(EXE).obj codepage.obj settings.obj wnnclient.obj wnnconv.obj
+OBJS_EXE = $(EXE).obj codepage.obj settings.obj wnnclient.obj wnnconv.obj convwin.obj
 LIBS_EXE = libuls.lib libconv.lib wnn0_dll.lib
 
 DLL = wnnhook
@@ -57,6 +57,8 @@ wnnclient.obj: wnnclient.c $(HEADERS_ALL)
 
 wnnconv.obj: wnnconv.c $(HEADERS_ALL)
         $(CC) /c /Mc $(CFLAGS_EXE) $<
+
+convwin.obj: convwin.c $(HEADERS_ALL)
 
 codepage.obj: codepage.c $(HEADERS_ALL)
 

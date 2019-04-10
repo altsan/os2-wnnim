@@ -72,7 +72,10 @@ typedef struct _WnnClientData {
     HWND        hwndFrame,              // our frame
                 hwndClient,             // our client window
                 hwndMenu,               // our context menu
-                hwndLast;               // last window to have focus
+                hwndLast,               // last window to have focus
+                hwndInput,              // latest window to be the conversion target
+                hwndClause,             // clause conversion overlay window
+                hwndCandidates;         // conversion candidate menu (TODO)
 
     // User options
     SHORT       sDefMode;               // default input mode (MODE_* or 0xFF for last used)
@@ -86,7 +89,7 @@ typedef struct _WnnClientData {
     CHAR        szRomaji[ MAX_CHAR_BUFZ ];         // input buffer (characters as typed)
     UniChar     uszKana[ MAX_KANA_BUFZ ];          // buffer for converted phonetic characters
     UniChar     uszPending[ MAX_KANA_BUFZ ];       // buffer for 'candidate' phonetic characters (Korean only)
-    UniChar *   puszClause;                        // current clause conversion buffer
+//  UniChar *   puszClause;                        // current clause conversion buffer
     UconvObject uconvOut;                          // conversion object for DBCS output codepage
     CHAR        szEngineError[ MAX_ENGINE_ERRZ ];  // error messages from the IME engine
 

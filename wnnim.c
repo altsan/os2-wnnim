@@ -36,6 +36,7 @@
 #include "ids.h"
 #include "wnnim.h"
 #include "wnnclient.h"
+#include "convwin.h"
 #include "settings.h"
 
 
@@ -50,11 +51,13 @@ void             ClearClauseBuffer( void );
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
 VOID APIENTRY    ExeTrap( void );
+void             DismissConversionWindow( HWND hwnd );
 void             NextInputMode( HWND hwnd );
 void             PaintIMEButton( PUSERBUTTON pBtnData );
 MRESULT          PassStdEvent( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 );
 void             SendCharacter( HWND hwndSource, PSZ pszBuffer );
+BOOL             SetConversionWindow( HWND hwnd, HWND hwndSource );
 void             SetInputMode( HWND hwnd, USHORT usNewMode );
 void             SetTopmost( HWND hwnd );
 BOOL             SetupDBCSLanguage( USHORT usLangMode );
@@ -101,12 +104,131 @@ void ClearInputBuffer( void )
  *                                                                           *
  * Clear/reset the clause conversion buffer.                                 *
  *                                                                           *
- * ------------------------------------------------------------------------- */
+ * ------------------------------------------------------------------------- *
 void ClearClauseBuffer( void )
 {
     if ( global.puszClause )
         free( global.puszClause );
     global.puszClause = (UniChar *) calloc( CLAUSE_INCZ, sizeof( char ));
+}
+*/
+
+
+/* ------------------------------------------------------------------------- *
+ * SetConversionWindow                                                       *
+ *                                                                           *
+ * Open the clause conversion overlay window and position it over the source *
+ * window.                                                                   *
+ * ------------------------------------------------------------------------- */
+BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
+{
+    CWCTLDATA   ctldata = {0};
+    FONTMETRICS fm = {0};
+    CHAR        szFontPP[ FACESIZE + 4 ];
+    HPS         hps;
+    BOOL        fGotPos;
+    CURSORINFO  ci;
+    RECTL       rclConv = {0};
+    POINTL      ptl;
+    LONG        lClr,
+                lTxtHeight;
+    USHORT      usRC;
+
+    if (( pShared->fsMode & MODE_CJK_ENTRY ) && global.hwndClause )
+        return TRUE;
+
+    // Default font and line height (for fallback)
+    strcpy( szFontPP, "10.Times New Roman MT 30");
+    lTxtHeight = 40;
+
+    // Create the conversion window if it doesn't already exist
+    if ( global.hwndClause == NULLHANDLE ) {
+        ctldata.cb = sizeof( CWCTLDATA );
+        ctldata.fsMode = pShared->fsMode & 0xF00;
+        ctldata.flFlags = CWS_BORDER;
+        global.hwndClause = WinCreateWindow( HWND_DESKTOP, WC_WNNIMCONVWIN, "",
+                                             0L, 0, 0, 0, 0, hwnd, HWND_TOP,
+                                             IDD_CLAUSE, &ctldata, NULL );
+        lClr = SYSCLR_WINDOW;
+        WinSetPresParam( global.hwndClause, PP_BACKGROUNDCOLORINDEX,
+                         sizeof( lClr ), &lClr );
+        lClr = SYSCLR_WINDOWTEXT;
+        WinSetPresParam( global.hwndClause, PP_FOREGROUNDCOLORINDEX,
+                         sizeof( lClr ), &lClr );
+    }
+    if ( !global.hwndClause ) return FALSE;    // TODO error message?
+
+    // Tell the conversion window who's using it
+    WinSendMsg( global.hwndClause, CWM_SETINPUTWINDOW,
+                MPFROMP( hwndSource ), 0L );
+
+    // Now determine where to position it
+    if ( hwndSource ) {
+        usRC = (USHORT) WinSendMsg( hwndSource, WM_QUERYCONVERTPOS,
+                                    MPFROMP( &rclConv ), 0L );
+        if ( usRC == QCP_NOCONVERT ) return FALSE;
+    }
+    if (( rclConv.xLeft < 1 ) && ( rclConv.yBottom < 1 ))
+        fGotPos = FALSE;
+    else
+        fGotPos = TRUE;
+
+    ptl.x = 1;
+    ptl.y = 1;
+#if 0
+    if ( !fGotPos && WinQueryCursorInfo( HWND_DESKTOP, &ci )) {
+        // Window didn't tell us the cursor position, so...
+        if ( ci.hwnd == hwndSource ) {
+            ptl.x = ci.x;
+            ptl.y = ci.y;
+            WinMapWindowPoints( HWND_DESKTOP, hwndSource, &ptl, 1 );
+            fGotPos = TRUE;
+        }
+    }
+#endif
+    if ( fGotPos ) {
+        ptl.x = rclConv.xLeft;
+        ptl.y = rclConv.yBottom;
+
+        // Try and set the font and window (line) height to match the source window
+        hps = WinGetPS( hwnd );
+        if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
+            lTxtHeight = fm.lMaxBaselineExt + 4;
+            // Note: the point size here is ignored by the conversion window
+            sprintf( szFontPP, "10.%s", fm.szFacename );
+        }
+        WinReleasePS( hps );
+    }
+
+    WinSetPresParam( global.hwndClause, PP_FONTNAMESIZE,
+                     strlen( szFontPP ), szFontPP );
+
+    // Place it over the source window at the position indicated
+    WinSetWindowPos( global.hwndClause, HWND_TOP,
+                     ptl.x, ptl.y, 0, lTxtHeight,
+                     SWP_MOVE | SWP_SHOW | SWP_SIZE );
+
+    pShared->fsMode |= MODE_CJK_ENTRY;
+    WinSetFocus( HWND_DESKTOP, global.hwndClause );
+    return TRUE;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * DismissConversionWindow                                                   *
+ *                                                                           *
+ * Hide the conversion window and clear its contents.                        *
+ * ------------------------------------------------------------------------- */
+void DismissConversionWindow( HWND hwnd )
+{
+    WinSendMsg( global.hwndClause, CWM_SETTEXT,
+                MPFROM2SHORT( CWT_ALL, 0 ), MPFROMP( NULL ));
+    WinSendMsg( global.hwndClause, CWM_SETINPUTWINDOW, 0L, 0L );
+    WinShowWindow( global.hwndClause, FALSE );
+
+    pShared->fsMode &= ~MODE_CJK_ENTRY;
+    if ( global.hwndInput )
+        WinSetFocus( HWND_DESKTOP, global.hwndInput );
 }
 
 
@@ -200,13 +322,18 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
     if ( bStatus == KANA_CANDIDATE )
         UniStrncpy( global.suPending, global.uszKana, MAX_KANA_BUFZ );
         // TODO update/display overlay
-    else if ( pShared->fsMode & MODE_CJK ) {
-        // TODO append to clause buffer
-        // TODO update/display overlay
+    else
+    */
+    if (( pShared->fsMode & MODE_CJK ) &&
+        ( SetConversionWindow( hwnd, hwndSource )))
+    {
+        // Add character to clause conversion window
+        WinSendMsg( global.hwndClause, CWM_ADDCHAR,
+                    MPFROMSHORT( UniStrlen( global.uszKana )),
+                    MPFROMP( global.uszKana ));
         ClearInputBuffer();
     }
     else
-    */
     {
         // Convert kana buffer to output codepage and send to application
         StrConvert( (PCH)(global.uszKana), szKana, NULL, global.uconvOut );
@@ -251,10 +378,11 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     UCHAR szChar[ 2 ];
     BYTE  bStatus;
 
-    if ( hwndSource != global.hwndLast ) {
+    if (( hwndSource != global.hwndInput ) && ( hwndSource != global.hwndClause )) {
         // Source window changed, clear any existing buffers.
-        global.hwndLast = hwndSource;
+        global.hwndInput = hwndSource;
         ClearInputBuffer();
+        DismissConversionWindow( hwnd );
         // ClearClauseBuffer();
     }
 
@@ -265,7 +393,7 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     if ( IS_INPUT_MODE( pShared->fsMode, MODE_FULLWIDTH ))
         bStatus = ConvertFullWidth( global.szRomaji, global.uszKana,
                                     sizeof( global.uszKana ) / sizeof( UniChar )) > 0 ?
-                    KANA_COMPLETE: KANA_INVALID;
+                  KANA_COMPLETE: KANA_INVALID;
     else
         bStatus = ConvertPhonetic( pShared->fsMode );
     if ( bStatus != KANA_PENDING ) {
@@ -905,6 +1033,12 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     ToggleKanjiConversion( hwnd );
                     break;
 
+                case ID_HOTKEY_ACCEPT:          // TBI
+                case ID_HOTKEY_CONVERT:         // TBI
+                case ID_HOTKEY_CANCEL:
+                    DismissConversionWindow( hwnd );
+                    break;
+
                 case IDM_HIRAGANA:
                     SetInputMode( hwnd, MODE_HIRAGANA );
                     break;
@@ -947,13 +1081,17 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             }
             break;
 
+
         case WM_FOCUSCHANGE:
             // If our window got focus, remember the previously-active window
-            hwndFocus = (HWND)mp1;
-            if (( SHORT1FROMMP( mp2 ) == TRUE ) && ! WinIsChild( hwndFocus, global.hwndFrame )) {
+            hwndFocus = (HWND) mp1;
+            if (( SHORT1FROMMP( mp2 ) == TRUE ) &&
+                ! WinIsChild( hwndFocus, global.hwndFrame ))
+            {
                 global.hwndLast = hwndFocus;
             }
             break;
+
 
         case WM_PAINT:
             hps = WinBeginPaint( hwnd, NULLHANDLE, NULL );
@@ -992,12 +1130,15 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         // Custom msgs
         //
         default:
-            if ( msg == pShared->wmAddChar ) {          // Typed character
+            if ( msg == pShared->wmAddChar ) {
+                // Typed character
                 ProcessCharacter( hwnd, pShared->hwndSource, mp1, mp2 );
                 return 0;
             }
-            else if ( msg == pShared->wmDelChar ) {     // Backspace
-                // If overlay is active, delete the last character.  Otherwise, pass on to hwndSource
+            else if (( msg == pShared->wmDelChar ) && global.hwndClause ) {
+                // Backspace
+                WinSendMsg( global.hwndClause, CWM_DELCHAR, MPFROMSHORT( 1 ), 0L );
+                return 0;
             }
             break;
 
@@ -1049,7 +1190,7 @@ BOOL SetupDBCSLanguage( USHORT usLangMode )
         ErrorPopup("Failed to create conversion object for selected codepage.");
         return FALSE;
     }
-    global.puszClause = (UniChar *) calloc( CLAUSE_INCZ, sizeof( char ));
+//    global.puszClause = (UniChar *) calloc( CLAUSE_INCZ, sizeof( char ));
 
     rc = InitInputMethod( NULL, usLangMode );
     if ( rc ) {
@@ -1090,6 +1231,8 @@ int main( int argc, char **argv )
     hmq = WinCreateMsgQueue( hab, 0 );
 
     DosExitList( EXLST_ADD, (PFNEXITLIST) ExeTrap );    // trap exceptions to ensure hooks released
+
+    CWinRegisterClass( hab );
 
     WinRegisterClass( hab, clientClass, ClientWndProc, CS_CLIPCHILDREN, 0 );
     global.hwndFrame = WinCreateStdWindow( HWND_DESKTOP, 0L, &frameFlags, clientClass,

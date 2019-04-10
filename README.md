@@ -151,6 +151,9 @@ the PM hook), for the sake of keeping the hook DLL as lightweight as possible.
 `codepage.*` contains various useful functions for dealing with text
 encodings.
 
+`wnnconv.c` contains some FreeWnn text conversion routines; they are not 
+exported by the library and so were simply lifted from the sources.
+
 `ids.h` defines various resource and message IDs used by both the client and the
 PM hook.
 

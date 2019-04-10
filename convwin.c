@@ -130,7 +130,21 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
                 free( pCtl );
             }
+            //WinDestroyCursor( hwnd );
             break;
+
+
+        case WM_ACTIVATE:
+            // If we became active, make pCtl->hwndSource active instead
+            pCtl = WinQueryWindowPtr( hwnd, 0 );
+            if (( (USHORT) mp1 == TRUE ) && pCtl->hwndSource )
+                WinSetActiveWindow( HWND_DESKTOP, pCtl->hwndSource );
+            break;
+
+
+        case WM_HITTEST:
+            // Pass clicks through to the window underneath
+            return (MRESULT) HT_TRANSPARENT;
 
 
         case WM_PAINT:
@@ -157,7 +171,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             }
             break;
 
-
+#if 0
         case WM_SETFOCUS:
             if ( SHORT1FROMMP( mp2 )) {     // Got focus
                 pCtl = WinQueryWindowPtr( hwnd, 0 );
@@ -167,9 +181,11 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 WinShowCursor( hwnd, TRUE );
                 WinInvalidateRect( hwnd, NULL, FALSE );
             }
-            else                            // Lost focus
+            else {                          // Lost focus
                 WinDestroyCursor( hwnd );
+            }
             break;
+#endif
 
 
         case WM_QUERYWINDOWPARAMS:
@@ -206,7 +222,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case WM_SIZE:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             WinQueryWindowRect( hwnd, &rcl );
-            pCtl->lCursorHeight = rcl.yTop;
+            //pCtl->lCursorHeight = rcl.yTop;
             break;
 
 
@@ -352,14 +368,17 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          *     USHORT: Number of UniChars to delete.                          *
          *  - mp2:                                                            *
          *     Unused, should be 0.                                           *
-         *  Returns BOOL                                                      *
+         *  Returns USHORT                                                    *
+         *  Number of UCS-2 characters remaining after the operation.         *
          * .................................................................. */
         case CWM_DELCHAR:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if ( !pCtl || !pCtl->puszText ) return (MRESULT) FALSE;
+            if ( !pCtl || !pCtl->puszText || !pCtl->usTextLen )
+                return (MRESULT) 0;                 // nothing to do (no text)
 
             usLen = SHORT1FROMMP( mp1 );
-            if ( !usLen || !pCtl->usTextLen ) return FALSE;    // nothing to do
+            if ( !usLen )                           // no-op
+                return (MRESULT) pCtl->usTextLen;
 
             // Clear the indicated no of characters and update the length
             i = ( pCtl->usTextLen < usLen ) ? 0 : pCtl->usTextLen - usLen;
@@ -380,7 +399,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             hps = WinGetPS( hwnd );
             UpdateWidth( hwnd, hps, pCtl );
             WinReleasePS( hps );
-            return (MRESULT) TRUE;
+            return (MRESULT) pCtl->usTextLen;
 
 
         /* .................................................................. *
@@ -471,6 +490,22 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     break;
             }
 
+            return (MRESULT) TRUE;
+
+
+        /* .................................................................. *
+         * CWM_SETINPUTWINDOW                                                 *
+         * Set the window for which the conversion window is processing input.*
+         *  - mp1:                                                            *
+         *     HWND: Handle of window.                                        *
+         *  - mp2:                                                            *
+         *     Unused, should be 0.                                           *
+         *  Returns BOOL                                                      *
+         * .................................................................. */
+        case CWM_SETINPUTWINDOW:
+            pCtl = WinQueryWindowPtr( hwnd, 0 );
+            if ( !pCtl ) return (MRESULT) FALSE;
+            pCtl->hwndSource = (HWND) mp2;
             return (MRESULT) TRUE;
 
 
@@ -725,8 +760,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
                 pchText = (PCH) pCtl->puszText + ( usStart * 2 );
                 cb = ( 1 + pCtl->pusPhraseEnd[ i ] - usStart ) * 2;
                 if ( i == pCtl->usCurrentPhrase ) {
-                    GpiSetColor( hps, lClrBG );
-                    GpiSetBackColor( hps, lClrFG );
+                    GpiSetColor( hps, SYSCLR_HILITEFOREGROUND );     // GpiSetColor( hps, lClrBG );
+                    GpiSetBackColor( hps, SYSCLR_HILITEBACKGROUND ); // GpiSetBackColor( hps, lClrFG );
                 }
                 else {
                     GpiSetColor( hps, lClrFG );
@@ -754,10 +789,10 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     GpiQueryCurrentPosition( hps, &ptl2 );
 
     // Position the cursor
-    WinCreateCursor( hwnd, ptl2.x, 0, 0, 0, CURSOR_SETPOS, &rcl );
+//    WinCreateCursor( hwnd, ptl2.x, 0, 0, 0, CURSOR_SETPOS, &rcl );
 
-    // Underline the text
     if ( pCtl->puszText ) {
+        // Underline the text
         GpiSetLineType( hps, LINETYPE_SOLID );
         ptl.x = 0;
         ptl.y = ptl2.y - (fm.lLowerCaseDescent / 2);
@@ -766,6 +801,17 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
         GpiLine( hps, &ptl2 );
     }
 
+    // Draw a pseudo-cursor
+    GpiSetColor( hps, SYSCLR_SHADOWTEXT );
+    GpiSetLineType( hps, LINETYPE_SOLID );
+    ptl.x = ptl2.x + 3;
+    ptl.y = ptl2.y;
+    ptl2.x = ptl.x + 2;
+    ptl2.y = ptl.y + fm.lEmHeight;
+    GpiMove( hps, &ptl );
+    GpiBox( hps, DRO_FILL, &ptl2, 0, 0 );
+
+    GpiSetColor( hps, lClrFG );
     if ( pCtl->ctldata.flFlags & CWS_BORDER ) {
         // Paint a border
         GpiSetLineType( hps, LINETYPE_ALTERNATE );
@@ -1042,7 +1088,7 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
     GpiSetCharBox( hps, &sfCell );
     GpiSetCharSet( hps, 1L );
     GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
-    pCtl->lCursorHeight = rcl.yTop;
+//    pCtl->lCursorHeight = rcl.yTop;
 
     if ( !pCtl->puszText || !pCtl->usTextLen ) {
         WinSetWindowPos( hwndTop, HWND_TOP, 0, 0, fm.lEmInc, lHeight, SWP_SIZE );
