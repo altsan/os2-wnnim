@@ -135,6 +135,7 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     USHORT      usRC;
 
 
+    if ( !hwndSource ) return FALSE;
     if (( pShared->fsMode & MODE_CJK_ENTRY ) && global.hwndClause )
         return TRUE;
 
@@ -169,7 +170,7 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
 
 #if 1
     // Now determine where to position it
-    if ( hwndSource && global.pRclConv ) {
+    if ( global.pRclConv ) {
         if (( NO_ERROR == WinQueryWindowProcess( hwndSource, &pid, NULL )) &&
             ( NO_ERROR == DosGiveSharedMem( global.pRclConv, pid, fPERM )))
         {
@@ -188,7 +189,7 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
 #endif
 
     if ( !fGotPos && WinQueryCursorInfo( HWND_DESKTOP, &ci )) {
-        // Window didn't tell us the cursor position, so...
+        // Window didn't tell us the cursor position, so try querying it directly
         if ( ci.hwnd == hwndSource )
         {
             ptl.x = ci.x;
@@ -201,12 +202,14 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
         WinMapWindowPoints( hwndSource, HWND_DESKTOP, &ptl, 1 );
 
         // Try and set the font and window (line) height to match the source window
-        hps = WinGetPS( hwnd );
+        // (this doesn't really work very well but I have nothing better...)
+        hps = WinGetPS( hwndSource );
         if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
-            lTxtHeight = fm.lMaxBaselineExt + fm.lExternalLeading + 4;
+            lTxtHeight = fm.lMaxBaselineExt + 2;
+            ptl.x += 1;
             ptl.y -= fm.lLowerCaseDescent + 1;
             // Note: the point size here is ignored by the conversion window
-            sprintf( szFontPP, "10.%s", fm.szFacename );
+            sprintf( szFontPP, "%d.%s", fm.sNominalPointSize, fm.szFacename );
         }
         WinReleasePS( hps );
     }
