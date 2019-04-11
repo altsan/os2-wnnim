@@ -80,7 +80,7 @@ void SettingsInit( HWND hwnd, PPOINTL pptl )
     pShared->usKeyConvert = 0x20;
     pShared->fsVKConvert  = 0;
 
-    pShared->usKeyAccept  = VK_NEWLINE;
+    pShared->usKeyAccept  = 0x0D;
     pShared->fsVKAccept   = KC_VIRTUALKEY;
 
     pShared->usKeyNext    = VK_RIGHT;
