@@ -241,7 +241,6 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          * termination.                                                       *
          *  - mp1:                                                            *
          *     USHORT: Phrase number (from 0), or CWT_ALL for entire clause.  *
-         *     USHORT: Unused, should be 0.                                   *
          *  - mp2:                                                            *
          *     Unused, should be 0.                                           *
          *  Returns USHORT:                                                   *

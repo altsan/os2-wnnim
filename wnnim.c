@@ -45,6 +45,7 @@
 //
 
 MRESULT EXPENTRY AboutDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+void             AcceptClause( HWND hwnd );
 MRESULT EXPENTRY ButtonProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ClearInputBuffer( void );
 void             ClearClauseBuffer( void );
@@ -249,14 +250,18 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
  * ------------------------------------------------------------------------- */
 void DismissConversionWindow( HWND hwnd )
 {
+    // Clear the conversion window text
     WinSendMsg( global.hwndClause, CWM_SETTEXT,
                 MPFROM2SHORT( CWT_ALL, 0 ), MPFROMP( NULL ));
+    // De-associate the conversion window from the current application
     WinSendMsg( global.hwndClause, CWM_SETINPUTWINDOW, 0L, 0L );
+    // Hide the window
     WinShowWindow( global.hwndClause, FALSE );
-
-    pShared->fsMode &= ~MODE_CJK_ENTRY;
     if ( global.hwndInput )
         WinSetFocus( HWND_DESKTOP, global.hwndInput );
+
+    // Update the input mode status
+    pShared->fsMode &= ~MODE_CJK_ENTRY;
 }
 
 
@@ -322,11 +327,12 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
                     MPFROMSH2CH( KC_CHAR, 1, 0 ),
                     MPFROM2SHORT( usChar, 0 ));
 
-        if ( i > MAX_KANA_BUFZ ) break;     // sanity check
+        if ( i > 2000 ) break;     // sanity check
     }
 
     // Force a window redraw if workaround was used
     if ( fWorkAround ) WinInvalidateRect( hwndSource, NULL, FALSE );
+
 }
 
 
@@ -428,6 +434,47 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
         SupplyCharacter( hwnd, hwndSource, bStatus );
     }
     // otherwise just keep the buffers and continue
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * AcceptClause                                                              *
+ *                                                                           *
+ * Accept the current clause text as shown in the overlay window and send it *
+ * to the source application window.  Then dismiss the overlay window.       *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+void AcceptClause( HWND hwnd )
+{
+    UniChar *puszClause;
+    PSZ      pszClause;
+    USHORT   usLen;
+
+    if ( !global.hwndClause || !global.hwndInput ) return;
+
+    usLen = (USHORT) WinSendMsg( global.hwndClause, CWM_QUERYTEXTLENGTH,
+                                 MPFROMSHORT( CWT_ALL ), 0 );
+    if ( usLen ) {
+        puszClause = (UniChar *) calloc( usLen + 1, sizeof( UniChar ));
+        if ( puszClause ) {
+            if ( WinSendMsg( global.hwndClause, CWM_GETTEXT,
+                             MPFROM2SHORT( CWT_ALL, usLen+1 ),
+                             MPFROMP( puszClause )))
+            {
+                DismissConversionWindow( hwnd );
+                usLen *= 4;
+                pszClause = (PSZ) calloc( usLen + 1, sizeof( char ));
+                if ( pszClause ) {
+                    StrConvert( (PCH) puszClause, pszClause, NULL, global.uconvOut );
+                    SendCharacter( global.hwndInput, pszClause );
+                    free( pszClause );
+                }
+            }
+            free( puszClause );
+        }
+    }
+    else
+        DismissConversionWindow( hwnd );
 }
 
 
@@ -1064,7 +1111,10 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     ToggleKanjiConversion( hwnd );
                     break;
 
-                case ID_HOTKEY_ACCEPT:          // TBI
+                case ID_HOTKEY_ACCEPT:
+                    AcceptClause( hwnd );
+                    break;
+
                 case ID_HOTKEY_CONVERT:         // TBI
                 case ID_HOTKEY_CANCEL:
                     DismissConversionWindow( hwnd );

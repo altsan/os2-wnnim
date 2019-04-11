@@ -90,7 +90,6 @@ typedef struct _WnnClientData {
     CHAR        szRomaji[ MAX_CHAR_BUFZ ];         // input buffer (characters as typed)
     UniChar     uszKana[ MAX_KANA_BUFZ ];          // buffer for converted phonetic characters
     UniChar     uszPending[ MAX_KANA_BUFZ ];       // buffer for 'candidate' phonetic characters (Korean only)
-//  UniChar *   puszClause;                        // current clause conversion buffer
     UconvObject uconvOut;                          // conversion object for DBCS output codepage
     CHAR        szEngineError[ MAX_ENGINE_ERRZ ];  // error messages from the IME engine
 
