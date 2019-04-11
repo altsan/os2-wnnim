@@ -14,8 +14,8 @@ Only Presentation Manager (OS/2 graphical) sessions are supported; DOS and
 Win-OS/2 sessions are not.  OS/2 command lines are not supported either,
 _except_ for windowed VIO sessions running on DBCS versions of OS/2.
 
-The current version supports Japanese input.  Support for Korean and Chinese
-input is planned for future releases.
+The current version supports Japanese input.  Support for other Asian languages
+is planned for future releases.
 
 
 For Users
@@ -41,9 +41,8 @@ UI consists of two small buttons and a status panel.
 
  * The button labelled 'I' toggles input conversion on or off.  You can also
    toggle this setting using Ctrl+Space.
- * The button labelled 'C' toggles CJK clause conversion on or off.  (Since
-   clause conversion has not been implemented yet, this currently does nothing.)
-   You can also toggle this setting using Ctrl+Shift.
+ * The button labelled 'C' toggles CJK clause conversion on or off.  You can
+   also toggle this setting using Ctrl+Shift.
 
 There is also a popup context menu which allows you to do various things, such
 as select the input conversion mode (currently hiragana, katakana and fullwidth
@@ -146,6 +145,8 @@ directly or running it through WnnIM's conversion logic.
 implements most of the actual keypress processing logic (triggered as needed by
 the PM hook), for the sake of keeping the hook DLL as lightweight as possible.
 
+`convwin.*` implements the clause conversion (overlay) window.
+
 `settings.*` contains client routines specific to managing user settings.
 
 `codepage.*` contains various useful functions for dealing with text
@@ -161,7 +162,7 @@ PM hook.
 Notices
 -------
 
-WnnIM for OS/2
+WnnIM for OS/2  
 (C) 2019 Alexander Taylor
 
 Some of the PM hook logic was derived from `xray` by Michael Shillingford, and

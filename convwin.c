@@ -137,8 +137,11 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case WM_ACTIVATE:
             // If we became active, make pCtl->hwndSource active instead
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if (( (USHORT) mp1 == TRUE ) && pCtl->hwndSource )
+            if (( (USHORT) mp1 == TRUE ) && pCtl->hwndSource &&
+                 WinIsWindow( WinQueryAnchorBlock( pCtl->hwndSource ), pCtl->hwndSource ))
+            {
                 WinSetActiveWindow( HWND_DESKTOP, pCtl->hwndSource );
+            }
             break;
 
 

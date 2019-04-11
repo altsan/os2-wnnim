@@ -126,7 +126,8 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     FONTMETRICS fm = {0};
     CHAR        szFontPP[ FACESIZE + 4 ];
     HPS         hps;
-    BOOL        fGotPos;
+    BOOL        fGotPos,
+                fGotHeight;
     PID         pid;
     CURSORINFO  ci;
     POINTL      ptl;
@@ -167,7 +168,7 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     ptl.x = 1;
     ptl.y = 1;
     fGotPos = FALSE;
-
+    fGotHeight = FALSE;
 #if 1
     // Now determine where to position it
     if ( global.pRclConv ) {
@@ -178,12 +179,16 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
                                         MPFROMP( global.pRclConv ), 0L );
             if ( usRC == QCP_NOCONVERT ) return FALSE;
         }
-        if (( global.pRclConv->xLeft == -1 ) && ( global.pRclConv->yBottom == -1 ))
-            fGotPos = FALSE;
-        else {
+        if ( !( global.pRclConv->xLeft == -1 ) &&
+             !( global.pRclConv->yBottom == -1 ))
+        {
             ptl.x = global.pRclConv->xLeft;
             ptl.y = global.pRclConv->yBottom;
             fGotPos = TRUE;
+            if (( global.pRclConv->yTop - global.pRclConv->yBottom ) > 4 ) {
+                lTxtHeight = ( global.pRclConv->yTop - global.pRclConv->yBottom ) + 2;
+                fGotHeight = TRUE;
+            }
         }
     }
 #endif
@@ -195,6 +200,10 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
             ptl.x = ci.x;
             ptl.y = ci.y;
             fGotPos = TRUE;
+            if ( ci.cy > 4 ) {
+                lTxtHeight = ci.cy + 2;
+                fGotHeight = TRUE;
+            }
         }
     }
 
@@ -202,12 +211,10 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
         WinMapWindowPoints( hwndSource, HWND_DESKTOP, &ptl, 1 );
 
         // Try and set the font and window (line) height to match the source window
-        // (this doesn't really work very well but I have nothing better...)
+        // (this doesn't really work very well)
         hps = WinGetPS( hwndSource );
         if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
-            lTxtHeight = fm.lMaxBaselineExt + 2;
-            ptl.x += 1;
-            ptl.y -= fm.lLowerCaseDescent + 1;
+            if ( !fGotHeight ) lTxtHeight = fm.lMaxBaselineExt + 2;
             // Note: the point size here is ignored by the conversion window
             sprintf( szFontPP, "%d.%s", fm.sNominalPointSize, fm.szFacename );
         }
@@ -216,6 +223,13 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
 
     WinSetPresParam( global.hwndClause, PP_FONTNAMESIZE,
                      strlen( szFontPP ), szFontPP );
+    // Now get the conversion window's actual font metrics for positioning calculation
+    hps = WinGetPS( global.hwndClause );
+    if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
+        ptl.x += 1;
+        ptl.y -= fm.lLowerCaseDescent;
+    }
+    WinReleasePS( hps );
 
     // Place it over the source window at the position indicated
     WinSetWindowPos( global.hwndClause, HWND_TOP,
