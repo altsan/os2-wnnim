@@ -84,6 +84,7 @@ typedef struct _WnnClientData {
     BYTE        dbcs[ 12 ];             // DBCS information vector (byte-ranges)
     ULONG       codepage;               // DBCS output codepage
     USHORT      fsLastMode;             // last active input mode
+    PRECTL      pRclConv;               // position from WM_QUERYCONVERTPOS
 
     // Current conversion data
     CHAR        szRomaji[ MAX_CHAR_BUFZ ];         // input buffer (characters as typed)

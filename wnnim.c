@@ -127,12 +127,13 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     CHAR        szFontPP[ FACESIZE + 4 ];
     HPS         hps;
     BOOL        fGotPos;
+    PID         pid;
     CURSORINFO  ci;
-    RECTL       rclConv = {0};
     POINTL      ptl;
     LONG        lClr,
                 lTxtHeight;
     USHORT      usRC;
+
 
     if (( pShared->fsMode & MODE_CJK_ENTRY ) && global.hwndClause )
         return TRUE;
@@ -162,38 +163,48 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     WinSendMsg( global.hwndClause, CWM_SETINPUTWINDOW,
                 MPFROMP( hwndSource ), 0L );
 
-    // Now determine where to position it
-    if ( hwndSource ) {
-        usRC = (USHORT) WinSendMsg( hwndSource, WM_QUERYCONVERTPOS,
-                                    MPFROMP( &rclConv ), 0L );
-        if ( usRC == QCP_NOCONVERT ) return FALSE;
-    }
-    if (( rclConv.xLeft < 1 ) && ( rclConv.yBottom < 1 ))
-        fGotPos = FALSE;
-    else
-        fGotPos = TRUE;
-
     ptl.x = 1;
     ptl.y = 1;
-#if 0
-    if ( !fGotPos && WinQueryCursorInfo( HWND_DESKTOP, &ci )) {
-        // Window didn't tell us the cursor position, so...
-        if ( ci.hwnd == hwndSource ) {
-            ptl.x = ci.x;
-            ptl.y = ci.y;
-            WinMapWindowPoints( HWND_DESKTOP, hwndSource, &ptl, 1 );
+    fGotPos = FALSE;
+
+#if 1
+    // Now determine where to position it
+    if ( hwndSource && global.pRclConv ) {
+        if (( NO_ERROR == WinQueryWindowProcess( hwndSource, &pid, NULL )) &&
+            ( NO_ERROR == DosGiveSharedMem( global.pRclConv, pid, fPERM )))
+        {
+            usRC = (USHORT) WinSendMsg( hwndSource, WM_QUERYCONVERTPOS,
+                                        MPFROMP( global.pRclConv ), 0L );
+            if ( usRC == QCP_NOCONVERT ) return FALSE;
+        }
+        if (( global.pRclConv->xLeft == -1 ) && ( global.pRclConv->yBottom == -1 ))
+            fGotPos = FALSE;
+        else {
+            ptl.x = global.pRclConv->xLeft;
+            ptl.y = global.pRclConv->yBottom;
             fGotPos = TRUE;
         }
     }
 #endif
+
+    if ( !fGotPos && WinQueryCursorInfo( HWND_DESKTOP, &ci )) {
+        // Window didn't tell us the cursor position, so...
+        if ( ci.hwnd == hwndSource )
+        {
+            ptl.x = ci.x;
+            ptl.y = ci.y;
+            fGotPos = TRUE;
+        }
+    }
+
     if ( fGotPos ) {
-        ptl.x = rclConv.xLeft;
-        ptl.y = rclConv.yBottom;
+        WinMapWindowPoints( hwndSource, HWND_DESKTOP, &ptl, 1 );
 
         // Try and set the font and window (line) height to match the source window
         hps = WinGetPS( hwnd );
         if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
-            lTxtHeight = fm.lMaxBaselineExt + 4;
+            lTxtHeight = fm.lMaxBaselineExt + fm.lExternalLeading + 4;
+            ptl.y -= fm.lLowerCaseDescent + 1;
             // Note: the point size here is ignored by the conversion window
             sprintf( szFontPP, "10.%s", fm.szFacename );
         }
@@ -679,6 +690,9 @@ void SetupWindow( HWND hwnd )
     pfnBtnProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_INPUT), (PFNWP) ButtonProc );
     pfnBtnProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_KANJI), (PFNWP) ButtonProc );
     pfnTxtProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_STATUS), (PFNWP) StaticTextProc );
+
+    if ( ! DosAllocSharedMem( &(global.pRclConv), NULL, sizeof( RECTL ), fALLOCSHR ))
+        global.pRclConv = NULL;
 
     SetTopmost( global.hwndFrame );
 }
@@ -1256,6 +1270,8 @@ int main( int argc, char **argv )
     if ( hm ) DosFreeModule( hm );
 
     FinishInputMethod();
+
+    if ( global.pRclConv ) DosFreeMem( global.pRclConv );
 
     WinDestroyWindow( global.hwndFrame );
     WinDestroyMsgQueue( hmq );
