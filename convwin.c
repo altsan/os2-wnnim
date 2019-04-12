@@ -41,22 +41,13 @@
 #include "convwin.h"
 
 
-#define FTYPE_NOTFOUND 0    // font does not exist
-#define FTYPE_FOUND    1    // font name was found
-#define FTYPE_LANGUAGE 2    // font supports requested charset
-#define FTYPE_UNICODE  4    // font supports Unicode
-#define FTYPE_BITMAP   8    // font is a bitmap font
-
-
 
 MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 BOOL             SetFullText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText );
 BOOL             ReplacePhraseText( HWND hwnd, PCWDATA pCtl, USHORT usPhrase, USHORT usLen, UniChar *puszText );
 BOOL             AppendText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText );
 void             DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl );
-BYTE             ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT flLang );
 BOOL             SetFont( HWND hwnd, PCWDATA pCtl );
-LONG             GetCurrentDPI( HWND hwnd );
 void             UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl );
 
 
@@ -767,7 +758,7 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
 
     // Draw the text
     if ( pCtl->puszText ) {
-        ptl.x = 1;
+        ptl.x = 2;
         ptl.y = fm.lMaxDescender;
         GpiMove( hps, &ptl );
 
@@ -833,7 +824,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     GpiSetColor( hps, lClrFG );
     if ( pCtl->ctldata.flFlags & CWS_BORDER ) {
         // Paint a border
-        GpiSetLineType( hps, LINETYPE_ALTERNATE );
+//        GpiSetLineType( hps, LINETYPE_ALTERNATE );
+        GpiSetColor( hps, SYSCLR_ACTIVEBORDER );
         ptl.x = 0;
         ptl.y = 0;
         ptl2.x = lWidth - 1;
@@ -1115,7 +1107,7 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
     }
 
     // Since we're only interested in the string width, the y position is irrelevant
-    ptl.x = 1;
+    ptl.x = 2;
     ptl.y = 1;
     GpiSetTextAlignment( hps, TA_LEFT, TA_BOTTOM );
 
@@ -1124,6 +1116,6 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
     GpiQueryTextBox( hps, cb, pchText, TXTBOX_COUNT, aptl );
 
     // Update the window width
-    WinSetWindowPos( hwndTop, HWND_TOP, 0, 0, aptl[ TXTBOX_CONCAT ].x + fm.lEmInc, lHeight, SWP_SIZE );
+    WinSetWindowPos( hwndTop, HWND_TOP, 0, 0, aptl[ TXTBOX_CONCAT ].x + fm.lEmInc + 1, lHeight, SWP_SIZE );
 }
 

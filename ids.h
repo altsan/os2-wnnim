@@ -9,6 +9,8 @@
 
 #define DLG_SETTINGS                200
 #define IDD_STARTUP_MODE            201
+#define IDD_INPUT_FONT              202
+#define IDD_FONT_SELECT             203
 #define IDD_MODE_KEY                210
 #define IDD_MODE_CTRL               211
 #define IDD_MODE_SHIFT              212
@@ -21,7 +23,7 @@
 #define IDD_CONVERT_KEY             219
 #define IDD_CONVERT_CTRL            220
 #define IDD_CONVERT_SHIFT           221
-#define IDD_ACCEPT_KEY              221
+#define IDD_ACCEPT_KEY              222
 #define IDD_ACCEPT_CTRL             223
 #define IDD_ACCEPT_SHIFT            224
 #define IDD_NEXT_KEY                225
@@ -30,6 +32,8 @@
 #define IDD_PREV_KEY                228
 #define IDD_PREV_CTRL               229
 #define IDD_PREV_SHIFT              230
+
+#define DLG_FONT                    800
 
 #define DLG_ABOUT                   900
 #define IDD_ICON                    901

@@ -78,13 +78,14 @@ typedef struct _WnnClientData {
                 hwndCandidates;         // conversion candidate menu (TODO)
 
     // User options
-    SHORT       sDefMode;               // default input mode (MODE_* or 0xFF for last used)
+    SHORT       sDefMode;                          // default input mode (MODE_* or 0xFF for last used)
+    UCHAR       szInputFont[ FACESIZE ];           // default conversion window font
 
     // General state variables
-    BYTE        dbcs[ 12 ];             // DBCS information vector (byte-ranges)
-    ULONG       codepage;               // DBCS output codepage
-    USHORT      fsLastMode;             // last active input mode
-    PRECTL      pRclConv;               // position from WM_QUERYCONVERTPOS
+    BYTE        dbcs[ 12 ];                        // DBCS information vector (byte-ranges)
+    ULONG       codepage;                          // DBCS output codepage
+    USHORT      fsLastMode;                        // last active input mode
+    PRECTL      pRclConv;                          // position from WM_QUERYCONVERTPOS
 
     // Current conversion data
     CHAR        szRomaji[ MAX_CHAR_BUFZ ];         // input buffer (characters as typed)

@@ -195,8 +195,13 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
         pszPath = getenv("ROMKAN_TABLE");
         if ( pszPath )
             strncpy( szModeHyo, pszPath, CCHMAXPATH - 1 );
-        else
-            sprintf( szModeHyo, "/@unixroot/usr/lib/Wnn/%s/rk/mode", szLang );
+        else {
+            pszPath = getenv("WNNLIB");
+            if ( pszPath )
+                sprintf( szModeHyo, "%.240s/%.5s/rk/mode", pszPath, szLang );
+            else
+                sprintf( szModeHyo, "/@unixroot/usr/lib/Wnn/%.5s/rk/mode", szLang );
+        }
         pszPath = szModeHyo;
     }
 
@@ -568,8 +573,8 @@ INT IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSessio
         if ( pszPath )
             strncpy( szEnvRC, pszPath, CCHMAXPATH - 10 );
         else
-            sprintf( szEnvRC, "/@unixroot/usr/lib/Wnn/%s", szLang );
-        strncat( szEnvRC, "/wnnenvrc", CCHMAXPATH - 1 );
+            sprintf( szEnvRC, "/@unixroot/usr/lib/Wnn/%.5s", szLang );
+        strcat( szEnvRC, "/wnnenvrc");
     }
 
     // Connect to the server.

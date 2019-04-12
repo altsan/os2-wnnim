@@ -74,6 +74,13 @@
 #define BUFFER_INCREMENT        32      // Default text buffer increment (in UniChars)
 
 
+#define FTYPE_NOTFOUND 0    // font does not exist
+#define FTYPE_FOUND    1    // font name was found
+#define FTYPE_LANGUAGE 2    // font supports requested charset
+#define FTYPE_UNICODE  4    // font supports Unicode
+#define FTYPE_BITMAP   8    // font is a bitmap font
+
+
 // Public control data for the conversion overlay window, used by WM_CREATE
 typedef struct _COW_Ctl_Data {
     USHORT      cb;                     // size of this data structure
@@ -99,6 +106,9 @@ typedef struct _COW_Private_Data {
 } CWDATA, *PCWDATA;
 
 
+// Functions
 
 BOOL CWinRegisterClass( HAB hab );
+BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT flLang );
+LONG GetCurrentDPI( HWND hwnd );
 

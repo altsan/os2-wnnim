@@ -143,7 +143,11 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
         return TRUE;
 
     // Default font and line height (for fallback)
-    strcpy( szFontPP, "10.Times New Roman MT 30");
+    // (the point size is irrelevant but the PP format expects it)
+    if ( global.szInputFont[0] )
+        sprintf( szFontPP, "10.%.31s", global.szInputFont );
+    else
+        strcpy( szFontPP, "10.Times New Roman MT 30");
     lTxtHeight = 40;
 
     // Create the conversion window if it doesn't already exist

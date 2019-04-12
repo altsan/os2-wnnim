@@ -31,7 +31,15 @@
 #include "settings.h"
 
 
+#define DEFAULT_INPUT_FONT  "Times New Roman MT 30"
+
+
 extern IMCLIENTDATA global;
+
+BOOL ListSelectDataItem( HWND hwnd, USHORT usID, ULONG ulHandle );
+void SettingsPopulateKeyList( HWND hwnd, USHORT usID );
+void SettingsDlgPopulate( HWND hwnd );
+BOOL SelectFont( HWND hwnd, PSZ pszFace, USHORT cbBuf );
 
 
 /* ------------------------------------------------------------------------- *
@@ -66,6 +74,7 @@ void SettingsInit( HWND hwnd, PPOINTL pptl )
     // Startup mode
     global.sDefMode = -1;
     global.fsLastMode = 1;
+    strncpy( global.szInputFont, DEFAULT_INPUT_FONT, sizeof( global.szInputFont ));
 
     // Default hotkeys
     pShared->usKeyInput   = 0x20;
@@ -126,7 +135,7 @@ void SettingsPopulateKeyList( HWND hwnd, USHORT usID )
     sIdx = LIST_ADD_STRING( hwnd, usID, "Space");
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, 0x20 );
     sIdx = LIST_ADD_STRING( hwnd, usID, "Enter");
-    LIST_SET_ITEMDATA( hwnd, usID, sIdx, VK_NEWLINE );
+    LIST_SET_ITEMDATA( hwnd, usID, sIdx, 0x0D );
     sIdx = LIST_ADD_STRING( hwnd, usID, "`");
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, (ULONG)'`');
     sIdx = LIST_ADD_STRING( hwnd, usID, ".");
@@ -243,11 +252,40 @@ void SettingsDlgPopulate( HWND hwnd )
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
+    UCHAR szFontPP[ FACESIZE + 4 ];
+    PSZ   psz;
 
     switch ( msg ) {
         case WM_INITDLG:
             SettingsDlgPopulate( hwnd );
+            if ( global.szInputFont[0] ) {
+                sprintf( szFontPP, "10.%s", global.szInputFont );
+                WinSetPresParam( WinWindowFromID( hwnd, IDD_INPUT_FONT ),
+                                 PP_FONTNAMESIZE, strlen(szFontPP)+1, szFontPP );
+                psz = strchr( szFontPP, '.') + 1;
+                WinSetDlgItemText( hwnd, IDD_INPUT_FONT, psz );
+            }
             CentreWindow( hwnd, NULLHANDLE, SWP_SHOW );
+            break;
+
+        case WM_COMMAND:
+            switch ( SHORT1FROMMP( mp1 )) {
+                case IDD_FONT_SELECT:
+                    if ( ! WinQueryPresParam( WinWindowFromID( hwnd, IDD_INPUT_FONT ),
+                                              PP_FONTNAMESIZE, 0, NULL,
+                                              sizeof(szFontPP), szFontPP, QPF_NOINHERIT ))
+                        sprintf( szFontPP, "10.%.31s", DEFAULT_INPUT_FONT );
+                    psz = strchr( szFontPP, '.') + 1;
+                    if ( SelectFont( hwnd, psz,
+                                     sizeof(szFontPP) - ( strlen(szFontPP) - strlen(psz) )))
+                    {
+                        WinSetPresParam( WinWindowFromID( hwnd, IDD_INPUT_FONT ),
+                                         PP_FONTNAMESIZE, strlen(szFontPP)+1, szFontPP );
+                        WinSetDlgItemText( hwnd, IDD_INPUT_FONT, psz );
+                    }
+                    else ErrorPopup("Error creating font dialog.");
+                    return (MRESULT) FALSE;
+            }
             break;
 
     }
@@ -255,4 +293,59 @@ MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 }
 
 
+/* ------------------------------------------------------------------------- *
+ * SelectFont                                                                *
+ *                                                                           *
+ * Pop up a font selection dialog.                                           *
+ *                                                                           *
+ * Parameters:                                                               *
+ *   HWND   hwnd   : handle of the current window.                           *
+ *   PSZ    pszFace: pointer to buffer containing current font name.         *
+ *   USHORT cbBuf  : size of the buffer pointed to by 'pszFace'.             *
+ *                                                                           *
+ * RETURNS: BOOL                                                             *
+ * ------------------------------------------------------------------------- */
+BOOL SelectFont( HWND hwnd, PSZ pszFace, USHORT cbBuf )
+{
+    FONTDLG     fontdlg = {0};
+    FONTMETRICS fm      = {0};
+    LONG        lQuery  = 0;
+    CHAR        szName[ FACESIZE ];
+    HWND        hwndFD;
+    HPS         hps;
+
+    hps = WinGetPS( hwnd );
+    strncpy( szName, pszFace, FACESIZE-1 );
+
+    // Get the metrics of the current font (we'll want to know the weight class)
+    lQuery = 1;
+    GpiQueryFonts( hps, QF_PUBLIC, pszFace, &lQuery, sizeof(fm), &fm );
+
+    fontdlg.cbSize         = sizeof( FONTDLG );
+    fontdlg.hpsScreen      = hps;
+    fontdlg.pszTitle       = NULL;
+    fontdlg.pszPreview     = NULL;
+    fontdlg.pfnDlgProc     = NULL;
+    fontdlg.pszFamilyname  = szName;
+    fontdlg.usFamilyBufLen = sizeof( szName );
+    fontdlg.fxPointSize    = ( fm.fsDefn & FM_DEFN_OUTLINE ) ?
+                                MAKEFIXED( 10, 0 ) :
+                                ( fm.sNominalPointSize / 10 );
+    fontdlg.usWeight       = (USHORT) fm.usWeightClass;
+    fontdlg.clrFore        = SYSCLR_WINDOWTEXT;
+    fontdlg.clrBack        = SYSCLR_WINDOW;
+    fontdlg.fl             = FNTS_CENTER | FNTS_CUSTOM;
+    fontdlg.flStyle        = 0;
+    fontdlg.flType         = ( fm.fsSelection & FM_SEL_ITALIC ) ? FTYPE_ITALIC : 0;
+    fontdlg.usDlgId        = DLG_FONT;
+    fontdlg.hMod           = NULLHANDLE;
+
+    hwndFD = WinFontDlg( HWND_DESKTOP, hwnd, &fontdlg );
+    WinReleasePS( hps );
+    if (( hwndFD ) && ( fontdlg.lReturn == DID_OK )) {
+        strncpy( pszFace, fontdlg.fAttrs.szFacename, cbBuf-1 );
+        return TRUE;
+    }
+    return FALSE;
+}
 

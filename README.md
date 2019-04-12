@@ -31,18 +31,17 @@ to use an installation of FreeWnn anywhere on your network (for example, on
 a Linux box).  In this case, you will still need to install the runtime files
 locally, which you can do by following these steps:
 
-1. Extract `wnn0.dll` from the RPM and place the it in a directory on your
-   LIBPATH.
+1. Extract `wnn0.dll` from the RPM and place it in a directory on your LIBPATH.
 2. Extract the contents of `usr\lib\wnn` (including all subdirectories); 
    place them somewhere convenient (e.g. `E:\usr\local\lib\wnn`).
-3. Set the environment variable `WNN_LIB` to the fully-qualified path of
-   the directory in step (2) (e.g. `SET WNN_LIB=E:\usr\local\lib\wnn`).
-4. Set the environment variable `ROMKAN_TABLE` to the fully-qualified path
-   of the file `ja_JP\rk\mode` under the aforementioned directory
-   (e.g. `SET ROMKAN_TABLE=E:\usr\local\lib\wnn\ja_JP\rk\mode`).
-5. Set the environment variable `JSERVER` to the hostname and instance
+3. Set the environment variable `WNNLIB` to the fully-qualified path of
+   the directory in step (2) (e.g. `SET WNNLIB=E:\usr\local\lib\wnn`).
+   This allows WnnIM to locate the Wnn configuration files.
+4. Set the environment variable `JSERVER` to the hostname and instance
    number of the FreeWnn server on your network, in the form `hostname:#`
-   (e.g. `SET JSERVER=localhost:1`).
+   (e.g. `SET JSERVER=localhost:1`).  (The instance number is usually 1,
+   at least for the Japanese FreeWnn server; it corresponds to the `-N` 
+   parameter specified on the server command line.)
 
 The above steps are not needed if you installed the FreeWnn RPM.
 
@@ -62,6 +61,13 @@ ASCII are supported), adjust settings, or close the program.
 
 You can also change the input conversion mode using Shift+Space, which will
 cycle through the available modes.
+
+When in clause conversion mode, the following hotkey commands apply:
+
+    Space:     Convert the current clause text
+    Enter:     Accept the current text as shown
+    Esc:       Cancel conversion (this will clear the current clause text)
+    Backspace: Delete the last character
 
 The active settings are global, i.e. switching from one program to another will
 retain the current conversion mode.  However, settings are _not_ currently saved
