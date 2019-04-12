@@ -21,23 +21,35 @@ is planned for future releases.
 For Users
 ---------
 
-The FreeWnn runtime and romkan mode tables must be installed.  These are
-included in the FreeWnn RPM packages, which should soon be available from a
-repository near you; in the meantime, get `FreeWnn-1.1.1-0.a023.0.i386.rpm` from
+The FreeWnn server and runtime files.  These are provided in the FreeWnn RPM 
+packages, which should soon be available from a repository near you; in the 
+meantime, you can get `FreeWnn-1.1.1-0.a023.0.i386.rpm` from
 [here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
 
-If you don't have a UNIXROOT environment or prefer not to install the RPM for
-other reasons, you can extract `wnn0.dll` and the files in the `rk` directory;
-place the DLL in your LIBPATH, and the files from `rk` in their own directory
-(anywhere), then define the environment variable `ROMKAN_TABLE` to indicate the
-fully-qualified path of the file `mode`.  (This will suffice for phonetic input
-conversion; full clause conversion, which is not yet implemented, will require
-the full FreeWnn server installed either locally or on the local network.)
+If you prefer not to install the FreeWnn server locally, you can set it up
+to use an installation of FreeWnn anywhere on your network (for example, on
+a Linux box).  In this case, you will still need to install the runtime files
+locally, which you can do by following these steps:
 
-Make sure `wnnhook.dll` and `wnnim.exe` are in the same directory, and run
-'wnnim' to start the IME.  The actual UI is a small window located by default
-at the bottom right of your screen (you can move it around by dragging).  The
-UI consists of two small buttons and a status panel.
+1. Extract `wnn0.dll` from the RPM and place the it in a directory on your
+   LIBPATH.
+2. Extract the contents of `usr\lib\wnn` (including all subdirectories); 
+   place them somewhere convenient (e.g. `E:\usr\local\lib\wnn`).
+3. Set the environment variable `WNN_LIB` to the fully-qualified path of
+   the directory in step (2) (e.g. `SET WNN_LIB=E:\usr\local\lib\wnn`).
+4. Set the environment variable `ROMKAN_TABLE` to the fully-qualified path
+   of the file `ja_JP\rk\mode` under the aforementioned directory
+   (e.g. `SET ROMKAN_TABLE=E:\usr\local\lib\wnn\ja_JP\rk\mode`).
+5. Set the environment variable `JSERVER` to the hostname and instance
+   number of the FreeWnn server on your network, in the form `hostname:#`
+   (e.g. `SET JSERVER=localhost:1`).
+
+The above steps are not needed if you installed the FreeWnn RPM.
+
+To run WnnIM itself, make sure `wnnhook.dll` and `wnnim.exe` are in the same
+directory, and run 'wnnim.exe' to start the IME.  The actual UI is a small
+window located by default at the bottom right of your screen (you can move it
+around by dragging).  The UI consists of two small buttons and a status panel.
 
  * The button labelled 'I' toggles input conversion on or off.  You can also
    toggle this setting using Ctrl+Space.
