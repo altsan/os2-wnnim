@@ -50,6 +50,7 @@ MRESULT EXPENTRY ButtonProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ClearInputBuffer( void );
 void             ClearClauseBuffer( void );
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+void             DoClauseConversion( HWND hwnd );
 void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
 VOID APIENTRY    ExeTrap( void );
 void             DismissConversionWindow( HWND hwnd );
@@ -170,6 +171,7 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     ptl.y = 1;
     fGotPos = FALSE;
     fGotHeight = FALSE;
+
 #if 1
     // Now determine where to position it
     if ( global.pRclConv ) {
@@ -227,7 +229,6 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     // Now get the conversion window's actual font metrics for positioning calculation
     hps = WinGetPS( global.hwndClause );
     if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
-        ptl.x += 1;
         ptl.y -= fm.lLowerCaseDescent;
     }
     WinReleasePS( hps );
@@ -253,12 +254,17 @@ void DismissConversionWindow( HWND hwnd )
     // Clear the conversion window text
     WinSendMsg( global.hwndClause, CWM_SETTEXT,
                 MPFROM2SHORT( CWT_ALL, 0 ), MPFROMP( NULL ));
+
     // De-associate the conversion window from the current application
     WinSendMsg( global.hwndClause, CWM_SETINPUTWINDOW, 0L, 0L );
+
     // Hide the window
     WinShowWindow( global.hwndClause, FALSE );
     if ( global.hwndInput )
         WinSetFocus( HWND_DESKTOP, global.hwndInput );
+
+    // Reset the IME conversion state
+    ClearConversion( global.pSession );
 
     // Update the input mode status
     pShared->fsMode &= ~MODE_CJK_ENTRY;
@@ -475,6 +481,88 @@ void AcceptClause( HWND hwnd )
     }
     else
         DismissConversionWindow( hwnd );
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * DoClauseConversion                                                        *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+void DoClauseConversion( HWND hwnd )
+{
+    UniChar *puszClause,
+            *puszCandidate;
+    USHORT   usLen;
+    USHORT   usPhrase;
+    BOOL     fFirst;
+    INT      iLen,
+             rc;
+
+    if ( !global.hwndClause || !global.hwndInput ) return;
+
+    // See if we already initialized this clause
+    fFirst = FALSE;
+    rc = GetPhraseCount( global.pSession );
+    if ( rc == CONV_CONNECT ) {
+        // Lost connection, try (once) to reestablish
+        rc = InitConversionMethod( NULL, pShared->fsMode & 0xF00,
+                                   (PVOID *) &(global.pSession) );
+        if ( rc != CONV_CONNECT )
+            rc = GetPhraseCount( global.pSession );
+        if ( rc == CONV_CONNECT ) {
+            // No dice, give up
+            ErrorPopup( global.szEngineError );
+            return;
+        }
+    }
+    if ( rc < 1 ) {
+        // Nope, do it now
+
+        usLen = (USHORT) WinSendMsg( global.hwndClause, CWM_QUERYTEXTLENGTH,
+                                     MPFROMSHORT( CWT_ALL ), 0 );
+        if ( ! usLen ) return;
+
+        puszClause = (UniChar *) calloc( usLen + 1, sizeof( UniChar ));
+        if ( !puszClause )
+            return;
+        if ( ! WinSendMsg( global.hwndClause, CWM_GETTEXT,
+                           MPFROM2SHORT( CWT_ALL, usLen+1 ),
+                           MPFROMP( puszClause )))
+        {
+            free( puszClause );
+            return;
+        }
+        rc = ConvertClause( global.pSession, puszClause );
+        free( puszClause );
+        if ( rc != CONV_OK ) {
+            ErrorPopup( global.szEngineError );
+            return;
+        }
+        // TODO set phrases in clause window
+
+        // Now set up the candidate list
+        rc = PrepareCandidates( global.pSession );
+        if ( rc == CONV_CONNECT ) {
+            ErrorPopup( global.szEngineError );
+            return;
+        }
+        fFirst = TRUE;
+    }
+
+    // Candidates and phrases have been generated for this clause
+    usPhrase = (USHORT) WinSendMsg( global.hwndClause,
+                                    CWM_GETSELECTEDPHRASE, 0L, 0L );
+    // (At the moment usPhrase will always be CWT_NONE)
+
+    // Get next candidate for clause (TODO or selected phrase)
+    if ( !fFirst ) SetCandidate( global.pSession, TRUE );
+    if ( CONV_OK == GetConvertedString( global.pSession, 0, -1,
+                                        FALSE, &puszCandidate ))
+    {
+        WinSendMsg( global.hwndClause, CWM_SETTEXT,
+                    MPFROM2SHORT( CWT_ALL, UniStrlen( puszCandidate )),
+                    MPFROMP( puszCandidate ));
+    }
 }
 
 
@@ -755,7 +843,7 @@ void SetupWindow( HWND hwnd )
     pfnBtnProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_KANJI), (PFNWP) ButtonProc );
     pfnTxtProc = WinSubclassWindow( WinWindowFromID(hwnd, IDD_STATUS), (PFNWP) StaticTextProc );
 
-    if ( ! DosAllocSharedMem( &(global.pRclConv), NULL, sizeof( RECTL ), fALLOCSHR ))
+    if ( ! DosAllocSharedMem( (PVOID*) &(global.pRclConv), NULL, sizeof( RECTL ), fALLOCSHR ))
         global.pRclConv = NULL;
 
     SetTopmost( global.hwndFrame );
@@ -1111,11 +1199,14 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     ToggleKanjiConversion( hwnd );
                     break;
 
+                case ID_HOTKEY_CONVERT:
+                    DoClauseConversion( hwnd );
+                    break;
+
                 case ID_HOTKEY_ACCEPT:
                     AcceptClause( hwnd );
                     break;
 
-                case ID_HOTKEY_CONVERT:         // TBI
                 case ID_HOTKEY_CANCEL:
                     DismissConversionWindow( hwnd );
                     break;
@@ -1279,6 +1370,13 @@ BOOL SetupDBCSLanguage( USHORT usLangMode )
         return FALSE;
     }
 
+    rc = InitConversionMethod( NULL, usLangMode, (PVOID *) &(global.pSession) );
+    if ( rc == CONV_CONNECT ) {
+        ErrorPopup( global.szEngineError );
+        FinishInputMethod();
+        return FALSE;
+    }
+
     return TRUE;
 }
 
@@ -1319,7 +1417,8 @@ int main( int argc, char **argv )
     global.hwndFrame = WinCreateStdWindow( HWND_DESKTOP, 0L, &frameFlags, clientClass,
                                            "WnnIM", 0L, 0, ID_ICON, &global.hwndClient );
 
-    SetupDBCSLanguage( MODE_JP );
+    if ( !SetupDBCSLanguage( MODE_JP ))
+        goto cleanup;
 
     SettingsInit( global.hwndClient, &ptl );
     SetupWindow( global.hwndClient );
@@ -1336,8 +1435,10 @@ int main( int argc, char **argv )
     }
     if ( hm ) DosFreeModule( hm );
 
+    FinishConversionMethod( global.pSession );
     FinishInputMethod();
 
+cleanup:
     if ( global.pRclConv ) DosFreeMem( global.pRclConv );
 
     WinDestroyWindow( global.hwndFrame );

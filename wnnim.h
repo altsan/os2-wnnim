@@ -41,7 +41,7 @@
 
 // Status returned by various clause conversion functions
 #define CONV_FAILED    -1   // Operation failed (check error message from Wnn)
-#define CONV_CONNECT    0   // Operation not attempted due to no connection to server
+#define CONV_CONNECT   -2   // Operation not attempted due to no connection to server
 #define CONV_OK         1   // Operation succeeded
 
 
@@ -92,6 +92,7 @@ typedef struct _WnnClientData {
     UniChar     uszPending[ MAX_KANA_BUFZ ];       // buffer for 'candidate' phonetic characters (Korean only)
     UconvObject uconvOut;                          // conversion object for DBCS output codepage
     CHAR        szEngineError[ MAX_ENGINE_ERRZ ];  // error messages from the IME engine
+    PVOID       pSession;                          // IME engine session object
 
 } IMCLIENTDATA, *PIMCLIENTDATA;
 

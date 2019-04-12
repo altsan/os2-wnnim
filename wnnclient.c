@@ -405,12 +405,8 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
            *converted,          // pointers to converted letters
            *c;                  // "
 
-//FILE *f;
-
 
     if ( !fInitRK ) return KANA_INVALID;
-
-//f = fopen("debug.log", "a");
 
     i = 0;
     ltr = 0;
@@ -426,8 +422,6 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
     // Instead, we call romkan_henkan() and handle the iteration ourselves.
 
     for( j = 0; (result == KANA_PENDING) && (j < len); j++ ) {
-
-//fprintf( f, "romaji: %s, start: %d, converted: %d\t", global.szRomaji, j, i );
 
         // Get the next input character
         ltr = (letter)(global.szRomaji[ j ]);
@@ -474,7 +468,6 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
                 if (( c - converted ) > 10 ) break;     // simple sanity check
             }
         }
-//fprintf( f, " (%08X)\n", ltr );
 
         if ( ltr == NISEBP ) {
             result = KANA_INVALID;
@@ -501,13 +494,8 @@ BYTE _Optlink ConvertPhonetic( USHORT fsMode )
                 MakeHalfKana();
         }
 
-//fprintf( f, "Converted: %s\n", szOutput );
     }
     romkan_clear();
-
-//fprintf( f, "Returning result: %d\n", result );
-
-//fclose( f );
 
     return result;
 }
@@ -662,7 +650,7 @@ BYTE IM_CALLCNV ConvertClause( PVOID pSession, UniChar *puszClause )
     struct wnn_buf *bdata = pSession;           // Wnn session buffer
 
 
-    if ( !fInitCJK ) return CONV_CONNECT;
+//    if ( !fInitCJK ) return CONV_CONNECT;
 
     // Double-check we are connected to the server
     if ( !bdata || !jl_isconnect( bdata )) {
@@ -725,7 +713,7 @@ BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
     struct wnn_buf *bdata = pSession;           // Wnn session buffer
 
 
-    if ( !fInitCJK ) return CONV_CONNECT;
+//    if ( !fInitCJK ) return CONV_CONNECT;
 
     // Double-check we are connected to the server
     if (  !bdata || !jl_isconnect( bdata )) {
@@ -932,7 +920,7 @@ BYTE IM_CALLCNV ClearConversion( PVOID pSession )
         strcpy( global.szEngineError, "Lost connection to server.");
         return CONV_CONNECT;
     }
-    jl_close( bdata );
+    jl_kill( bdata, 0, -1 );
 
     return CONV_OK;
 }

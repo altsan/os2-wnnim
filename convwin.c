@@ -331,6 +331,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 return (MRESULT) FALSE;
             hps = WinGetPS( hwnd );
             UpdateWidth( hwnd, hps, pCtl );
+            WinInvalidateRect( hwnd, NULL, FALSE );
             WinReleasePS( hps );
             return (MRESULT) TRUE;
 
@@ -496,6 +497,20 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
 
         /* .................................................................. *
+         * CWM_GETSELECTEDPHRASE                                              *
+         *  - mp1:                                                            *
+         *     Unused, should be 0.                                           *
+         *  - mp2:                                                            *
+         *     Unused, should be 0.                                           *
+         *  Returns USHORT                                                    *
+         * .................................................................. *
+        case CWM_GETSELECTEDPHRASE:
+            pCtl = WinQueryWindowPtr( hwnd, 0 );
+            if ( !pCtl ) return (MRESULT) CWT_NONE;
+            return (MRESULT) pCtl->usCurrentPhrase;
+
+
+        /* .................................................................. *
          * CWM_SETINPUTWINDOW                                                 *
          * Set the window for which the conversion window is processing input.*
          *  - mp1:                                                            *
@@ -554,6 +569,8 @@ BOOL SetFullText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText )
             pCtl->puszText = puszTemp;
             pCtl->usBufLen = usBuf;
         }
+        else
+            memset( pCtl->puszText, 0, pCtl->usBufLen * sizeof( UniChar ));
         UniStrncpy( pCtl->puszText, puszText, usLen );
         pCtl->usTextLen = usLen;
     }

@@ -58,6 +58,7 @@
 #define CWM_DELCHAR             (WM_USER + 104)
 #define CWM_SETPHRASES          (WM_USER + 105)
 #define CWM_SELECTPHRASE        (WM_USER + 106)
+#define CWM_GETSELECTEDPHRASE   (WM_USER + 107)
 #define CWM_SETINPUTWINDOW      (WM_USER + 110)
 
 #define CWT_ALL                 0xFFFF
