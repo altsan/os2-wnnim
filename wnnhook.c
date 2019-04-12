@@ -40,6 +40,19 @@ HATOMTBL  g_hATSys;
 WNNSHARED global;
 
 
+
+// This is a bit convoluted; basically, IS_HOTKEY takes as input the WM_CHAR
+// message's flags (mf), virtual-key code (mv) and character key code (mc), plus
+// the flags (hf) and character key code (hc) of the specified hotkey.
+// It returns true if:
+//  - the message flags (mf) match the hotkey's virtual key flags (hf), AND
+//    - either KC_VIRTUALKEY is set (in mf) and the virtual-key code (mv) matches the hotkey's (hc), OR
+//    - the character code (mc) matches the hotkey's (hc).
+#define IS_HOTKEY(mf, mv, mc, hf, hc)  \
+                            ((BOOL)((( mf & hf ) == hf ) && \
+                                    ((( mf & KC_VIRTUALKEY) && ( mv  == hc )) || \
+                                                               ( mc == hc ))))
+
 /* -------------------------------------------------------------------------- *
  * Hook for posted messages.                                                  *
  * Return TRUE for messages processed here, or FALSE to pass the message on.  *
@@ -59,21 +72,23 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
             usVK = SHORT2FROMMP( pQmsg->mp2 );
 
             // Check for hotkey commands first (regardless of mode)
-            if ((( fsFlags & global.fsVKInput ) == global.fsVKInput ) && ( c == global.usKeyInput )) {
+
+//          if ((( fsFlags & global.fsVKInput ) == global.fsVKInput ) && ( c == global.usKeyInput )) {
+            if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKInput, global.usKeyInput )) {
                 // toggle input hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_INPUT ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }
-            else if ((( fsFlags & global.fsVKCJK ) == global.fsVKCJK ) && ( c == global.usKeyCJK )) {
+            else if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKCJK, global.usKeyCJK )) {
                 // Toggle CJK hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_KANJI ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                 return TRUE;
             }
-            else if ((( fsFlags & global.fsVKMode ) == global.fsVKMode ) && ( c == global.usKeyMode )) {
+            else if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKMode, global.usKeyMode )) {
                 // Switch input mode hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_MODE ),
@@ -90,14 +105,14 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                     WinPostMsg( g_hwndClient, global.wmDelChar, pQmsg->mp1, pQmsg->mp2 );
                     return TRUE;
                 }
-                else if ((( fsFlags & global.fsVKConvert ) == global.fsVKConvert ) && ( c == global.usKeyConvert )) {
+                else if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKConvert, global.usKeyConvert )) {
                     // Convert clause buffer to CJK characters
                     WinPostMsg( g_hwndClient, WM_COMMAND,
                                 MPFROMSHORT( ID_HOTKEY_CONVERT ),
                                 MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
                     return TRUE;
                 }
-                else if ((( fsFlags & global.fsVKAccept ) == global.fsVKAccept ) && ( c == global.usKeyAccept )) {
+                else if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKAccept, global.usKeyAccept )) {
                     // Accept current CJK conversion candidate
                     WinPostMsg( g_hwndClient, WM_COMMAND,
                                 MPFROMSHORT( ID_HOTKEY_ACCEPT ),

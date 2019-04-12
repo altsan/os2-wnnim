@@ -64,10 +64,10 @@ cycle through the available modes.
 
 When in clause conversion mode, the following hotkey commands apply:
 
-    Space:     Convert the current clause text
-    Enter:     Accept the current text as shown
-    Esc:       Cancel conversion (this will clear the current clause text)
-    Backspace: Delete the last character
+    Space:            Convert the current clause text
+    Enter or Return:  Accept the current text as shown
+    Esc:              Cancel conversion (this will clear the current clause text)
+    Backspace or Del: Delete the last character
 
 The active settings are global, i.e. switching from one program to another will
 retain the current conversion mode.  However, settings are _not_ currently saved

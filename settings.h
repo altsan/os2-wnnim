@@ -23,7 +23,8 @@
 // CONSTANTS
 //
 
-#define SZ_DEFAULTFONT  "8.Helv"
+#define DEFAULT_GUI_FONT    "8.Helv"
+#define DEFAULT_INPUT_FONT  "Times New Roman MT 30"
 
 
 // --------------------------------------------------------------------------
@@ -39,6 +40,9 @@
 #define LIST_SELECT_ITEM( hw, ctl, idx ) \
             WinSendDlgItemMsg( hw, ctl, LM_SELECTITEM, MPFROMSHORT( idx ), MPFROMSHORT( TRUE ))
 
+#define CHKBOX_ISCHECKED( hw, ctl ) \
+            ((BOOL)( (USHORT) WinSendDlgItemMsg( hw, ctl, BM_QUERYCHECK, 0L, 0L ) == 1 ))
+
 
 // --------------------------------------------------------------------------
 // PUBLIC FUNCTIONS
@@ -46,5 +50,6 @@
 
 MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void    _Optlink SettingsInit( HWND hwnd, PPOINTL pptl );
+BOOL    _Optlink SelectFont( HWND hwnd, PSZ pszFace, USHORT cbBuf );
 
 
