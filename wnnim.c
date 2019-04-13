@@ -218,24 +218,36 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
         WinMapWindowPoints( hwndSource, HWND_DESKTOP, &ptl, 1 );
 
         // Try and set the font and window (line) height to match the source window
-        // (this doesn't really work very well)
-        hps = WinGetPS( hwndSource );
-        if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
-            if ( !fGotHeight ) lTxtHeight = fm.lMaxBaselineExt + 2;
-            // Note: the point size here is ignored by the conversion window
-            sprintf( szFontPP, "%d.%s", fm.sNominalPointSize, fm.szFacename );
+        // (this doesn't really work very well but in some cases it's semi-useful)
+        if ( !fGotHeight ) {
+            hps = WinGetPS( hwndSource );
+            if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
+                lTxtHeight = fm.lMaxBaselineExt + 2;
+                // Note: the point size here is ignored by the conversion window
+#if 0           // ALT - better to use just the user-configured font
+                sprintf( szFontPP, "%d.%s", fm.sNominalPointSize, fm.szFacename );
+#endif
+            }
+            WinReleasePS( hps );
         }
-        WinReleasePS( hps );
     }
 
     WinSetPresParam( global.hwndClause, PP_FONTNAMESIZE,
                      strlen( szFontPP ), szFontPP );
     // Now get the conversion window's actual font metrics for positioning calculation
+#if 0
     hps = WinGetPS( global.hwndClause );
     if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
         ptl.y -= fm.lLowerCaseDescent;
     }
     WinReleasePS( hps );
+#else
+    if ( (BOOL)WinSendMsg( global.hwndClause, CWM_QUERYFONTMETRICS,
+                           MPFROMP( &fm ), MPFROMLONG( lTxtHeight )))
+    {
+        ptl.y -= min( fm.lLowerCaseDescent - fm.lUnderscorePosition, fm.lEmHeight / 5 );
+    }
+#endif
 
     // Place it over the source window at the position indicated
     WinSetWindowPos( global.hwndClause, HWND_TOP,

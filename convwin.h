@@ -59,6 +59,7 @@
 #define CWM_SETPHRASES          (WM_USER + 105)
 #define CWM_SELECTPHRASE        (WM_USER + 106)
 #define CWM_GETSELECTEDPHRASE   (WM_USER + 107)
+#define CWM_QUERYFONTMETRICS    (WM_USER + 108)
 #define CWM_SETINPUTWINDOW      (WM_USER + 110)
 
 #define CWT_ALL                 0xFFFF
@@ -100,7 +101,6 @@ typedef struct _COW_Private_Data {
     USHORT      usCurrentPhrase;        // number of the current sub-phrase
     PUSHORT     pusPhraseEnd;           // array of phrase-end positions
     LONG        lDPI;                   // current font DPI
-//    LONG        lCursorHeight;          // current cursor height
     FATTRS      fattrs;                 // attributes of the display font
     HWND        hwndSource;             // window to which we are 'attached'
 } CWDATA, *PCWDATA;

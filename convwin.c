@@ -48,6 +48,7 @@ BOOL             ReplacePhraseText( HWND hwnd, PCWDATA pCtl, USHORT usPhrase, US
 BOOL             AppendText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText );
 void             DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl );
 BOOL             SetFont( HWND hwnd, PCWDATA pCtl );
+void             SetTextSize( HWND hwnd, HPS hps, PCWDATA pCtl, LONG lHeight );
 void             UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl );
 
 
@@ -75,16 +76,16 @@ BOOL CWinRegisterClass( HAB hab )
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
-    PWNDPARAMS  pwp;            // pointer to window parameters
-    PCWDATA     pCtl;           // pointer to private control data
-    HPS         hps;
-    RECTL       rcl;
-    USHORT      usPhrase,
-                usStart,
-                usLen,
-                i;
-    PUSHORT     pusArray;
-
+    PWNDPARAMS pwp;             // pointer to window parameters
+    PCWDATA    pCtl;            // pointer to private control data
+    HPS        hps;
+    RECTL      rcl;
+    USHORT     usPhrase,
+               usStart,
+               usLen,
+               i;
+    PUSHORT    pusArray;
+    BOOL       fRC;
 
     switch( msg ) {
 
@@ -124,7 +125,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             //WinDestroyCursor( hwnd );
             break;
 
-
+/*
         case WM_ACTIVATE:
             // If we became active, make pCtl->hwndSource active instead
             pCtl = WinQueryWindowPtr( hwnd, 0 );
@@ -139,7 +140,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case WM_HITTEST:
             // Pass clicks through to the window underneath
             return (MRESULT) HT_TRANSPARENT;
-
+*/
 
         case WM_PAINT:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
@@ -502,6 +503,37 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
 
         /* .................................................................. *
+         * CWM_QUERYFONTMETRICS                                               *
+         * Get the metrics of the font actually being used (this is not       *
+         * necessarily the same as the current font presentation parameter,   *
+         * as the PP font may have overridden due to lack of requisite        *
+         * codepage or character set support).                                *
+         *  - mp1:                                                            *
+         *     PFONTMETRICS: Pointer to FONTMETRICS structure                 *
+         *  - mp2:                                                            *
+         *     LONG: Height of window.  This is needed when calling this      *
+         *           message before the window is sized (as the font size is  *
+         *           set dynamically based on the window size).               *
+         *  Returns                                                           *
+         * .................................................................. */
+        case CWM_QUERYFONTMETRICS:
+            pCtl = WinQueryWindowPtr( hwnd, 0 );
+            if ( !pCtl || !mp1 ) return (MRESULT) FALSE;
+
+            hps = WinGetPS( hwnd );
+            if ( !mp2 ) {
+                WinQueryWindowRect( hwnd, &rcl );
+                SetTextSize( hwnd, hps, pCtl, rcl.yTop );
+            }
+            else
+                SetTextSize( hwnd, hps, pCtl, (LONG) mp2 );
+            fRC = GpiQueryFontMetrics( hps, sizeof(FONTMETRICS),
+                                       (PFONTMETRICS) mp1 );
+            WinReleasePS( hps );
+            return (MRESULT) fRC;
+
+
+        /* .................................................................. *
          * CWM_SETINPUTWINDOW                                                 *
          * Set the window for which the conversion window is processing input.*
          *  - mp1:                                                            *
@@ -686,16 +718,47 @@ BOOL AppendText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText )
 
 
 /* ------------------------------------------------------------------------- *
+ * SetTextSize                                                               *
+ * ------------------------------------------------------------------------- */
+void SetTextSize( HWND hwnd, HPS hps, PCWDATA pCtl, LONG lHeight )
+{
+    FONTMETRICS fm;                     // current font metrics
+    SIZEF       sfCell;                 // character cell size
+    LONG        lCell;                  // desired character-cell height
+    double      dSizeAdjust;
+
+    // Set the character cell size.
+    lCell = lHeight - 2;
+
+    // Set up the font face
+    if (( GpiCreateLogFont( hps, NULL, 1L, &(pCtl->fattrs) )) == GPI_ERROR ) return;
+
+    // Set the text size
+    GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
+
+    // Adjust the cell height to take the maximum character bbox into account
+    dSizeAdjust = (double)(fm.lEmHeight) / fm.lMaxBaselineExt;
+    if ( dSizeAdjust > 0 ) {
+        if ( dSizeAdjust > 1 ) dSizeAdjust = 1;
+        else if ( dSizeAdjust < 0.75 ) dSizeAdjust = 0.75;
+        lCell *= dSizeAdjust;
+    }
+    sfCell.cy = MAKEFIXED( lCell, 0 );
+    sfCell.cx = sfCell.cy;
+    GpiSetCharBox( hps, &sfCell );
+    GpiSetCharSet( hps, 1L );
+}
+
+
+/* ------------------------------------------------------------------------- *
  * DoPaint                                                                   *
  * ------------------------------------------------------------------------- */
 void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
 {
     FONTMETRICS fm;                     // current font metrics
-    SIZEF       sfCell;                 // character cell size
     LONG        cb,                     // length of current text, in bytes
                 lHeight,                // height of control
-                lWidth,                 // width of control
-                lCell;                  // desired character-cell height
+                lWidth;                 // width of control
     PCH         pchText;                // pointer to current output text
     POINTL      ptl,                    // current drawing position
                 ptl2;
@@ -705,7 +768,6 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     LONG        lClrBG,
                 lClrFG;
     ULONG       ulID;
-    double      dSizeAdjust;
     USHORT      usStart,
                 i;
     APIRET      rc;
@@ -728,26 +790,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     lHeight = rcl.yTop;
     lWidth  = rcl.xRight;
 
-    // Set the character cell size.
-    lCell = lHeight - 2;
-
-    // Set up the font face
-    if (( GpiCreateLogFont( hps, NULL, 1L, &(pCtl->fattrs) )) == GPI_ERROR ) return;
-
-    // Set the text size
-    GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
-
-    // Adjust the cell height to take the maximum character bbox into account
-    dSizeAdjust = (double)(fm.lEmHeight) / fm.lMaxBaselineExt;
-    if ( dSizeAdjust > 0 ) {
-        if ( dSizeAdjust > 1 ) dSizeAdjust = 1;
-        else if ( dSizeAdjust < 0.75 ) dSizeAdjust = 0.75;
-        lCell *= dSizeAdjust;
-    }
-    sfCell.cy = MAKEFIXED( lCell, 0 );
-    sfCell.cx = sfCell.cy;
-    GpiSetCharBox( hps, &sfCell );
-    GpiSetCharSet( hps, 1L );
+    // Update the font size
+    SetTextSize( hwnd, hps, pCtl, lHeight );
 
     // Get the updated font metrics for positioning calculations
     GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
@@ -759,7 +803,7 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     // Draw the text
     if ( pCtl->puszText ) {
         ptl.x = 2;
-        ptl.y = fm.lMaxDescender;
+        ptl.y = 1 + max( fm.lMaxDescender, fm.lEmHeight / 5 );
         GpiMove( hps, &ptl );
 
         if (( pCtl->usCurrentPhrase != CWT_NONE ) &&
@@ -805,7 +849,7 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
         // Underline the text
         GpiSetLineType( hps, LINETYPE_SOLID );
         ptl.x = 0;
-        ptl.y = ptl2.y - (fm.lLowerCaseDescent / 2);
+        ptl.y = ptl2.y - max( 2, fm.lMaxDescender / 2 );
         ptl2.y = ptl.y;
         GpiMove( hps, &ptl );
         GpiLine( hps, &ptl2 );
@@ -954,13 +998,13 @@ BYTE ResolveFont( HPS hps, PSZ pszFontFace, PFATTRS pfAttrs, LONG lCell, USHORT 
  * ------------------------------------------------------------------------- */
 BOOL SetFont( HWND hwnd, PCWDATA pCtl )
 {
-    BYTE        fbType;                 // font type
-    RECTL       rcl;                    // client window dimensions
-    USHORT      fsSel;                  // desired language selection flag
-    LONG        lCell,                  // desired character-cell height
-                lHeight;                // height of client window
-    CHAR        szFont[ FACESIZE+4 ];   // current font pres.param
-    PSZ         pszFontName;            // requested font family
+    BYTE        fbType;                     // font type
+    RECTL       rcl;                        // client window dimensions
+    USHORT      fsSel;                      // desired language selection flag
+    LONG        lCell,                      // desired character-cell height
+                lHeight;                    // height of client window
+    CHAR        szFont[ FACESIZE+4 ] = {0}; // current font pres.param
+    PSZ         pszFontName;                // requested font family
     HPS         hps;
     APIRET      rc;
 
@@ -1055,12 +1099,9 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
     FONTMETRICS fm;
     RECTL       rcl;
     POINTL      ptl;
-    SIZEF       sfCell;                 // character cell size
-    LONG        lHeight,
-                lCell;
+    LONG        lHeight;
     ULONG       cb;
     PCH         pchText;
-    double      dSizeAdjust;
     POINTL      aptl[ TXTBOX_COUNT ];
 
 
@@ -1078,27 +1119,10 @@ void UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl )
     WinQueryWindowRect( hwndTop, &rcl );
     lHeight = rcl.yTop;
 
-    // Get the current control area
-    WinQueryWindowRect( hwnd, &rcl );
-
-    // Set up the font face
-    if (( GpiCreateLogFont( hps, NULL, 1L, &(pCtl->fattrs) )) == GPI_ERROR ) return;
-
-    // Set the text size
-    lCell = rcl.yTop - rcl.yBottom - 2;
+    // Update the font size
+    SetTextSize( hwnd, hps, pCtl, lHeight );
     GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
-    // Adjust the cell height to take the maximum character bbox into account
-    dSizeAdjust = (double)(fm.lEmHeight) / fm.lMaxBaselineExt;
-    if ( dSizeAdjust > 0 ) {
-        if ( dSizeAdjust > 1 ) dSizeAdjust = 1;
-        else if ( dSizeAdjust < 0.75 ) dSizeAdjust = 0.75;
-        lCell *= dSizeAdjust;
-    }
-    sfCell.cy = MAKEFIXED( lCell, 0 );
-    sfCell.cx = sfCell.cy;
-    GpiSetCharBox( hps, &sfCell );
-    GpiSetCharSet( hps, 1L );
-    GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
+
 //    pCtl->lCursorHeight = rcl.yTop;
 
     if ( !pCtl->puszText || !pCtl->usTextLen ) {
