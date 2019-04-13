@@ -38,6 +38,10 @@
 #include "wnnclient.h"
 #include "convwin.h"
 #include "settings.h"
+#include "clipfuncs.h"
+
+
+#define PRESERVE_CLIPBOARD 1
 
 
 // --------------------------------------------------------------------------
@@ -48,7 +52,6 @@ MRESULT EXPENTRY AboutDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             AcceptClause( HWND hwnd );
 MRESULT EXPENTRY ButtonProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ClearInputBuffer( void );
-void             ClearClauseBuffer( void );
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             DoClauseConversion( HWND hwnd );
 void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
@@ -102,21 +105,6 @@ void ClearInputBuffer( void )
     memset( global.szRomaji, 0, sizeof( global.szRomaji ));
     memset( global.uszKana, 0, sizeof( global.uszKana ));
 }
-
-
-/* ------------------------------------------------------------------------- *
- * ClearClauseBuffer                                                         *
- *                                                                           *
- * Clear/reset the clause conversion buffer.                                 *
- *                                                                           *
- * ------------------------------------------------------------------------- *
-void ClearClauseBuffer( void )
-{
-    if ( global.puszClause )
-        free( global.puszClause );
-    global.puszClause = (UniChar *) calloc( CLAUSE_INCZ, sizeof( char ));
-}
-*/
 
 
 /* ------------------------------------------------------------------------- *
@@ -302,18 +290,24 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
     // Saved clipboard information
     ULONG       ulFmtBMP    = 0,
                 ulFmtDspBMP = 0,
-                ulFmtMF     = 0,
-                ulFmtDspMF  = 0,
+//                ulFmtMF     = 0,
+//                ulFmtDspMF  = 0,
                 ulFmtTXT    = 0,
                 ulFmtDspTXT = 0,
                 ulFmtUTXT   = 0;
+/*
     HMF         hMF         = NULLHANDLE,
-                hDspMF      = NULLHANDLE;
+                hDspMF      = NULLHANDLE,
+                hTmpMF;
+*/
     HBITMAP     hBMP        = NULLHANDLE,
-                hDspBMP     = NULLHANDLE;
+                hDspBMP     = NULLHANDLE,
+                hTmpBMP;
     PSZ         pszTXT      = NULL,
-                pszDspTXT   = NULL;
-    UniChar    *puszTXT     = NULL;
+                pszDspTXT   = NULL,
+                pszTmpTXT;
+    UniChar    *puszTXT     = NULL,
+               *puszTmpTXT;
 #endif
     USHORT      usLen;
 
@@ -324,27 +318,46 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
     if ( !g_cfUnicode ) return FALSE;
 
 #ifdef PRESERVE_CLIPBOARD
-    // (This doesn't appear to work...)
     // Save existing clipboard contents (this only works for standard formats)
-    if ( WinQueryClipbrdFmtInfo( global.hab, CF_BITMAP, &ulFmtBMP ))
-        hBMP = (HBITMAP) WinQueryClipbrdData( global.hab, CF_BITMAP );
-    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPBITMAP, &ulFmtDspBMP ))
-        hDspBMP = (HBITMAP) WinQueryClipbrdData( global.hab, CF_DSPBITMAP );
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_BITMAP, &ulFmtBMP )) {
+        hTmpBMP = (HBITMAP) WinQueryClipbrdData( global.hab, CF_BITMAP );
+        if ( hTmpBMP )
+            hBMP = CopyBitmap( global.hab, hTmpBMP );
+    }
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPBITMAP, &ulFmtDspBMP )) {
+        hTmpBMP = (HBITMAP) WinQueryClipbrdData( global.hab, CF_DSPBITMAP );
+        if ( hTmpBMP )
+            hDspBMP = CopyBitmap( global.hab, hTmpBMP );
+    }
+/*
     if ( WinQueryClipbrdFmtInfo( global.hab, CF_METAFILE, &ulFmtMF ))
         hMF = (HMF) WinQueryClipbrdData( global.hab, CF_METAFILE );
     if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPMETAFILE, &ulFmtDspMF ))
         hDspMF = (HMF) WinQueryClipbrdData( global.hab, CF_DSPMETAFILE );
-    if ( WinQueryClipbrdFmtInfo( global.hab, CF_TEXT, &ulFmtTXT ))
-        pszTXT = (PSZ) WinQueryClipbrdData( global.hab, CF_TEXT );
-    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPTEXT, &ulFmtDspTXT ))
-        pszDspTXT = (PSZ) WinQueryClipbrdData( global.hab, CF_DSPTEXT );
-    if ( WinQueryClipbrdFmtInfo( global.hab, g_cfUnicode, &ulFmtUTXT ))
-        puszTXT = (UniChar *) WinQueryClipbrdData( global.hab, g_cfUnicode );
+*/
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_TEXT, &ulFmtTXT )) {
+        pszTmpTXT = (PSZ) WinQueryClipbrdData( global.hab, CF_TEXT );
+        if ( pszTmpTXT )
+            pszTXT = strdup( pszTmpTXT );
+    }
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPTEXT, &ulFmtDspTXT )) {
+        pszTmpTXT = (PSZ) WinQueryClipbrdData( global.hab, CF_DSPTEXT );
+        if ( pszTmpTXT )
+            pszDspTXT = strdup( pszTmpTXT );
+    }
+    if ( WinQueryClipbrdFmtInfo( global.hab, g_cfUnicode, &ulFmtUTXT )) {
+        puszTmpTXT = (UniChar *) WinQueryClipbrdData( global.hab, g_cfUnicode );
+        if ( pszTmpTXT ) {
+            puszTXT = (UniChar *) calloc( UniStrlen( puszTmpTXT ), sizeof( UniChar ));
+            UniStrcpy( puszTXT, puszTmpTXT );
+        }
+    }
 #endif
 
     WinEmptyClipbrd( global.hab );
 
     // Place the UCS-2 string on the clipboard as "text/unicode"
+/*
     usLen = UniStrlen( puszBuffer );
     ulRC = DosAllocSharedMem( (PVOID) &puszShareMem, NULL,
                                (usLen+1) * sizeof(UniChar), fALLOCSHR );
@@ -361,6 +374,14 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
             WinOpenClipbrd( global.hab );
         }
     }
+*/
+    if ( ClipPutUniText( global.hab, puszBuffer, g_cfUnicode )) {
+        WinCloseClipbrd( global.hab );
+        WinSendMsg( hwndSource, WM_CHAR,
+                    MPFROMSH2CH( KC_VIRTUALKEY | KC_SHIFT, 1, 0 ),
+                    MPFROM2SHORT( 0, VK_INSERT ));
+        WinOpenClipbrd( global.hab );
+    }
 
 #ifdef PRESERVE_CLIPBOARD
     // Restore the saved clipboard contents
@@ -368,16 +389,18 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
         WinSetClipbrdData( global.hab, (ULONG) hBMP, CF_BITMAP, ulFmtBMP );
     if ( hDspBMP != NULLHANDLE )
         WinSetClipbrdData( global.hab, (ULONG) hDspBMP, CF_DSPBITMAP, ulFmtDspBMP );
+/*
     if ( hMF != NULLHANDLE )
-        WinSetClipbrdData( global.hab, (ULONG) hMF, CF_METAFILE, ulFmtMF );
+        ;
     if ( hDspMF != NULLHANDLE )
-        WinSetClipbrdData( global.hab, (ULONG) hDspMF, CF_DSPMETAFILE, ulFmtDspMF );
+        ;
+*/
     if ( pszTXT != NULL )
-        WinSetClipbrdData( global.hab, (ULONG) pszTXT, CF_TEXT, ulFmtTXT );
+        ClipPutText( global.hab, pszTXT, CF_TEXT );
     if ( pszDspTXT != NULL )
-        WinSetClipbrdData( global.hab, (ULONG) pszDspTXT, CF_DSPTEXT, ulFmtDspTXT );
+        ClipPutText( global.hab, pszDspTXT, CF_DSPTEXT );
     if ( puszTXT != NULL )
-        WinSetClipbrdData( global.hab, (ULONG) puszTXT, g_cfUnicode, ulFmtUTXT );
+        ClipPutUniText( global.hab, puszTXT, g_cfUnicode );
 #endif
     WinCloseClipbrd( global.hab );
 
@@ -486,6 +509,10 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
     if (( pShared->fsMode & MODE_CJK ) &&
         ( SetConversionWindow( hwnd, hwndSource )))
     {
+        // Clause text is changing, so reset the conversion state
+        if ( GetPhraseCount( global.pSession ) > 0 )
+            ClearConversion( global.pSession );
+
         // Add character to clause conversion window
         WinSendMsg( global.hwndClause, CWM_ADDCHAR,
                     MPFROMSHORT( UniStrlen( global.uszKana )),
@@ -1429,6 +1456,9 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             else if (( msg == pShared->wmDelChar ) && global.hwndClause ) {
                 // Backspace
                 WinSendMsg( global.hwndClause, CWM_DELCHAR, MPFROMSHORT( 1 ), 0L );
+                // Clause text changed, so reset the conversion state
+                if ( GetPhraseCount( global.pSession ) > 0 )
+                    ClearConversion( global.pSession );
                 return 0;
             }
             break;
@@ -1445,32 +1475,27 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 BOOL SetupDBCSLanguage( USHORT usLangMode )
 {
     COUNTRYCODE cc = {0};
-//    CHAR szModeHyo[ CCHMAXPATH ] = {0};
     INT rc;
 
     switch ( usLangMode ) {
         case MODE_JP:
             cc.country  = 81;       // Japan
             cc.codepage = 943;      // Japanese SJIS
-//            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/ja_JP/rk/mode");   // temp
             break;
 
         case MODE_KR:
             cc.country  = 82;       // Korea
             cc.codepage = 949;      // Korean KS-Code
-//            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/ko_KR/rk/mode");   // temp
             break;
 
         case MODE_CN:
             cc.country  = 86;       // China PRC
             cc.codepage = 1386;     // Chinese GBK
-//            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/zh_CN/rk/mode");   // temp
             break;
 
         case MODE_TW:
             cc.country  = 88;       // Taiwan
             cc.codepage = 950;      // Chinese Big-5
-//            strcpy( szModeHyo, "/@unixroot/usr/local/lib/wnn/zh_TW/rk/mode");   // temp
             break;
     }
     DosQueryDBCSEnv( sizeof( global.dbcs ), &cc, global.dbcs );
@@ -1481,7 +1506,6 @@ BOOL SetupDBCSLanguage( USHORT usLangMode )
         ErrorPopup("Failed to create conversion object for selected codepage.");
         return FALSE;
     }
-//    global.puszClause = (UniChar *) calloc( CLAUSE_INCZ, sizeof( char ));
 
     rc = InitInputMethod( NULL, usLangMode );
     if ( rc ) {
