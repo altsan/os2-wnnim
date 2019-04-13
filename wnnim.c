@@ -58,7 +58,7 @@ void             NextInputMode( HWND hwnd );
 void             PaintIMEButton( PUSERBUTTON pBtnData );
 MRESULT          PassStdEvent( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 );
-void             SendCharacter( HWND hwndSource, PSZ pszBuffer );
+void             SendCharacter( HWND hwndSource, PSZ pszBuffer, UniChar *puszBuffer );
 BOOL             SetConversionWindow( HWND hwnd, HWND hwndSource );
 void             SetInputMode( HWND hwnd, USHORT usNewMode );
 void             SetTopmost( HWND hwnd );
@@ -73,6 +73,9 @@ void             UpdateStatus( HWND hwnd );
 
 
 IMCLIENTDATA global = {0};      // our window's global data
+
+HATOMTBL    g_hSATbl;           // handle to system atom table
+ATOM        g_cfUnicode;        // "text/unicode" clipboard format atom
 
 // Subclassed window procedures
 PFNWP pfnBtnProc;
@@ -288,10 +291,105 @@ void DismissConversionWindow( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
+ * PasteCharacters                                                           *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
+{
+    UniChar    *puszShareMem;              // Unicode text in clipboard
+    ULONG       ulRC;                       // return code
+#ifdef PRESERVE_CLIPBOARD
+    // Saved clipboard information
+    ULONG       ulFmtBMP    = 0,
+                ulFmtDspBMP = 0,
+                ulFmtMF     = 0,
+                ulFmtDspMF  = 0,
+                ulFmtTXT    = 0,
+                ulFmtDspTXT = 0,
+                ulFmtUTXT   = 0;
+    HMF         hMF         = NULLHANDLE,
+                hDspMF      = NULLHANDLE;
+    HBITMAP     hBMP        = NULLHANDLE,
+                hDspBMP     = NULLHANDLE;
+    PSZ         pszTXT      = NULL,
+                pszDspTXT   = NULL;
+    UniChar    *puszTXT     = NULL;
+#endif
+    USHORT      usLen;
+
+
+    ulRC = WinOpenClipbrd( global.hab );
+    if ( !ulRC ) return FALSE;
+
+    if ( !g_cfUnicode ) return FALSE;
+
+#ifdef PRESERVE_CLIPBOARD
+    // (This doesn't appear to work...)
+    // Save existing clipboard contents (this only works for standard formats)
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_BITMAP, &ulFmtBMP ))
+        hBMP = (HBITMAP) WinQueryClipbrdData( global.hab, CF_BITMAP );
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPBITMAP, &ulFmtDspBMP ))
+        hDspBMP = (HBITMAP) WinQueryClipbrdData( global.hab, CF_DSPBITMAP );
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_METAFILE, &ulFmtMF ))
+        hMF = (HMF) WinQueryClipbrdData( global.hab, CF_METAFILE );
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPMETAFILE, &ulFmtDspMF ))
+        hDspMF = (HMF) WinQueryClipbrdData( global.hab, CF_DSPMETAFILE );
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_TEXT, &ulFmtTXT ))
+        pszTXT = (PSZ) WinQueryClipbrdData( global.hab, CF_TEXT );
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPTEXT, &ulFmtDspTXT ))
+        pszDspTXT = (PSZ) WinQueryClipbrdData( global.hab, CF_DSPTEXT );
+    if ( WinQueryClipbrdFmtInfo( global.hab, g_cfUnicode, &ulFmtUTXT ))
+        puszTXT = (UniChar *) WinQueryClipbrdData( global.hab, g_cfUnicode );
+#endif
+
+    WinEmptyClipbrd( global.hab );
+
+    // Place the UCS-2 string on the clipboard as "text/unicode"
+    usLen = UniStrlen( puszBuffer );
+    ulRC = DosAllocSharedMem( (PVOID) &puszShareMem, NULL,
+                               (usLen+1) * sizeof(UniChar), fALLOCSHR );
+    if ( ulRC == 0 ) {
+        memset( puszShareMem, 0, (usLen+1) * sizeof(UniChar) );
+        UniStrncpy( puszShareMem, puszBuffer, usLen );
+        if ( WinSetClipbrdData( global.hab, (ULONG) puszShareMem,
+                                  g_cfUnicode, CFI_POINTER ))
+        {
+            WinCloseClipbrd( global.hab );
+            WinSendMsg( hwndSource, WM_CHAR,
+                        MPFROMSH2CH( KC_VIRTUALKEY | KC_SHIFT, 1, 0 ),
+                        MPFROM2SHORT( 0, VK_INSERT ));
+            WinOpenClipbrd( global.hab );
+        }
+    }
+
+#ifdef PRESERVE_CLIPBOARD
+    // Restore the saved clipboard contents
+    if ( hBMP != NULLHANDLE )
+        WinSetClipbrdData( global.hab, (ULONG) hBMP, CF_BITMAP, ulFmtBMP );
+    if ( hDspBMP != NULLHANDLE )
+        WinSetClipbrdData( global.hab, (ULONG) hDspBMP, CF_DSPBITMAP, ulFmtDspBMP );
+    if ( hMF != NULLHANDLE )
+        WinSetClipbrdData( global.hab, (ULONG) hMF, CF_METAFILE, ulFmtMF );
+    if ( hDspMF != NULLHANDLE )
+        WinSetClipbrdData( global.hab, (ULONG) hDspMF, CF_DSPMETAFILE, ulFmtDspMF );
+    if ( pszTXT != NULL )
+        WinSetClipbrdData( global.hab, (ULONG) pszTXT, CF_TEXT, ulFmtTXT );
+    if ( pszDspTXT != NULL )
+        WinSetClipbrdData( global.hab, (ULONG) pszDspTXT, CF_DSPTEXT, ulFmtDspTXT );
+    if ( puszTXT != NULL )
+        WinSetClipbrdData( global.hab, (ULONG) puszTXT, g_cfUnicode, ulFmtUTXT );
+#endif
+    WinCloseClipbrd( global.hab );
+
+    return TRUE;
+}
+
+
+/* ------------------------------------------------------------------------- *
  * SendCharacter                                                             *
  *                                                                           *
  * Send the contents of the specified character buffer to the source window. *
- * Typically this will cause the character to be inserted at the current     *
+ * Typically this will cause the characters to be inserted at the current    *
  * position, but in practice it's up to the application to decide what to do *
  * with it.                                                                  *
  *                                                                           *
@@ -301,13 +399,14 @@ void DismissConversionWindow( HWND hwnd )
  *                                                                           *
  * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
-void SendCharacter( HWND hwndSource, PSZ pszBuffer )
+void SendCharacter( HWND hwndSource, PSZ pszBuffer, UniChar *puszBuffer )
 {
     USHORT i,
            usLen,
            usChar;
     CHAR   achClassName[ 50 ] = {0};
-    BOOL   fWorkAround = FALSE;
+    BOOL   fWorkAround = FALSE,
+           fUseClipboard = FALSE;
 
 
     // Some custom input windows can't handle combined double bytes, so
@@ -328,14 +427,18 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer )
         if ( strcmp( achClassName, "MRED_BUFWIN_CLASS") == 0 )
             fWorkAround = TRUE;
 
-/*
-        // OpenOffice/StarOffice (this won't actually result in the correct
-        // characters getting entered, since OO converts internally to Unicode
-        // before displaying)
+        // OpenOffice/StarOffice (the normal workaround won't work, since
+        // since OO converts internally to Unicode before displaying).
+        // Instead, we cheat by putting the text in the clipboard and
+        // sending a Paste command (Ctrl+Ins).
         else if ( strcmp( achClassName, "SALFRAME") == 0 )
-            fWorkAround = TRUE;
- */
+            fUseClipboard = TRUE;
 
+    }
+
+    if ( fUseClipboard && puszBuffer ) {
+        PasteCharacters( hwndSource, puszBuffer );
+        return;
     }
 
     usLen = strlen( pszBuffer );
@@ -393,7 +496,7 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
     {
         // Convert kana buffer to output codepage and send to application
         StrConvert( (PCH)(global.uszKana), szKana, NULL, global.uconvOut );
-        SendCharacter( hwndSource, szKana );
+        SendCharacter( hwndSource, szKana, global.uszKana );
         ClearInputBuffer();
     }
 }
@@ -488,7 +591,7 @@ void AcceptClause( HWND hwnd )
                 pszClause = (PSZ) calloc( usLen + 1, sizeof( char ));
                 if ( pszClause ) {
                     StrConvert( (PCH) puszClause, pszClause, NULL, global.uconvOut );
-                    SendCharacter( global.hwndInput, pszClause );
+                    SendCharacter( global.hwndInput, pszClause, puszClause );
                     free( pszClause );
                 }
             }
@@ -1411,7 +1514,6 @@ VOID APIENTRY ExeTrap()
 int main( int argc, char **argv )
 {
     static PSZ clientClass = "WnnIM2";
-    HAB     hab;
     HMQ     hmq;
     QMSG    qmsg;
     ULONG   frameFlags = FCF_TASKLIST;
@@ -1422,14 +1524,18 @@ int main( int argc, char **argv )
     pShared = WnnGlobalData();
     ClearInputBuffer();
 
-    hab = WinInitialize( 0 );
-    hmq = WinCreateMsgQueue( hab, 0 );
+    global.hab = WinInitialize( 0 );
+    hmq = WinCreateMsgQueue( global.hab, 0 );
+
+    // Make sure the Unicode clipboard format is registered
+    g_hSATbl = WinQuerySystemAtomTable();
+    g_cfUnicode = WinAddAtom( g_hSATbl, "text/unicode");
 
     DosExitList( EXLST_ADD, (PFNEXITLIST) ExeTrap );    // trap exceptions to ensure hooks released
 
-    CWinRegisterClass( hab );
+    CWinRegisterClass( global.hab );
 
-    WinRegisterClass( hab, clientClass, ClientWndProc, CS_CLIPCHILDREN, 0 );
+    WinRegisterClass( global.hab, clientClass, ClientWndProc, CS_CLIPCHILDREN, 0 );
     global.hwndFrame = WinCreateStdWindow( HWND_DESKTOP, 0L, &frameFlags, clientClass,
                                            "WnnIM", 0L, 0, ID_ICON, &global.hwndClient );
 
@@ -1445,8 +1551,8 @@ int main( int argc, char **argv )
     // Now do our stuff
     DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );      // increment the DLL use counter for safety
     if ( WnnHookInit( global.hwndClient )) {
-        while ( WinGetMsg( hab, &qmsg, NULLHANDLE, 0, 0 ))
-            WinDispatchMsg( hab, &qmsg );
+        while ( WinGetMsg( global.hab, &qmsg, NULLHANDLE, 0, 0 ))
+            WinDispatchMsg( global.hab, &qmsg );
         WnnHookTerm();
     }
     if ( hm ) DosFreeModule( hm );
@@ -1457,9 +1563,11 @@ int main( int argc, char **argv )
 cleanup:
     if ( global.pRclConv ) DosFreeMem( global.pRclConv );
 
+    WinDeleteAtom( g_hSATbl, g_cfUnicode );
+
     WinDestroyWindow( global.hwndFrame );
     WinDestroyMsgQueue( hmq );
-    WinTerminate( hab );
+    WinTerminate( global.hab );
 
     return 0;
 }

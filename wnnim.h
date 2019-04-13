@@ -68,6 +68,8 @@
 
 // Global client data which does not have to be shared with wnnhook.dll.
 typedef struct _WnnClientData {
+    HAB         hab;                    // anchor block handle
+
     // Window handles
     HWND        hwndFrame,              // our frame
                 hwndClient,             // our client window
