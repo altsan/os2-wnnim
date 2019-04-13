@@ -281,41 +281,42 @@ void DismissConversionWindow( HWND hwnd )
 /* ------------------------------------------------------------------------- *
  * PasteCharacters                                                           *
  *                                                                           *
+ * This function attempts to send the buffer contents to the source window   *
+ * by pasting it to the clipboard in text/unicode format, then sending the   *
+ * source window a Ctrl+Insert key event.  This should only be used with     *
+ * specific applications where we know this is likely to work.               *
+ *                                                                           *
+ * If there is data already on the clipboard in one of the standard OS/2     *
+ * formats, it will be preserved.  Other formats that we don't know about,   *
+ * however, will be lost.                                                    *
  * ------------------------------------------------------------------------- */
 BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
 {
-    UniChar    *puszShareMem;              // Unicode text in clipboard
-    ULONG       ulRC;                       // return code
 #ifdef PRESERVE_CLIPBOARD
     // Saved clipboard information
-    ULONG       ulFmtBMP    = 0,
-                ulFmtDspBMP = 0,
-//                ulFmtMF     = 0,
-//                ulFmtDspMF  = 0,
-                ulFmtTXT    = 0,
-                ulFmtDspTXT = 0,
-                ulFmtUTXT   = 0;
-/*
-    HMF         hMF         = NULLHANDLE,
-                hDspMF      = NULLHANDLE,
-                hTmpMF;
-*/
-    HBITMAP     hBMP        = NULLHANDLE,
-                hDspBMP     = NULLHANDLE,
-                hTmpBMP;
-    PSZ         pszTXT      = NULL,
-                pszDspTXT   = NULL,
-                pszTmpTXT;
-    UniChar    *puszTXT     = NULL,
-               *puszTmpTXT;
+    ULONG    ulFmtBMP    = 0,
+             ulFmtDspBMP = 0,
+             ulFmtMF     = 0,
+             ulFmtDspMF  = 0,
+             ulFmtTXT    = 0,
+             ulFmtDspTXT = 0,
+             ulFmtUTXT   = 0;
+    HMF      hMF         = NULLHANDLE,
+             hDspMF      = NULLHANDLE,
+             hTmpMF      = NULLHANDLE;
+    HBITMAP  hBMP        = NULLHANDLE,
+             hDspBMP     = NULLHANDLE,
+             hTmpBMP     = NULLHANDLE;
+    PSZ      pszTXT      = NULL,
+             pszDspTXT   = NULL,
+             pszTmpTXT   = NULL;
+    UniChar *puszTXT     = NULL,
+            *puszTmpTXT  = NULL;
 #endif
-    USHORT      usLen;
-
-
-    ulRC = WinOpenClipbrd( global.hab );
-    if ( !ulRC ) return FALSE;
 
     if ( !g_cfUnicode ) return FALSE;
+
+    if ( ! WinOpenClipbrd( global.hab )) return FALSE;
 
 #ifdef PRESERVE_CLIPBOARD
     // Save existing clipboard contents (this only works for standard formats)
@@ -329,12 +330,16 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
         if ( hTmpBMP )
             hDspBMP = CopyBitmap( global.hab, hTmpBMP );
     }
-/*
-    if ( WinQueryClipbrdFmtInfo( global.hab, CF_METAFILE, &ulFmtMF ))
-        hMF = (HMF) WinQueryClipbrdData( global.hab, CF_METAFILE );
-    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPMETAFILE, &ulFmtDspMF ))
-        hDspMF = (HMF) WinQueryClipbrdData( global.hab, CF_DSPMETAFILE );
-*/
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_METAFILE, &ulFmtMF )) {
+        hTmpMF = (HMF) WinQueryClipbrdData( global.hab, CF_METAFILE );
+        if ( hTmpMF )
+            hMF = GpiCopyMetaFile( hTmpMF );
+    }
+    if ( WinQueryClipbrdFmtInfo( global.hab, CF_DSPMETAFILE, &ulFmtDspMF )) {
+        hTmpMF = (HMF) WinQueryClipbrdData( global.hab, CF_DSPMETAFILE );
+        if ( hTmpMF )
+            hDspMF = GpiCopyMetaFile( hTmpMF );
+    }
     if ( WinQueryClipbrdFmtInfo( global.hab, CF_TEXT, &ulFmtTXT )) {
         pszTmpTXT = (PSZ) WinQueryClipbrdData( global.hab, CF_TEXT );
         if ( pszTmpTXT )
@@ -357,24 +362,6 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
     WinEmptyClipbrd( global.hab );
 
     // Place the UCS-2 string on the clipboard as "text/unicode"
-/*
-    usLen = UniStrlen( puszBuffer );
-    ulRC = DosAllocSharedMem( (PVOID) &puszShareMem, NULL,
-                               (usLen+1) * sizeof(UniChar), fALLOCSHR );
-    if ( ulRC == 0 ) {
-        memset( puszShareMem, 0, (usLen+1) * sizeof(UniChar) );
-        UniStrncpy( puszShareMem, puszBuffer, usLen );
-        if ( WinSetClipbrdData( global.hab, (ULONG) puszShareMem,
-                                  g_cfUnicode, CFI_POINTER ))
-        {
-            WinCloseClipbrd( global.hab );
-            WinSendMsg( hwndSource, WM_CHAR,
-                        MPFROMSH2CH( KC_VIRTUALKEY | KC_SHIFT, 1, 0 ),
-                        MPFROM2SHORT( 0, VK_INSERT ));
-            WinOpenClipbrd( global.hab );
-        }
-    }
-*/
     if ( ClipPutUniText( global.hab, puszBuffer, g_cfUnicode )) {
         WinCloseClipbrd( global.hab );
         WinSendMsg( hwndSource, WM_CHAR,
@@ -389,12 +376,10 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
         WinSetClipbrdData( global.hab, (ULONG) hBMP, CF_BITMAP, ulFmtBMP );
     if ( hDspBMP != NULLHANDLE )
         WinSetClipbrdData( global.hab, (ULONG) hDspBMP, CF_DSPBITMAP, ulFmtDspBMP );
-/*
     if ( hMF != NULLHANDLE )
-        ;
+        WinSetClipbrdData( global.hab, (ULONG) hMF, CF_METAFILE, ulFmtMF );
     if ( hDspMF != NULLHANDLE )
-        ;
-*/
+        WinSetClipbrdData( global.hab, (ULONG) hDspMF, CF_DSPMETAFILE, ulFmtDspMF );
     if ( pszTXT != NULL )
         ClipPutText( global.hab, pszTXT, CF_TEXT );
     if ( pszDspTXT != NULL )
