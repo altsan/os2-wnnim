@@ -21,9 +21,9 @@ is planned for future releases.
 For Users
 ---------
 
-The FreeWnn server and runtime files.  These are provided in the FreeWnn RPM 
-packages, which should soon be available from a repository near you; in the 
-meantime, you can get `FreeWnn-1.1.1-0.a023.0.i386.rpm` from
+The FreeWnn server and runtime files are required.  These are provided in the
+FreeWnn RPM packages, which should soon be available from a repository near you;
+in the meantime, you can get `FreeWnn-1.1.1-0.a023.0.i386.rpm` from
 [here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
 
 If you prefer not to install the FreeWnn server locally, you can set it up
@@ -132,12 +132,13 @@ The other mode is CJK (or 'clause') conversion mode.  This mode is a simple
 on-or-off toggle.  When active, the phonetic characters which have been
 confirmed for entry (per above) will not be sent directly to the application,
 but rather added to a 'clause buffer' which is displayed on-screen as an overlay
-at the cursor position.  When the user hits a 'convert' key, the current clause
-buffer will be converted (if possible) into the Chinese-origin CJK glyphs
-(kanji/hanzi/hanja) applicable to the current language.  Since there are usually
-multiple possible candidates for conversion, the candidates are displayed in a
-pop-up list on screen so the user can accept the correct one.  Once a candidate
-is accepted, the full converted clause is inserted in the application window.
+at the cursor position.  When the user hits a 'convert' key (Space by default),
+the current clause buffer will be converted (if possible) into the CJK glyphs 
+(kanji/hanzi/hanja) applicable to the current language.  There are usually
+multiple possible conversions for a given phonetic string; hitting the 
+conversion key multiple times will cycle through the candidates.  Once a 
+candidate is accepted by pressing the appropriate key (Enter by default), the 
+full converted clause will be inserted in the application window.
 
 In either case, once a conversion (phonetic or clause) is accepted and the
 result inserted in the application, all buffers are cleared and the process
@@ -167,8 +168,9 @@ the PM hook), for the sake of keeping the hook DLL as lightweight as possible.
 
 `settings.*` contains client routines specific to managing user settings.
 
-`codepage.*` contains various useful functions for dealing with text
-encodings.
+`clipfuncs.*` contains some utility functions for clipboard logic.
+
+`codepage.*` contains various useful functions for dealing with text encodings.
 
 `wnnconv.c` contains some FreeWnn text conversion routines; they are not 
 exported by the library and so were simply lifted from the sources.

@@ -134,7 +134,7 @@ void GetSelectedKey( HWND hwnd, USHORT usID, PUSHORT pusKC, PUSHORT pusVK )
 
     sIdx = (USHORT) WinSendDlgItemMsg( hwnd, usID, LM_QUERYSELECTION,
                                        MPFROMSHORT( LIT_FIRST ), 0 );
-    if ( !sIdx ) return;
+    if ( sIdx == LIT_NONE ) return;
 
     ulData = LIST_GET_ITEMDATA( hwnd, usID, sIdx );
     *pusVK |= (HIUSHORT( ulData ) & KC_VIRTUALKEY );
@@ -333,6 +333,8 @@ void SettingsUpdateKeys( HWND hwnd )
 MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
     UCHAR szFontPP[ FACESIZE + 4 ];
+    SHORT sIdx;
+    ULONG ulData;
     PSZ   psz;
 
     switch ( msg ) {
@@ -350,6 +352,7 @@ MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
         case WM_COMMAND:
             switch ( SHORT1FROMMP( mp1 )) {
+
                 case IDD_FONT_SELECT:
                     if ( ! WinQueryPresParam( WinWindowFromID( hwnd, IDD_INPUT_FONT ),
                                               PP_FONTNAMESIZE, 0, NULL,
@@ -367,6 +370,12 @@ MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     return (MRESULT) FALSE;
 
                 case DID_OK:
+                    sIdx = (USHORT) WinSendDlgItemMsg( hwnd, IDD_STARTUP_MODE,
+                                                       LM_QUERYSELECTION,
+                                                       MPFROMSHORT( LIT_FIRST ), 0 );
+                    if ( sIdx != LIT_NONE )
+                        global.sDefMode = (SHORT)(LIST_GET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx ));
+
                     SettingsUpdateKeys( hwnd );
 
                     if ( WinQueryPresParam( WinWindowFromID( hwnd, IDD_INPUT_FONT ),
@@ -377,8 +386,8 @@ MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                         if ( !psz ) psz = szFontPP;
                         strncpy( global.szInputFont, psz, FACESIZE );
                     }
-
                     break;
+
             }
             break;
 
