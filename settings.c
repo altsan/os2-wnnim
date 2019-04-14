@@ -94,6 +94,7 @@ void _Optlink SettingsInit( HWND hwnd, PPOINTL pptl )
           szFont[ FACESIZE+4 ] = {0};   // font PP
     LONG  lClr,
           lVal;
+    ULONG cb;
 
 
     LocateProfile( szIni );
@@ -119,18 +120,18 @@ void _Optlink SettingsInit( HWND hwnd, PPOINTL pptl )
                      strlen( szFont ) + 1, (PVOID) szFont );
 
     // Position
-    lVal = sizeof( POINTL );
+    cb = sizeof( POINTL );
     if ( ! PrfQueryProfileData( hIni, PRF_APP_UI, PRF_KEY_UIPOS,
-                                pptl, (PULONG) &lVal ))
+                                pptl, (PULONG) &cb ))
     {
         pptl->x = -1;
         pptl->y = -1;
     }
 
     // Startup mode
-    lVal = sizeof( global.sDefMode );
+    cb = sizeof( global.sDefMode );
     if ( ! PrfQueryProfileData( hIni, szLang, PRF_KEY_STARTMODE,
-                               &(global.sDefMode), &lVal ))
+                               &(global.sDefMode), &cb ))
         global.sDefMode = MODE_NONE;
 
     // Until we've finished initialization, fsLastMode will be used to store
@@ -138,9 +139,9 @@ void _Optlink SettingsInit( HWND hwnd, PPOINTL pptl )
     if ( global.sDefMode > 0 )
         global.fsLastMode = global.sDefMode;
     else {
-        lVal = sizeof( global.fsLastMode );
+        cb = sizeof( global.fsLastMode );
         if ( ! PrfQueryProfileData( hIni, szLang, PRF_KEY_INPUTMODE,
-                               &(global.fsLastMode), &lVal ))
+                               &(global.fsLastMode), &cb ))
             // Default to the first mode regardless of language
             global.fsLastMode = 1;
     }
@@ -150,28 +151,84 @@ void _Optlink SettingsInit( HWND hwnd, PPOINTL pptl )
                            DEFAULT_INPUT_FONT, &(global.szInputFont),
                            sizeof( global.szInputFont ) - 1 );
 
+    // Default hotkeys
 
-    // Default hotkeys (TODO read these from INI as well)
-    pShared->usKeyInput   = 0x20;
-    pShared->fsVKInput    = KC_CTRL;
+    // Input conversion toggle
+    cb = sizeof( lVal );
+    if ( PrfQueryProfileData( hIni, szLang, PRF_KEY_INPUT, &lVal, &cb ) && ( cb == sizeof( lVal ))) {
+        pShared->usKeyInput = LOUSHORT( lVal );
+        pShared->fsVKInput  = HIUSHORT( lVal );
+    }
+    else {
+        pShared->usKeyInput = 0x20;
+        pShared->fsVKInput  = KC_CTRL;
+    }
 
-    pShared->usKeyMode    = 0x20;
-    pShared->fsVKMode     = KC_SHIFT;
+    // Input mode switch
+    cb = sizeof( lVal );
+    if ( PrfQueryProfileData( hIni, szLang, PRF_KEY_MODE, &lVal, &cb ) && ( cb == sizeof( lVal ))) {
+        pShared->usKeyMode = LOUSHORT( lVal );
+        pShared->fsVKMode  = HIUSHORT( lVal );
+    }
+    else {
+        pShared->usKeyMode = 0x20;
+        pShared->fsVKMode  = KC_SHIFT;
+    }
 
-    pShared->usKeyCJK     = 0x00;
-    pShared->fsVKCJK      = KC_CTRL | KC_SHIFT;
+    // CJK clause conversion toggle
+    cb = sizeof( lVal );
+    if ( PrfQueryProfileData( hIni, szLang, PRF_KEY_CJK, &lVal, &cb ) && ( cb == sizeof( lVal ))) {
+        pShared->usKeyCJK = LOUSHORT( lVal );
+        pShared->fsVKCJK  = HIUSHORT( lVal );
+    }
+    else {
+        pShared->usKeyCJK = 0x00;
+        pShared->fsVKCJK  = KC_CTRL | KC_SHIFT;
+    }
 
-    pShared->usKeyConvert = 0x20;
-    pShared->fsVKConvert  = 0;
+    // Convert current clause
+    cb = sizeof( lVal );
+    if ( PrfQueryProfileData( hIni, szLang, PRF_KEY_CONVERT, &lVal, &cb ) && ( cb == sizeof( lVal ))) {
+        pShared->usKeyConvert = LOUSHORT( lVal );
+        pShared->fsVKConvert  = HIUSHORT( lVal );
+    }
+    else {
+        pShared->usKeyConvert = 0x20;
+        pShared->fsVKConvert  = 0;
+    }
 
-    pShared->usKeyAccept  = 0x0D;
-    pShared->fsVKAccept   = 0;
+    // Accept current candidate
+    cb = sizeof( lVal );
+    if ( PrfQueryProfileData( hIni, szLang, PRF_KEY_ACCEPT, &lVal, &cb ) && ( cb == sizeof( lVal ))) {
+        pShared->usKeyAccept = LOUSHORT( lVal );
+        pShared->fsVKAccept  = HIUSHORT( lVal );
+    }
+    else {
+        pShared->usKeyAccept  = 0x0D;
+        pShared->fsVKAccept   = 0;
+    }
 
-    pShared->usKeyNext    = VK_RIGHT;
-    pShared->fsVKNext     = KC_CTRL | KC_VIRTUALKEY;
+    // First/Next phrase
+    cb = sizeof( lVal );
+    if ( PrfQueryProfileData( hIni, szLang, PRF_KEY_NEXT, &lVal, &cb ) && ( cb == sizeof( lVal ))) {
+        pShared->usKeyNext = LOUSHORT( lVal );
+        pShared->fsVKNext  = HIUSHORT( lVal );
+    }
+    else {
+        pShared->usKeyNext    = VK_RIGHT;
+        pShared->fsVKNext     = KC_CTRL | KC_VIRTUALKEY;
+    }
 
-    pShared->usKeyPrev    = VK_LEFT;
-    pShared->fsVKPrev     = KC_CTRL | KC_VIRTUALKEY;
+    // Last/Previous phrase
+    cb = sizeof( lVal );
+    if ( PrfQueryProfileData( hIni, szLang, PRF_KEY_PREV, &lVal, &cb ) && ( cb == sizeof( lVal ))) {
+        pShared->usKeyPrev = LOUSHORT( lVal );
+        pShared->fsVKPrev  = HIUSHORT( lVal );
+    }
+    else {
+        pShared->usKeyPrev    = VK_LEFT;
+        pShared->fsVKPrev     = KC_CTRL | KC_VIRTUALKEY;
+    }
 
     PrfCloseProfile( hIni );
 }
