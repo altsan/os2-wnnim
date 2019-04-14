@@ -27,6 +27,28 @@
 #define DEFAULT_INPUT_FONT  "Times New Roman MT 30"
 
 
+// Profile (INI) file entries
+
+#define INI_FILE            "wnnim.ini"
+
+#define PRF_APP_UI          "UI"
+#define PRF_KEY_UIPOS       "Position"
+#define PRF_KEY_UIFONT      "Font"
+#define PRF_KEY_UIBACKCLR   "BgClr"
+#define PRF_KEY_UIFORECLR   "FgClr"
+
+#define PRF_KEY_INPUTFONT   "InputFont"
+#define PRF_KEY_INPUTMODE   "InputMode"
+#define PRF_KEY_STARTMODE   "StartMode"
+#define PRF_KEY_INPUT       "KeyInput"
+#define PRF_KEY_MODE        "KeyMode"
+#define PRF_KEY_CJK         "KeyCJK"
+#define PRF_KEY_CONVERT     "KeyConvert"
+#define PRF_KEY_ACCEPT      "KeyAccept"
+#define PRF_KEY_NEXT        "KeyNext"
+#define PRF_KEY_PREV        "KeyPrev"
+
+
 // --------------------------------------------------------------------------
 // MACROS
 //
@@ -50,6 +72,7 @@
 
 MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void    _Optlink SettingsInit( HWND hwnd, PPOINTL pptl );
+void    _Optlink SettingsSave( HWND hwnd );
 BOOL    _Optlink SelectFont( HWND hwnd, PSZ pszFace, USHORT cbBuf );
 
 

@@ -1105,7 +1105,8 @@ void ToggleInputConversion( HWND hwnd )
  *                                                                           *
  * PARAMETERS:                                                               *
  *   HWND   hwnd     : Our window handle.                                    *
- *   USHORT usNewMode: ID of the mode to switch to.                          *
+ *   USHORT usNewMode: ID of the mode to switch to.  Must be at least 1, as  *
+ *                     0 (MODE_NONE) is handled by ToggleInputConversion().  *
  *                                                                           *
  * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
@@ -1117,14 +1118,17 @@ void SetInputMode( HWND hwnd, USHORT usNewMode )
     BOOL   fCheck;
 
     pShared->fsMode &= 0xFF00;
-    pShared->fsMode |= usNewMode;
 
     if ( IS_LANGUAGE( pShared->fsMode, MODE_JP ))
         usNumModes = 3;
     else if ( IS_LANGUAGE( pShared->fsMode, MODE_KR ))
         usNumModes = 1;
     else
-        usNumModes = 0;        // other languages TBD
+        usNumModes = 1;        // other languages TBD
+
+    if (( usNewMode < 1 ) || ( usNewMode > usNumModes ))
+        usNewMode = 1;
+    pShared->fsMode |= usNewMode;
 
     for ( i = 1; i <= usNumModes; i++ ) {
         usID = IDM_INPUT_BASE + i;
@@ -1554,8 +1558,25 @@ int main( int argc, char **argv )
     SettingsInit( global.hwndClient, &ptl );
     SetupWindow( global.hwndClient );
     SizeWindow( global.hwndClient, ptl );
-    SetInputMode( global.hwndClient, (global.sDefMode < 0) ?
-                                        global.fsLastMode: global.sDefMode );
+
+    // Set the initial mode settings; this is a bit complicated...
+    if ( global.sDefMode > 0 )
+        // Fixed startup mode selected
+        SetInputMode( global.hwndClient, global.sDefMode );
+    else if (( global.sDefMode < 0 ) && ( global.fsLastMode > 0 ))
+        // Restore last active mode (if any)
+        SetInputMode( global.hwndClient, global.fsLastMode );
+    else
+        // Leave input mode inactive, just update status text
+        UpdateStatus( global.hwndClient );
+
+    // Up to now fsLastMode was storing the last saved mode, including none/0.
+    // From here on its job will be to remember the last _active_ (>0) mode.
+    if ( global.fsLastMode < 1 )
+        // Default to the first available for the current language mode
+        global.fsLastMode = (pShared->fsMode & 0xFF00) | 1;
+    WinCheckMenuItem( global.hwndMenu,
+                      IDM_INPUT_BASE + (global.fsLastMode & 0xFF), TRUE );
 
     // Now do our stuff
     DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );      // increment the DLL use counter for safety
@@ -1568,6 +1589,8 @@ int main( int argc, char **argv )
 
     FinishConversionMethod( global.pSession );
     FinishInputMethod();
+
+    SettingsSave( global.hwndClient );
 
 cleanup:
     if ( global.pRclConv ) DosFreeMem( global.pRclConv );

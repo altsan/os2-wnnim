@@ -19,6 +19,8 @@
  ****************************************************************************/
 #define INCL_WIN
 #define INCL_PM
+#define INCL_DOSFILEMGR
+#define INCL_DOSMISC
 #include <os2.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,12 +35,44 @@
 
 extern IMCLIENTDATA global;
 
+
 BOOL  ListSelectDataItem( HWND hwnd, USHORT usID, ULONG ulHandle );
+void  LocateProfile( PSZ pszProfile );
 void  GetSelectedKey( HWND hwnd, USHORT usID, PUSHORT pusKC, PUSHORT pusVK );
 void  SettingsPopulateKeyList( HWND hwnd, USHORT usID );
 void  SettingsDlgPopulate( HWND hwnd );
 void  SettingsUpdateKeys( HWND hwnd );
 
+
+
+/* ------------------------------------------------------------------------- *
+ * LocateProfile                                                             *
+ *                                                                           *
+ * Figure out where to place our INI file.  This will be in the same         *
+ * directory as OS2.INI (the OS/2 user profile).                             *
+ *                                                                           *
+ * ARGUMENTS:                                                                *
+ *     PSZ pszProfile: Character buffer to receive the INI filename.         *
+ *                                                                           *
+ * RETURNS: N/A                                                              *
+ * ------------------------------------------------------------------------- */
+void LocateProfile( PSZ pszProfile )
+{
+    ULONG ulRc;
+    PSZ   pszUserIni,
+          c;
+
+    // Query the %USER_INI% environment variable which points to OS2.INI
+    ulRc = DosScanEnv("USER_INI", &pszUserIni );
+    if ( ulRc != NO_ERROR ) return;
+    strncpy( pszProfile, pszUserIni, CCHMAXPATH );
+
+    // Now change the filename portion to point to our own INI file
+    if (( c = strrchr( pszProfile, '\\') + 1 ) != NULL ) {
+        memset( c, 0, strlen(c) );
+        strncat( pszProfile, INI_FILE, CCHMAXPATH - 1 );
+    }
+}
 
 
 /* ------------------------------------------------------------------------- *
@@ -54,28 +88,70 @@ void  SettingsUpdateKeys( HWND hwnd );
  * ------------------------------------------------------------------------- */
 void _Optlink SettingsInit( HWND hwnd, PPOINTL pptl )
 {
-    LONG  lClr;
+    HINI  hIni;                         // INI file
+    CHAR  szIni[ CCHMAXPATH ]  = {0},   // full path of INI file
+          szLang[ 6 ],                  // language (used as app name)
+          szFont[ FACESIZE+4 ] = {0};   // font PP
+    LONG  lClr,
+          lVal;
 
-    // Colours
+
+    LocateProfile( szIni );
+    hIni = PrfOpenProfile( WinQueryAnchorBlock( hwnd ), szIni );
+
+    switch ( pShared->fsMode & 0xF00 ) {
+        case MODE_CN: strcpy( szLang, "zh_CN"); break;
+        case MODE_TW: strcpy( szLang, "zh_TW"); break;
+        case MODE_KR: strcpy( szLang, "ko_KR"); break;
+        default:      strcpy( szLang, "ja_JP"); break;
+    }
+
+    // Colours (not saved)
     lClr = SYSCLR_DIALOGBACKGROUND;
     WinSetPresParam( hwnd, PP_BACKGROUNDCOLORINDEX, sizeof( lClr ), &lClr );
     lClr = SYSCLR_WINDOWTEXT;
     WinSetPresParam( hwnd, PP_FOREGROUNDCOLORINDEX, sizeof( lClr ), &lClr );
 
     // Font
+    PrfQueryProfileString( hIni, PRF_APP_UI, PRF_KEY_UIFONT,
+                           DEFAULT_GUI_FONT, &szFont, sizeof( szFont ) - 1 );
     WinSetPresParam( hwnd, PP_FONTNAMESIZE,
-                     strlen( DEFAULT_GUI_FONT )+1, (PVOID) DEFAULT_GUI_FONT );
+                     strlen( szFont ) + 1, (PVOID) szFont );
 
     // Position
-    pptl->x = -1;
-    pptl->y = -1;
+    lVal = sizeof( POINTL );
+    if ( ! PrfQueryProfileData( hIni, PRF_APP_UI, PRF_KEY_UIPOS,
+                                pptl, (PULONG) &lVal ))
+    {
+        pptl->x = -1;
+        pptl->y = -1;
+    }
 
     // Startup mode
-    global.sDefMode = -1;
-    global.fsLastMode = 1;
-    strncpy( global.szInputFont, DEFAULT_INPUT_FONT, FACESIZE );
+    lVal = sizeof( global.sDefMode );
+    if ( ! PrfQueryProfileData( hIni, szLang, PRF_KEY_STARTMODE,
+                               &(global.sDefMode), &lVal ))
+        global.sDefMode = MODE_NONE;
 
-    // Default hotkeys
+    // Until we've finished initialization, fsLastMode will be used to store
+    // the last input mode as read from the profile. This is a temporary duty.
+    if ( global.sDefMode > 0 )
+        global.fsLastMode = global.sDefMode;
+    else {
+        lVal = sizeof( global.fsLastMode );
+        if ( ! PrfQueryProfileData( hIni, szLang, PRF_KEY_INPUTMODE,
+                               &(global.fsLastMode), &lVal ))
+            // Default to the first mode regardless of language
+            global.fsLastMode = 1;
+    }
+
+    // Input font
+    PrfQueryProfileString( hIni, szLang, PRF_KEY_INPUTFONT,
+                           DEFAULT_INPUT_FONT, &(global.szInputFont),
+                           sizeof( global.szInputFont ) - 1 );
+
+
+    // Default hotkeys (TODO read these from INI as well)
     pShared->usKeyInput   = 0x20;
     pShared->fsVKInput    = KC_CTRL;
 
@@ -97,6 +173,7 @@ void _Optlink SettingsInit( HWND hwnd, PPOINTL pptl )
     pShared->usKeyPrev    = VK_LEFT;
     pShared->fsVKPrev     = KC_CTRL | KC_VIRTUALKEY;
 
+    PrfCloseProfile( hIni );
 }
 
 
@@ -213,6 +290,7 @@ void SettingsDlgPopulate( HWND hwnd )
     SHORT sIdx;
 
     sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Remember last used");
+    LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, -1 );
     sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "None");
     LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_NONE );
 
@@ -228,7 +306,8 @@ void SettingsDlgPopulate( HWND hwnd )
         sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Hangul");
         LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_HANGUL );
     }
-    LIST_SELECT_ITEM( hwnd, IDD_STARTUP_MODE, (SHORT)(global.sDefMode) + 1 );
+    //LIST_SELECT_ITEM( hwnd, IDD_STARTUP_MODE, (SHORT)(global.sDefMode) + 1 );
+    ListSelectDataItem( hwnd, IDD_STARTUP_MODE, (ULONG) global.sDefMode );
 
     SettingsPopulateKeyList( hwnd, IDD_INPUT_KEY );
     ListSelectDataItem( hwnd, IDD_INPUT_KEY, MAKEULONG( pShared->usKeyInput, pShared->fsVKInput & KC_VIRTUALKEY ));
@@ -334,7 +413,6 @@ MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
     UCHAR szFontPP[ FACESIZE + 4 ];
     SHORT sIdx;
-    ULONG ulData;
     PSZ   psz;
 
     switch ( msg ) {
@@ -450,5 +528,90 @@ BOOL _Optlink SelectFont( HWND hwnd, PSZ pszFace, USHORT cbBuf )
         return TRUE;
     }
     return FALSE;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * SettingsSave                                                              *
+ *                                                                           *
+ * Saves various settings to the INI file.  Called on program exit.          *
+ *                                                                           *
+ * ARGUMENTS:                                                                *
+ *   HWND hwnd: Main window handle.                                          *
+ *                                                                           *
+ * RETURNS: N/A                                                              *
+ * ------------------------------------------------------------------------- */
+void SettingsSave( HWND hwnd )
+{
+    HINI   hIni;                        // handle of INI file
+    CHAR   szIni[ CCHMAXPATH ]  = {0},  // full path of INI file
+           szLang[ 6 ],                 // language (used as app name)
+           szFont[ FACESIZE+4 ] = {0};  // font PP
+    SWP    wp;                          // window size/position (as queried)
+    POINTL ptl;                         // window position (as saved)
+    LONG   lData;                       // INI data item
+
+
+    LocateProfile( szIni );
+    hIni = PrfOpenProfile( WinQueryAnchorBlock( hwnd ), szIni );
+
+    switch ( pShared->fsMode & 0xF00 ) {
+        case MODE_CN: strcpy( szLang, "zh_CN"); break;
+        case MODE_TW: strcpy( szLang, "zh_TW"); break;
+        case MODE_KR: strcpy( szLang, "ko_KR"); break;
+        default:      strcpy( szLang, "ja_JP"); break;
+    }
+
+    // Save the window position
+    if ( WinQueryWindowPos( global.hwndFrame, &wp )) {
+        ptl.x = wp.x;
+        ptl.y = wp.y;
+        PrfWriteProfileData( hIni, PRF_APP_UI, PRF_KEY_UIPOS, &ptl, sizeof( ptl ));
+    }
+
+    // Save the UI font
+    if ( WinQueryPresParam( hwnd, PP_FONTNAMESIZE, 0, NULL,
+                            sizeof( szFont ), szFont, 0 ))
+        PrfWriteProfileString( hIni, PRF_APP_UI, PRF_KEY_UIFONT, szFont );
+
+    // Save the configuration settings
+    PrfWriteProfileString( hIni, szLang, PRF_KEY_INPUTFONT, global.szInputFont );
+
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_STARTMODE,
+                         &(global.sDefMode), sizeof( global.sDefMode ));
+
+    lData = pShared->fsMode & 0xFF;
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_INPUTMODE,
+                         &lData, sizeof( lData ));
+
+    lData = MAKELONG( pShared->usKeyMode, pShared->fsVKMode );
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_MODE,
+                         &(lData), sizeof( lData ));
+
+    lData = MAKELONG( pShared->usKeyInput, pShared->fsVKInput );
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_INPUT,
+                         &(lData), sizeof( lData ));
+
+    lData = MAKELONG( pShared->usKeyCJK, pShared->fsVKCJK );
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_CJK,
+                         &(lData), sizeof( lData ));
+
+    lData = MAKELONG( pShared->usKeyConvert, pShared->fsVKConvert );
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_CONVERT,
+                         &(lData), sizeof( lData ));
+
+    lData = MAKELONG( pShared->usKeyAccept, pShared->fsVKAccept );
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_ACCEPT,
+                         &(lData), sizeof( lData ));
+
+    lData = MAKELONG( pShared->usKeyNext, pShared->fsVKNext );
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_NEXT,
+                         &(lData), sizeof( lData ));
+
+    lData = MAKELONG( pShared->usKeyPrev, pShared->fsVKPrev );
+    PrfWriteProfileData( hIni, szLang, PRF_KEY_PREV,
+                         &(lData), sizeof( lData ));
+
+    PrfCloseProfile( hIni );
 }
 
