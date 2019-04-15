@@ -69,9 +69,11 @@ When in clause conversion mode, the following hotkey commands apply:
     Esc:              Cancel conversion (this will clear the current clause text)
     Backspace or Del: Delete the last character
 
-The active settings are global, i.e. switching from one program to another will
-retain the current conversion mode.  However, settings are _not_ currently saved
-when closing the UI.
+The active mode is global, i.e. switching from one program to another will
+retain the current conversion mode.  
+
+Most of the aforementioned hotkey commands (except for Esc and Backspace) can be 
+changed via the settings dialog.
 
 
 For Developers
@@ -177,6 +179,43 @@ exported by the library and so were simply lifted from the sources.
 
 `ids.h` defines various resource and message IDs used by both the client and the
 PM hook.
+
+
+Limitations
+-----------
+
+1. In general, an application must be running under the corresponding DBCS
+   codepage in order for WnnIM text entry to work.  This is especially true
+   for applications that try to interpret text intelligently (e.g. by
+   converting into Unicode).  For reference, the relevant codepages are:
+
+    - Japanese: 932
+    - Korean: 949
+    - Simplified Chinese: 1386
+    - Traditional Chinese: 950
+
+2. For the characters to display properly in the application, it will need to
+   use fonts that support the language in question.  For programs which use
+   standard PM controls or GPI text rendering, it may be possible to make use
+   of Presentation Manager's "font association" feature (PM_SystemFonts ->
+   PM_AssociateFont in OS2.INI), although this has certain limitations.
+
+3. Not all applications support positioning of the clause overlay window at the
+   cursor.  (Qt-based applications are an example, as is OpenOffice.)  In such
+   cases, the window will appear, enlarged, at the bottom left of the screen
+   instead.  
+
+4. Some applications do not support input of double-byte text in the normal way. 
+   In some cases this can be worked around, but WnnIM has to explicitly add
+   logic for these applications.  If you encounter such an application, please
+   open a ticket for it so that it can be addressed.
+
+5. Apache OpenOffice is a somewhat special case.  Current OS/2 builds do not
+   support double-byte character input at all.  A workaround has been
+   implemented to use the clipboard (instead of input messages) to insert the
+   text in OpenOffice windows.  However, the nature of this workaround means
+   that _anything in the clipboard will be lost_ whenever text is entered into
+   OpenOffice using WnnIM.
 
 
 Notices
