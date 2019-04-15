@@ -283,7 +283,7 @@ void DismissConversionWindow( HWND hwnd )
  *                                                                           *
  * This function attempts to send the buffer contents to the source window   *
  * by pasting it to the clipboard in text/unicode format, then sending the   *
- * source window a Ctrl+Insert key event.  This should only be used with     *
+ * source window a Shift+Insert key event.  This should only be used with    *
  * specific applications where we know this is likely to work.               *
  *                                                                           *
  * If there is data already on the clipboard in one of the standard OS/2     *
@@ -363,15 +363,18 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
 
     // Place the UCS-2 string on the clipboard as "text/unicode"
     if ( ClipPutUniText( global.hab, puszBuffer, g_cfUnicode )) {
+        // Now close the clipboard and send Shift+Ins to the app
         WinCloseClipbrd( global.hab );
         WinSendMsg( hwndSource, WM_CHAR,
                     MPFROMSH2CH( KC_VIRTUALKEY | KC_SHIFT, 1, 0 ),
                     MPFROM2SHORT( 0, VK_INSERT ));
+        // ...and now reopen the clipboard and clear our text
         WinOpenClipbrd( global.hab );
+        WinEmptyClipbrd( global.hab );
     }
 
 #ifdef PRESERVE_CLIPBOARD
-    // Restore the saved clipboard contents
+    // Finish up by restoring any saved clipboard contents
     if ( hBMP != NULLHANDLE )
         WinSetClipbrdData( global.hab, (ULONG) hBMP, CF_BITMAP, ulFmtBMP );
     if ( hDspBMP != NULLHANDLE )
@@ -402,8 +405,10 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
  * with it.                                                                  *
  *                                                                           *
  * PARAMETERS:                                                               *
- *   HWND hwndSource: HWND of source (application) window.                   *
- *   PSZ  pszBuffer : Character buffer whose contents will be sent.          *
+ *   HWND     hwndSource: HWND of source (application) window.               *
+ *   PSZ      pszBuffer : Character buffer whose contents will be sent.      *
+ *   UniChar *puszBuffer: Character buffer in unconverted UCS-2 format       *
+ *                        (needed for our clipboard workaround, see below).  *
  *                                                                           *
  * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
@@ -436,9 +441,9 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer, UniChar *puszBuffer )
             fWorkAround = TRUE;
 
         // OpenOffice/StarOffice (the normal workaround won't work, since
-        // since OO converts internally to Unicode before displaying).
-        // Instead, we cheat by putting the text in the clipboard and
-        // sending a Paste command (Ctrl+Ins).
+        // OpenOffice converts internally to Unicode before displaying).
+        // Instead, we cheat by putting the UCS-2 text onto the clipboard and
+        // sending a Paste command (Shift+Ins).
         else if ( strcmp( achClassName, "SALFRAME") == 0 )
             fUseClipboard = TRUE;
 
