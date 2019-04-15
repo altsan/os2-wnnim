@@ -1573,8 +1573,9 @@ int main( int argc, char **argv )
     // Up to now fsLastMode was storing the last saved mode, including none/0.
     // From here on its job will be to remember the last _active_ (>0) mode.
     if ( global.fsLastMode < 1 )
-        // Default to the first available for the current language mode
-        global.fsLastMode = (pShared->fsMode & 0xFF00) | 1;
+        global.fsLastMode = 1;
+    global.fsLastMode |= (pShared->fsMode & 0xFF00);
+
     WinCheckMenuItem( global.hwndMenu,
                       IDM_INPUT_BASE + (global.fsLastMode & 0xFF), TRUE );
 
