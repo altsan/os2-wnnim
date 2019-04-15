@@ -41,7 +41,7 @@
 #include "clipfuncs.h"
 
 
-#define PRESERVE_CLIPBOARD 1
+//#define PRESERVE_CLIPBOARD 1
 
 
 // --------------------------------------------------------------------------
@@ -368,12 +368,20 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
         WinSendMsg( hwndSource, WM_CHAR,
                     MPFROMSH2CH( KC_VIRTUALKEY | KC_SHIFT, 1, 0 ),
                     MPFROM2SHORT( 0, VK_INSERT ));
-        // ...and now reopen the clipboard and clear our text
-        WinOpenClipbrd( global.hab );
-        WinEmptyClipbrd( global.hab );
-    }
-
+        // Reopen the clipboard
 #ifdef PRESERVE_CLIPBOARD
+        if ( ! WinOpenClipbrd( global.hab )) return TRUE;
+#endif
+    }
+#ifdef PRESERVE_CLIPBOARD
+    // Unfortunately this doesn't work reliably.  The problem is that the app may
+    // not actually process the paste event until after this takes place.  This
+    // seems to be timing sensitive, and since we don't have access to the app's
+    // side of the conversation, semaphores and IPC tricks aren't an option.
+    // All we can really do is leave our IME text in the clipboard so that the app
+    // pastes it once it's ready (which means we can't save the old clipboard data).
+
+    WinEmptyClipbrd( global.hab );
     // Finish up by restoring any saved clipboard contents
     if ( hBMP != NULLHANDLE )
         WinSetClipbrdData( global.hab, (ULONG) hBMP, CF_BITMAP, ulFmtBMP );
@@ -389,8 +397,8 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
         ClipPutText( global.hab, pszDspTXT, CF_DSPTEXT );
     if ( puszTXT != NULL )
         ClipPutUniText( global.hab, puszTXT, g_cfUnicode );
-#endif
     WinCloseClipbrd( global.hab );
+#endif
 
     return TRUE;
 }
