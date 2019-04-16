@@ -882,6 +882,23 @@ INT IM_CALLCNV PrepareCandidates( PVOID pSession )
 
 
 /* ------------------------------------------------------------------------- *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+INT IM_CALLCNV GetCandidateCount( PVOID pSession )
+{
+    struct wnn_buf *bdata = pSession;   // Wnn session buffer
+
+    // Double-check we are connected to the server
+    if (  !bdata || !jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+
+    return jl_zenkouho_suu( bdata );
+}
+
+
+/* ------------------------------------------------------------------------- *
  * SetCandidate                                                              *
  *                                                                           *
  * Set the current conversion result from the available candidates.          *

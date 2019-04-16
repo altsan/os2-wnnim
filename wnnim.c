@@ -168,8 +168,7 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     fGotPos = FALSE;
     fGotHeight = FALSE;
 
-#if 1
-    // Now determine where to position it
+    // Now determine where to position it. First we try asking the app...
     if ( global.pRclConv ) {
         if (( NO_ERROR == WinQueryWindowProcess( hwndSource, &pid, NULL )) &&
             ( NO_ERROR == DosGiveSharedMem( global.pRclConv, pid, fPERM )))
@@ -190,10 +189,9 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
             }
         }
     }
-#endif
 
+    // If the app wouldn't tell us the convert position, try & query the cursor
     if ( !fGotPos && WinQueryCursorInfo( HWND_DESKTOP, &ci )) {
-        // Window didn't tell us the cursor position, so try querying it directly
         if ( ci.hwnd == hwndSource )
         {
             ptl.x = ci.x;
@@ -224,22 +222,23 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
         }
     }
 
+    // Set the conversion window font. This sets the face, but the window
+    // will set the point size itself based on the window height.
     WinSetPresParam( global.hwndClause, PP_FONTNAMESIZE,
                      strlen( szFontPP ), szFontPP );
-    // Now get the conversion window's actual font metrics for positioning calculation
-#if 0
-    hps = WinGetPS( global.hwndClause );
-    if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
-        ptl.y -= fm.lLowerCaseDescent;
-    }
-    WinReleasePS( hps );
-#else
+
+    // Now get the conversion window's actual font metrics and use to set the
+    // position relative to the application cursor.  (We want it to line up so
+    // that the text baselines match as closely as possible.)
     if ( (BOOL)WinSendMsg( global.hwndClause, CWM_QUERYFONTMETRICS,
                            MPFROMP( &fm ), MPFROMLONG( lTxtHeight )))
     {
+        // The application's cursor position is usually at or around the
+        // underscore position, but it kind of depends.  Also, the actual
+        // font metrics can vary quite widely, so this is a bit of a fudge...
         ptl.y -= min( fm.lLowerCaseDescent - fm.lUnderscorePosition, fm.lEmHeight / 5 );
+        if ( ptl.y < 0 ) ptl.y = 0;
     }
-#endif
 
     // Place it over the source window at the position indicated
     WinSetWindowPos( global.hwndClause, HWND_TOP,
@@ -276,6 +275,8 @@ void DismissConversionWindow( HWND hwnd )
 
     // Update the input mode status
     pShared->fsMode &= ~MODE_CJK_ENTRY;
+    pShared->fsMode &= ~MODE_CLAUSE_READY;
+    pShared->fsMode &= ~MODE_PHRASE_READY;
 }
 
 
@@ -499,7 +500,7 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
 
     memset( szKana, 0, sizeof( szKana ));
 
-    /*
+    /* TODO for Korean only
     if ( bStatus == KANA_CANDIDATE )
         UniStrncpy( global.suPending, global.uszKana, MAX_KANA_BUFZ );
         // TODO update/display overlay
@@ -509,8 +510,11 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
         ( SetConversionWindow( hwnd, hwndSource )))
     {
         // Clause text is changing, so reset the conversion state
-        if ( GetPhraseCount( global.pSession ) > 0 )
+        if ( GetPhraseCount( global.pSession ) > 0 ) {
             ClearConversion( global.pSession );
+            pShared->fsMode &= ~MODE_CLAUSE_READY;
+            pShared->fsMode &= ~MODE_PHRASE_READY;
+        }
 
         // Add character to clause conversion window
         WinSendMsg( global.hwndClause, CWM_ADDCHAR,
@@ -677,7 +681,7 @@ void DoClauseConversion( HWND hwnd )
     if ( !global.hwndClause || !global.hwndInput ) return;
 
     fFirst = FALSE;
-
+#if 0
     // See if we already initialized this clause (by getting the phrase count)
     rc = GetPhraseCount( global.pSession );
     if ( rc == CONV_CONNECT ) {
@@ -693,6 +697,9 @@ void DoClauseConversion( HWND hwnd )
         }
     }
     if ( rc < 1 ) {
+#else
+    if ( !(pShared->fsMode & MODE_CLAUSE_READY) ) {
+#endif
         // This is a new clause, not yet initialized.  So do that now.
 
         rc = ConvertClauseText( CWT_ALL );
@@ -700,6 +707,8 @@ void DoClauseConversion( HWND hwnd )
             ErrorPopup( global.szEngineError );
             return;
         }
+        pShared->fsMode |= MODE_CLAUSE_READY;
+
         // TODO set phrases in clause window
 
         // Now set up the candidate list
@@ -715,8 +724,8 @@ void DoClauseConversion( HWND hwnd )
     // That means we have (a) candidate conversions for the entire clause, and
     // (b) a breakdown of component phrases within the clause.
 
-    // If we just initialized the clause, the entire clause will always be
-    // selected to start with.  Otherwise, we should see if a component phrase
+    // If we've just initialized the clause, the entire clause will always be
+    // selected to start with.  Otherwise, we should check to see if a phrase
     // has been selected...
 
     if ( !fFirst ) {
@@ -1503,8 +1512,12 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 // Backspace
                 WinSendMsg( global.hwndClause, CWM_DELCHAR, MPFROMSHORT( 1 ), 0L );
                 // Clause text changed, so reset the conversion state
-                if ( GetPhraseCount( global.pSession ) > 0 )
+                if (( pShared->fsMode & MODE_CLAUSE_READY ) == MODE_CLAUSE_READY )
+                {
                     ClearConversion( global.pSession );
+                    pShared->fsMode &= ~MODE_CLAUSE_READY;
+                    pShared->fsMode &= ~MODE_PHRASE_READY;
+                }
                 return 0;
             }
             break;
@@ -1634,7 +1647,8 @@ int main( int argc, char **argv )
     global.fsLastMode |= (pShared->fsMode & 0xFF00);
 
     WinCheckMenuItem( global.hwndMenu,
-                      IDM_INPUT_BASE + (global.fsLastMode & 0xFF), TRUE );
+                      IDM_INPUT_BASE + (global.fsLastMode & 0xFF),
+                      (BOOL) global.fsLastMode );
 
     // Now do our stuff
     DosLoadModule( szErr, sizeof(szErr), "wnnhook.dll", &hm );      // increment the DLL use counter for safety
