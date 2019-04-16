@@ -673,9 +673,12 @@ INT ConvertClauseText( USHORT usPhrase )
 void DoClauseConversion( HWND hwnd )
 {
     UniChar *puszCandidate;     // Current conversion candidate
-    USHORT   usPhrase;
+    USHORT   usPhrase,
+             usOffset;
     BOOL     fFirst;
+    PUSHORT  pusPhrases = NULL;
     INT      iLen,
+             i,
              rc;
 
     if ( !global.hwndClause || !global.hwndInput ) return;
@@ -709,7 +712,26 @@ void DoClauseConversion( HWND hwnd )
         }
         pShared->fsMode |= MODE_CLAUSE_READY;
 
-        // TODO set phrases in clause window
+        // Set the phrase boundaries
+        rc = GetPhraseCount( global.pSession );
+        if (( rc > 0 ) &&
+            ( pusPhrases = (PUSHORT) calloc( rc, sizeof( USHORT ))) != NULL )
+        {
+            usOffset = 0;
+            for ( i = 0; i < rc; i++ ) {
+                if ( CONV_OK == GetConvertedString( global.pSession, i, i+1,
+                                                    TRUE, &puszCandidate ))
+                {
+                    iLen = UniStrlen( puszCandidate );
+                    pusPhrases[ i ] = iLen - 1;
+                    usOffset += pusPhrases[ i ];
+                    free( puszCandidate );
+                }
+            }
+            WinSendMsg( global.hwndClause, CWM_SETPHRASES,
+                        MPFROMSHORT( rc ), MPFROMP( pusPhrases ));
+            free( pusPhrases );
+        }
 
         // Now set up the candidate list
         rc = PrepareCandidates( global.pSession );
@@ -759,6 +781,7 @@ void DoClauseConversion( HWND hwnd )
         WinSendMsg( global.hwndClause, CWM_SETTEXT,
                     MPFROM2SHORT( CWT_ALL, UniStrlen( puszCandidate )),
                     MPFROMP( puszCandidate ));
+        free ( puszCandidate );
     }
 }
 
