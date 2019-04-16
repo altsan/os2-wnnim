@@ -734,7 +734,7 @@ BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
     yomi = (w_char *) calloc( iLen, sizeof( w_char ));
     wnn_Sstrcpy( yomi, szTemp );
 
-    // Tell Wnn to convert the full clause
+    // Tell Wnn to convert the phrase
     iResult = jl_tan_conv( bdata, yomi, 0, -1, WNN_USE_ZENGO, WNN_DAI );
     if ( iResult == -1 ) {
         if ( WnnErrorBuf[0] )
@@ -876,7 +876,7 @@ INT IM_CALLCNV PrepareCandidates( PVOID pSession )
         return CONV_CONNECT;
     }
 
-    jl_zenkouho( bdata, 0, WNN_USE_MAE, WNN_UNIQ );
+    jl_zenkouho( bdata, 0, WNN_USE_MAE, WNN_UNIQ_KNJ );
     return jl_zenkouho_suu( bdata );
 }
 

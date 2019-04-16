@@ -53,6 +53,7 @@ void             AcceptClause( HWND hwnd );
 MRESULT EXPENTRY ButtonProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ClearInputBuffer( void );
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
+INT              ConvertClauseText( USHORT usPhrase );
 void             DoClauseConversion( HWND hwnd );
 void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
 VOID APIENTRY    ExeTrap( void );
@@ -629,14 +630,45 @@ void AcceptClause( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
+ * ConvertClauseText                                                         *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+INT ConvertClauseText( USHORT usPhrase )
+{
+    UniChar *puszText;      // Current clause/phrase text from conversion window
+    USHORT   usLen;
+    INT      rc;
+
+    usLen = (USHORT) WinSendMsg( global.hwndClause, CWM_QUERYTEXTLENGTH,
+                                 MPFROMSHORT( usPhrase ), 0 );
+    if ( ! usLen ) return CONV_FAILED;
+
+    puszText = (UniChar *) calloc( usLen + 1, sizeof( UniChar ));
+    if ( !puszText ) return CONV_FAILED;
+
+    if ( ! WinSendMsg( global.hwndClause, CWM_GETTEXT,
+                       MPFROM2SHORT( usPhrase, usLen+1 ),
+                       MPFROMP( puszText )))
+        rc = CONV_FAILED;
+    else {
+        if ( usPhrase == CWT_ALL )
+            rc = ConvertClause( global.pSession, puszText );
+        else
+            rc = ConvertPhrase( global.pSession, puszText );
+    }
+
+    free( puszText );
+    return rc;
+}
+
+
+/* ------------------------------------------------------------------------- *
  * DoClauseConversion                                                        *
  *                                                                           *
  * ------------------------------------------------------------------------- */
 void DoClauseConversion( HWND hwnd )
 {
-    UniChar *puszClause,
-            *puszCandidate;
-    USHORT   usLen;
+    UniChar *puszCandidate;     // Current conversion candidate
     USHORT   usPhrase;
     BOOL     fFirst;
     INT      iLen,
@@ -644,8 +676,9 @@ void DoClauseConversion( HWND hwnd )
 
     if ( !global.hwndClause || !global.hwndInput ) return;
 
-    // See if we already initialized this clause
     fFirst = FALSE;
+
+    // See if we already initialized this clause (by getting the phrase count)
     rc = GetPhraseCount( global.pSession );
     if ( rc == CONV_CONNECT ) {
         // Lost connection, try (once) to reestablish
@@ -660,24 +693,9 @@ void DoClauseConversion( HWND hwnd )
         }
     }
     if ( rc < 1 ) {
-        // Nope, do it now
+        // This is a new clause, not yet initialized.  So do that now.
 
-        usLen = (USHORT) WinSendMsg( global.hwndClause, CWM_QUERYTEXTLENGTH,
-                                     MPFROMSHORT( CWT_ALL ), 0 );
-        if ( ! usLen ) return;
-
-        puszClause = (UniChar *) calloc( usLen + 1, sizeof( UniChar ));
-        if ( !puszClause )
-            return;
-        if ( ! WinSendMsg( global.hwndClause, CWM_GETTEXT,
-                           MPFROM2SHORT( CWT_ALL, usLen+1 ),
-                           MPFROMP( puszClause )))
-        {
-            free( puszClause );
-            return;
-        }
-        rc = ConvertClause( global.pSession, puszClause );
-        free( puszClause );
+        rc = ConvertClauseText( CWT_ALL );
         if ( rc != CONV_OK ) {
             ErrorPopup( global.szEngineError );
             return;
@@ -693,13 +711,39 @@ void DoClauseConversion( HWND hwnd )
         fFirst = TRUE;
     }
 
-    // Candidates and phrases have been generated for this clause
-    usPhrase = (USHORT) WinSendMsg( global.hwndClause,
-                                    CWM_GETSELECTEDPHRASE, 0L, 0L );
-    // (At the moment usPhrase will always be CWT_NONE)
+    // OK, so the clause has now had its initial processing by the IME engine.
+    // That means we have (a) candidate conversions for the entire clause, and
+    // (b) a breakdown of component phrases within the clause.
 
-    // Get next candidate for clause (TODO or selected phrase)
-    if ( !fFirst ) SetCandidate( global.pSession, TRUE );
+    // If we just initialized the clause, the entire clause will always be
+    // selected to start with.  Otherwise, we should see if a component phrase
+    // has been selected...
+
+    if ( !fFirst ) {
+
+        /*
+        // TODO determine if phrase conversion has been initialized
+        usPhrase = (USHORT) WinSendMsg( global.hwndClause,
+                                        CWM_GETSELECTEDPHRASE, 0L, 0L );
+        if ( usPhrase != CWT_NONE ) {
+
+            usLen = (USHORT) WinSendMsg( global.hwndClause,
+                                         CWM_QUERYTEXTLENGTH,
+                                         MPFROMSHORT( usPhrase ), 0 );
+            if ( usLen ) {
+                if ( CONV_OK != ConvertClauseText( usPhrase )) {
+                    ErrorPopup( global.szEngineError );
+                    return;
+                }
+
+            }
+        }
+        */
+
+        SetCandidate( global.pSession, TRUE );
+    }
+
+    // Get the next candidate conversion
     if ( CONV_OK == GetConvertedString( global.pSession, 0, -1,
                                         FALSE, &puszCandidate ))
     {

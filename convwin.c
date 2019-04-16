@@ -386,6 +386,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     (( pCtl->usPhraseCount > 1 ) && ( i < pCtl->pusPhraseEnd[ pCtl->usPhraseCount-2 ]))) {
                     free( pCtl->pusPhraseEnd );
                     pCtl->usPhraseCount = 0;
+                    pCtl->usCurrentPhrase = CWT_NONE;
                 }
                 else
                     pCtl->pusPhraseEnd[ pCtl->usPhraseCount-1 ] = i - 1;
@@ -423,6 +424,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
             pCtl->pusPhraseEnd = pusArray;
             pCtl->usPhraseCount = usPhrase;
+            pCtl->usCurrentPhrase = CWT_NONE;
 
             // Copy the new values
             pusArray = (PUSHORT)mp2;
@@ -495,7 +497,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          *  - mp2:                                                            *
          *     Unused, should be 0.                                           *
          *  Returns USHORT                                                    *
-         * .................................................................. *
+         * .................................................................. */
         case CWM_GETSELECTEDPHRASE:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             if ( !pCtl ) return (MRESULT) CWT_NONE;
@@ -599,7 +601,7 @@ BOOL SetFullText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText )
     }
     if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
     pCtl->usPhraseCount = 0;
-
+    pCtl->usCurrentPhrase = CWT_NONE;
     return TRUE;
 }
 
