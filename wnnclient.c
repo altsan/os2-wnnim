@@ -638,6 +638,7 @@ void IM_CALLCNV FinishConversionMethod( PVOID pSession )
  *                                                                           *
  * PARAMETERS:                                                               *
  *   PVOID pSession: Pointer to Wnn data buffer.                             *
+ *   UniChar *puszClause: Clause string to convert.                          *
  *                                                                           *
  * RETURNS:                                                                  *
  * Result of the conversion attempt.  One of:                                *
@@ -662,6 +663,8 @@ BYTE IM_CALLCNV ConvertClause( PVOID pSession, UniChar *puszClause )
         strcpy( global.szEngineError, "Lost connection to server.");
         return CONV_CONNECT;
     }
+
+    if ( !puszClause ) return CONV_FAILED;
 
     // Convert the UCS-2 kana string into EUC
     rc = StrConvert( (PCH) puszClause, szTemp, NULL, uconvEUC );
@@ -712,6 +715,7 @@ BYTE IM_CALLCNV ConvertClause( PVOID pSession, UniChar *puszClause )
 BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
 {
     CHAR szTemp[ MAX_KANA_BUFZ * 3 ] = {0};     // Temporary conversion buffer
+    ULONG           rc;                         // ULS return code
     INT             iLen,                       // Buffer length
                     iResult;                    // Conversion result code from jlib
     w_char         *yomi;                       // Input string in fixed-width EUC format
@@ -726,8 +730,14 @@ BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
         return CONV_CONNECT;
     }
 
+    if ( !puszPhrase ) return CONV_FAILED;
+
     // Convert the UCS-2 kana string into EUC
-    StrConvert( (PCH) puszPhrase, szTemp, NULL, uconvEUC );
+    rc = StrConvert( (PCH) puszPhrase, szTemp, NULL, uconvEUC );
+    if ( rc != ULS_SUCCESS ) {
+        sprintf( global.szEngineError, "String conversion failed: 0x%X", rc );
+        return CONV_FAILED;
+    }
 
     // Now convert that into the fixed-width format expected by Wnn jlib
     iLen = strlen( szTemp ) + 1;
