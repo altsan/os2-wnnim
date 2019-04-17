@@ -62,8 +62,8 @@
 #define RECTL_HEIGHT(rcl)       (rcl.yTop - rcl.yBottom)
 #define RECTL_WIDTH(rcl)        (rcl.xRight - rcl.xLeft)
 
-#define ErrorPopup( text ) \
-    WinMessageBox( HWND_DESKTOP, HWND_DESKTOP, text, "Error", 0, MB_OK | MB_ERROR )
+#define ErrorPopup( owner, text ) \
+    WinMessageBox( HWND_DESKTOP, owner, text, "Error", 0, MB_OK | MB_ERROR )
 
 
 // --------------------------------------------------------------------------

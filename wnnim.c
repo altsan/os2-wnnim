@@ -692,7 +692,7 @@ void DoClauseConversion( HWND hwnd )
             rc = GetPhraseCount( global.pSession );
         if ( rc == CONV_CONNECT ) {
             // No dice, give up
-            ErrorPopup( global.szEngineError );
+            ErrorPopup( hwnd, global.szEngineError );
             return;
         }
     }
@@ -704,7 +704,7 @@ void DoClauseConversion( HWND hwnd )
 
         rc = ConvertClauseText( CWT_ALL );
         if ( rc != CONV_OK ) {
-            ErrorPopup( global.szEngineError );
+            ErrorPopup( hwnd, global.szEngineError );
             return;
         }
         global.fsClause |= CLAUSE_READY;
@@ -712,7 +712,7 @@ void DoClauseConversion( HWND hwnd )
         // Now set up the candidate list
         rc = PrepareCandidates( global.pSession );
         if ( rc == CONV_CONNECT ) {
-            ErrorPopup( global.szEngineError );
+            ErrorPopup( hwnd, global.szEngineError );
             return;
         }
 
@@ -761,7 +761,7 @@ void DoPhraseConversion( HWND hwnd )
         // This phrase has not been converted yet, so do that now
 
         if ( CONV_OK != ConvertClauseText( usPhrase )) {
-            ErrorPopup( global.szEngineError );
+            ErrorPopup( hwnd, global.szEngineError );
             return;
         }
         global.fsClause |= PHRASE_READY;
@@ -769,7 +769,7 @@ void DoPhraseConversion( HWND hwnd )
 
         rc = PrepareCandidates( global.pSession );
         if ( rc == CONV_CONNECT ) {
-            ErrorPopup( global.szEngineError );
+            ErrorPopup( hwnd, global.szEngineError );
             return;
         }
     }
@@ -1587,19 +1587,19 @@ BOOL SetupDBCSLanguage( USHORT usLangMode )
     pShared->fsMode = usLangMode;   // no conversion, will set later
 
     if ( CreateUconvObject( cc.codepage, &(global.uconvOut) ) != ULS_SUCCESS ) {
-        ErrorPopup("Failed to create conversion object for selected codepage.");
+        ErrorPopup( global.hwndClient, "Failed to create conversion object for selected codepage.");
         return FALSE;
     }
 
     rc = InitInputMethod( NULL, usLangMode );
     if ( rc ) {
-        ErrorPopup( global.szEngineError );
+        ErrorPopup( global.hwndClient, global.szEngineError );
         return FALSE;
     }
 
     rc = InitConversionMethod( NULL, usLangMode, (PVOID *) &(global.pSession) );
     if ( rc == CONV_CONNECT ) {
-        ErrorPopup( global.szEngineError );
+        ErrorPopup( global.hwndClient, global.szEngineError );
         FinishInputMethod();
         return FALSE;
     }

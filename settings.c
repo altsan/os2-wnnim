@@ -41,7 +41,7 @@ void  LocateProfile( PSZ pszProfile );
 void  GetSelectedKey( HWND hwnd, USHORT usID, PUSHORT pusKC, PUSHORT pusVK );
 void  SettingsPopulateKeyList( HWND hwnd, USHORT usID );
 void  SettingsDlgPopulate( HWND hwnd );
-void  SettingsUpdateKeys( HWND hwnd );
+BOOL  SettingsUpdateKeys( HWND hwnd );
 
 
 
@@ -408,57 +408,83 @@ void SettingsDlgPopulate( HWND hwnd )
  *                                                                           *
  * Update the active program hotkey settings based on the dialog contents.   *
  * ------------------------------------------------------------------------- */
-void SettingsUpdateKeys( HWND hwnd )
+BOOL SettingsUpdateKeys( HWND hwnd )
 {
-    pShared->fsVKInput = 0;
+#define NUM_HOTKEYS 7
+
+    USHORT fsKey[ NUM_HOTKEYS ] = {0},
+           usKey[ NUM_HOTKEYS ] = {0},
+           i, j;
+
     if ( CHKBOX_ISCHECKED( hwnd, IDD_INPUT_CTRL ))
-        pShared->fsVKInput |= KC_CTRL;
+        fsKey[ 0 ] |= KC_CTRL;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_INPUT_SHIFT ))
-        pShared->fsVKInput |= KC_SHIFT;
-    GetSelectedKey( hwnd, IDD_INPUT_KEY, &(pShared->usKeyInput), &(pShared->fsVKInput) );
+        fsKey[ 0 ] |= KC_SHIFT;
+    GetSelectedKey( hwnd, IDD_INPUT_KEY, &usKey[ 0 ], &fsKey[ 0 ] );
 
-    pShared->fsVKMode = 0;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_MODE_CTRL ))
-        pShared->fsVKMode |= KC_CTRL;
+        fsKey[ 1 ] |= KC_CTRL;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_MODE_SHIFT ))
-        pShared->fsVKMode |= KC_SHIFT;
-    GetSelectedKey( hwnd, IDD_MODE_KEY, &(pShared->usKeyMode), &(pShared->fsVKMode) );
+        fsKey[ 1 ] |= KC_SHIFT;
+    GetSelectedKey( hwnd, IDD_MODE_KEY, &usKey[ 1 ], &fsKey[ 1 ] );
 
-    pShared->fsVKCJK = 0;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_CLAUSE_CTRL ))
-        pShared->fsVKCJK |= KC_CTRL;
+        fsKey[ 2 ] |= KC_CTRL;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_CLAUSE_SHIFT ))
-        pShared->fsVKCJK |= KC_SHIFT;
-    GetSelectedKey( hwnd, IDD_CLAUSE_KEY, &(pShared->usKeyCJK), &(pShared->fsVKCJK) );
+        fsKey[ 2 ] |= KC_SHIFT;
+    GetSelectedKey( hwnd, IDD_CLAUSE_KEY, &usKey[ 2 ], &fsKey[ 2 ] );
 
-    pShared->fsVKConvert = 0;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_CONVERT_CTRL ))
-        pShared->fsVKConvert |= KC_CTRL;
+        fsKey[ 3 ] |= KC_CTRL;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_CONVERT_SHIFT ))
-        pShared->fsVKConvert |= KC_SHIFT;
-    GetSelectedKey( hwnd, IDD_CONVERT_KEY, &(pShared->usKeyConvert), &(pShared->fsVKConvert) );
+        fsKey[ 3 ] |= KC_SHIFT;
+    GetSelectedKey( hwnd, IDD_CONVERT_KEY, &usKey[ 3 ], &fsKey[ 3 ] );
 
-    pShared->fsVKAccept = 0;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_ACCEPT_CTRL ))
-        pShared->fsVKAccept |= KC_CTRL;
+        fsKey[ 4 ] |= KC_CTRL;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_ACCEPT_SHIFT ))
-        pShared->fsVKAccept |= KC_SHIFT;
-    GetSelectedKey( hwnd, IDD_ACCEPT_KEY, &(pShared->usKeyAccept), &(pShared->fsVKAccept) );
+        fsKey[ 4 ] |= KC_SHIFT;
+    GetSelectedKey( hwnd, IDD_ACCEPT_KEY, &usKey[ 4 ], &fsKey[ 4 ] );
 
-    pShared->fsVKNext = 0;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_NEXT_CTRL ))
-        pShared->fsVKNext |= KC_CTRL;
+        fsKey[ 5 ] |= KC_CTRL;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_NEXT_SHIFT ))
-        pShared->fsVKNext |= KC_SHIFT;
-    GetSelectedKey( hwnd, IDD_NEXT_KEY, &(pShared->usKeyNext), &(pShared->fsVKNext) );
+        fsKey[ 5 ] |= KC_SHIFT;
+    GetSelectedKey( hwnd, IDD_NEXT_KEY, &usKey[ 5 ], &fsKey[ 5 ] );
 
-    pShared->fsVKPrev = 0;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_PREV_CTRL ))
-        pShared->fsVKPrev |= KC_CTRL;
+        fsKey[ 6 ] |= KC_CTRL;
     if ( CHKBOX_ISCHECKED( hwnd, IDD_PREV_SHIFT ))
-        pShared->fsVKPrev |= KC_SHIFT;
-    GetSelectedKey( hwnd, IDD_PREV_KEY, &(pShared->usKeyPrev), &(pShared->fsVKPrev) );
+        fsKey[ 6 ] |= KC_SHIFT;
+    GetSelectedKey( hwnd, IDD_PREV_KEY, &usKey[ 6 ], &fsKey[ 6 ] );
 
+
+    // Check for duplicates
+    for ( i = 0; i < NUM_HOTKEYS; i++ ) {
+        for ( j = 0; j < NUM_HOTKEYS; j++ ) {
+            if ( i == j ) continue;
+            if (( fsKey[ i ] == fsKey[ j ] ) && ( usKey[ i ] == usKey[ j ] )) {
+                ErrorPopup( hwnd, "More than one hotkey has the same value.");
+                return FALSE;
+            }
+        }
+    }
+
+    pShared->fsVKInput    = fsKey[ 0 ];
+    pShared->usKeyInput   = usKey[ 0 ];
+    pShared->fsVKMode     = fsKey[ 1 ];
+    pShared->usKeyMode    = usKey[ 1 ];
+    pShared->fsVKCJK      = fsKey[ 2 ];
+    pShared->usKeyCJK     = usKey[ 2 ];
+    pShared->fsVKConvert  = fsKey[ 3 ];
+    pShared->usKeyConvert = usKey[ 3 ];
+    pShared->fsVKAccept   = fsKey[ 4 ];
+    pShared->usKeyAccept  = usKey[ 4 ];
+    pShared->fsVKNext     = fsKey[ 5 ];
+    pShared->usKeyNext    = usKey[ 5 ];
+    pShared->fsVKPrev     = fsKey[ 6 ];
+    pShared->usKeyPrev    = usKey[ 6 ];
+    return TRUE;
 }
 
 
@@ -501,7 +527,7 @@ MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                                          PP_FONTNAMESIZE, strlen(szFontPP)+1, szFontPP );
                         WinSetDlgItemText( hwnd, IDD_INPUT_FONT, psz );
                     }
-                    else ErrorPopup("Error creating font dialog.");
+                    else ErrorPopup( hwnd, "Error creating font dialog.");
                     return (MRESULT) FALSE;
 
                 case DID_OK:
@@ -511,7 +537,7 @@ MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     if ( sIdx != LIT_NONE )
                         global.sDefMode = (SHORT)(LIST_GET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx ));
 
-                    SettingsUpdateKeys( hwnd );
+                    if( ! SettingsUpdateKeys( hwnd )) return (MRESULT) FALSE;
 
                     if ( WinQueryPresParam( WinWindowFromID( hwnd, IDD_INPUT_FONT ),
                                             PP_FONTNAMESIZE, 0, NULL,
