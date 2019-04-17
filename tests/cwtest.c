@@ -82,6 +82,10 @@ int main( void )
 //    WinSendMsg( hwndConv, CWM_ADDCHAR, MPFROMSHORT( 4 ), MPFROMP( L"Text" ));
 
 //    WinSendMsg( hwndConv, CWM_DELCHAR, MPFROMSHORT( 2 ), 0L );
+    ausPhrase[0] = 3;
+    WinSendMsg( hwndConv, CWM_SETPHRASES, MPFROMSHORT( 3 ), MPFROMP( ausPhrase ));
+    WinSendMsg( hwndConv, CWM_SELECTPHRASE, MPFROMSHORT( CWT_FIRST ), 0L );
+
 
     while ( WinGetMsg( hab, &qmsg, 0, 0, 0 )) WinDispatchMsg( hab, &qmsg );
 

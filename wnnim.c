@@ -31,6 +31,9 @@
 #include <ctype.h>
 #include <uconv.h>
 
+#define INCL_LOADEXCEPTQ
+#include "exceptq.h"
+
 #include "wnnhook.h"
 #include "codepage.h"
 #include "ids.h"
@@ -55,6 +58,7 @@ void             ClearInputBuffer( void );
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 INT              ConvertClauseText( USHORT usPhrase );
 void             DoClauseConversion( HWND hwnd );
+void             DoPhraseConversion( HWND hwnd );
 void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
 VOID APIENTRY    ExeTrap( void );
 void             DismissConversionWindow( HWND hwnd );
@@ -275,8 +279,8 @@ void DismissConversionWindow( HWND hwnd )
 
     // Update the input mode status
     pShared->fsMode &= ~MODE_CJK_ENTRY;
-    pShared->fsMode &= ~MODE_CLAUSE_READY;
-    pShared->fsMode &= ~MODE_PHRASE_READY;
+    pShared->fsMode &= ~MODE_CJK_PHRASE;
+    global.fsClause &= ~CLAUSE_READY;
 }
 
 
@@ -510,10 +514,10 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
         ( SetConversionWindow( hwnd, hwndSource )))
     {
         // Clause text is changing, so reset the conversion state
-        if ( GetPhraseCount( global.pSession ) > 0 ) {
+        if (( global.fsClause & CLAUSE_READY ) == CLAUSE_READY ) {
             ClearConversion( global.pSession );
-            pShared->fsMode &= ~MODE_CLAUSE_READY;
-            pShared->fsMode &= ~MODE_PHRASE_READY;
+            pShared->fsMode &= ~MODE_CJK_PHRASE;
+            global.fsClause &= ~CLAUSE_READY;
         }
 
         // Add character to clause conversion window
@@ -673,17 +677,10 @@ INT ConvertClauseText( USHORT usPhrase )
 void DoClauseConversion( HWND hwnd )
 {
     UniChar *puszCandidate;     // Current conversion candidate
-    USHORT   usPhrase,
-             usOffset;
-    BOOL     fFirst;
-    PUSHORT  pusPhrases = NULL;
-    INT      iLen,
-             i,
-             rc;
+    INT      rc;
 
     if ( !global.hwndClause || !global.hwndInput ) return;
 
-    fFirst = FALSE;
 #if 0
     // See if we already initialized this clause (by getting the phrase count)
     rc = GetPhraseCount( global.pSession );
@@ -701,7 +698,7 @@ void DoClauseConversion( HWND hwnd )
     }
     if ( rc < 1 ) {
 #else
-    if ( !(pShared->fsMode & MODE_CLAUSE_READY) ) {
+    if ( (global.fsClause & CLAUSE_READY) != CLAUSE_READY ) {
 #endif
         // This is a new clause, not yet initialized.  So do that now.
 
@@ -710,28 +707,7 @@ void DoClauseConversion( HWND hwnd )
             ErrorPopup( global.szEngineError );
             return;
         }
-        pShared->fsMode |= MODE_CLAUSE_READY;
-
-        // Set the phrase boundaries
-        rc = GetPhraseCount( global.pSession );
-        if (( rc > 0 ) &&
-            ( pusPhrases = (PUSHORT) calloc( rc, sizeof( USHORT ))) != NULL )
-        {
-            usOffset = 0;
-            for ( i = 0; i < rc; i++ ) {
-                if ( CONV_OK == GetConvertedString( global.pSession, i, i+1,
-                                                    TRUE, &puszCandidate ))
-                {
-                    iLen = UniStrlen( puszCandidate );
-                    pusPhrases[ i ] = iLen - 1;
-                    usOffset += pusPhrases[ i ];
-                    free( puszCandidate );
-                }
-            }
-            WinSendMsg( global.hwndClause, CWM_SETPHRASES,
-                        MPFROMSHORT( rc ), MPFROMP( pusPhrases ));
-            free( pusPhrases );
-        }
+        global.fsClause |= CLAUSE_READY;
 
         // Now set up the candidate list
         rc = PrepareCandidates( global.pSession );
@@ -739,40 +715,16 @@ void DoClauseConversion( HWND hwnd )
             ErrorPopup( global.szEngineError );
             return;
         }
-        fFirst = TRUE;
+
+        // The clause has now had its initial processing by the IME engine.
+        // That means we have (a) candidate conversions for the entire clause,
+        // and (b) a breakdown of component phrases within the clause.
+        // The default conversion is now available to be retrieved with
+        // GetConvertedString().
     }
 
-    // OK, so the clause has now had its initial processing by the IME engine.
-    // That means we have (a) candidate conversions for the entire clause, and
-    // (b) a breakdown of component phrases within the clause.
-
-    // If we've just initialized the clause, the entire clause will always be
-    // selected to start with.  Otherwise, we should check to see if a phrase
-    // has been selected...
-
-    if ( !fFirst ) {
-
-        /*
-        // TODO determine if phrase conversion has been initialized
-        usPhrase = (USHORT) WinSendMsg( global.hwndClause,
-                                        CWM_GETSELECTEDPHRASE, 0L, 0L );
-        if ( usPhrase != CWT_NONE ) {
-
-            usLen = (USHORT) WinSendMsg( global.hwndClause,
-                                         CWM_QUERYTEXTLENGTH,
-                                         MPFROMSHORT( usPhrase ), 0 );
-            if ( usLen ) {
-                if ( CONV_OK != ConvertClauseText( usPhrase )) {
-                    ErrorPopup( global.szEngineError );
-                    return;
-                }
-
-            }
-        }
-        */
-
+    else            // Already converted, just advance to the next candidate
         SetCandidate( global.pSession, TRUE );
-    }
 
     // Get the next candidate conversion
     if ( CONV_OK == GetConvertedString( global.pSession, 0, -1,
@@ -780,6 +732,56 @@ void DoClauseConversion( HWND hwnd )
     {
         WinSendMsg( global.hwndClause, CWM_SETTEXT,
                     MPFROM2SHORT( CWT_ALL, UniStrlen( puszCandidate )),
+                    MPFROMP( puszCandidate ));
+        free ( puszCandidate );
+    }
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * DoPhraseConversion                                                        *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+void DoPhraseConversion( HWND hwnd )
+{
+    UniChar *puszCandidate;     // Current conversion candidate
+    USHORT   usPhrase;
+    INT      rc;
+
+    if ( !global.hwndClause || !global.hwndInput ) return;
+
+    // Get the selected phrase number
+    usPhrase = (USHORT) WinSendMsg( global.hwndClause,
+                                    CWM_GETSELECTEDPHRASE, 0L, 0L );
+    if ( usPhrase == CWT_NONE ) return;
+
+    if ((( global.fsClause & 0xFF00 ) != usPhrase ) ||
+        (( global.fsClause & PHRASE_READY ) != PHRASE_READY ))
+    {
+        // This phrase has not been converted yet, so do that now
+
+        if ( CONV_OK != ConvertClauseText( usPhrase )) {
+            ErrorPopup( global.szEngineError );
+            return;
+        }
+        global.fsClause |= PHRASE_READY;
+        global.fsClause |= usPhrase << 16;
+
+        rc = PrepareCandidates( global.pSession );
+        if ( rc == CONV_CONNECT ) {
+            ErrorPopup( global.szEngineError );
+            return;
+        }
+    }
+    else        // Already converted, just advance to the next candidate
+        SetCandidate( global.pSession, TRUE );
+
+    // Get the converted string
+    if ( CONV_OK == GetConvertedString( global.pSession, 0, -1,
+                                        FALSE, &puszCandidate ))
+    {
+        WinSendMsg( global.hwndClause, CWM_SETTEXT,
+                    MPFROM2SHORT( usPhrase, UniStrlen( puszCandidate )),
                     MPFROMP( puszCandidate ));
         free ( puszCandidate );
     }
@@ -1535,11 +1537,11 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 // Backspace
                 WinSendMsg( global.hwndClause, CWM_DELCHAR, MPFROMSHORT( 1 ), 0L );
                 // Clause text changed, so reset the conversion state
-                if (( pShared->fsMode & MODE_CLAUSE_READY ) == MODE_CLAUSE_READY )
+                if (( global.fsClause & CLAUSE_READY ) == CLAUSE_READY )
                 {
                     ClearConversion( global.pSession );
-                    pShared->fsMode &= ~MODE_CLAUSE_READY;
-                    pShared->fsMode &= ~MODE_PHRASE_READY;
+                    pShared->fsMode &= ~MODE_CJK_PHRASE;
+                    global.fsClause &= ~CLAUSE_READY;
                 }
                 return 0;
             }
@@ -1619,6 +1621,7 @@ VOID APIENTRY ExeTrap()
  * ------------------------------------------------------------------------- */
 int main( int argc, char **argv )
 {
+    EXCEPTIONREGISTRATIONRECORD exRegRec;
     static PSZ clientClass = "WnnIM2";
     HMQ     hmq;
     QMSG    qmsg;
@@ -1626,6 +1629,8 @@ int main( int argc, char **argv )
     HMODULE hm;
     POINTL  ptl;
     CHAR    szErr[ 256 ];
+
+    LoadExceptq( &exRegRec, "I", "WnnIM-J");
 
     pShared = WnnGlobalData();
     ClearInputBuffer();
@@ -1696,6 +1701,7 @@ cleanup:
     WinDestroyMsgQueue( hmq );
     WinTerminate( global.hab );
 
+    UninstallExceptq( &exRegRec );
     return 0;
 }
 

@@ -79,4 +79,6 @@
 #define ID_HOTKEY_CONVERT           1003
 #define ID_HOTKEY_ACCEPT            1004
 #define ID_HOTKEY_CANCEL            1005
+#define ID_HOTKEY_NEXT              1006
+#define ID_HOTKEY_PREV              1007
 

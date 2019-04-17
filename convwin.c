@@ -427,7 +427,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             pCtl->usCurrentPhrase = CWT_NONE;
 
             // Copy the new values
-            pusArray = (PUSHORT)mp2;
+            pusArray = (PUSHORT) mp2;
             for ( i = 0; i < usPhrase; i++ ) {
                 pCtl->pusPhraseEnd[ i ] = ( i + 1 == usPhrase )?
                                             pCtl->usTextLen - 1:

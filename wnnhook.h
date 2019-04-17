@@ -57,8 +57,7 @@
 //   only when the user selects Convert.
 #define MODE_CJK            0x1000  // clause conversion is enabled
 #define MODE_CJK_ENTRY      0x2000  // clause entry is underway (window is visible)
-#define MODE_CLAUSE_READY   0x4000  // current clause has been converted
-#define MODE_PHRASE_READY   0x8000  // current phrase has been converted
+#define MODE_CJK_PHRASE     0x4000  // phrase selection mode is active
 
 
 // --------------------------------------------------------------------------
