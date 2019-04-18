@@ -37,7 +37,7 @@ PMPF=1
 
 !ifdef PMPF
     LIBS_EXE = $(LIBS_EXE) pmprintf.lib
-    CFLAGS_EXE = $(CFLAGS_EXE) /DPMPF
+    CFLAGS_EXE = $(CFLAGS_EXE) /D_PMPRINTF_
 !endif
 
 !ifdef DEBUG
