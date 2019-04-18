@@ -33,6 +33,13 @@ LIBS_EXE = libuls.lib libconv.lib wnn0_dll.lib
 DLL = wnnhook
 OBJS_DLL = $(DLL).obj
 
+PMPF=1
+
+!ifdef PMPF
+    LIBS_EXE = $(LIBS_EXE) pmprintf.lib
+    CFLAGS_EXE = $(CFLAGS_EXE) /DPMPF
+!endif
+
 !ifdef DEBUG
     CFLAGS_EXE = $(CFLAGS_EXE) /Ti+ /Tm+
     CFLAGS_DLL = $(CFLAGS_DLL) /Ti+ /Tm+
