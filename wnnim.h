@@ -18,6 +18,10 @@
  *                                                                          *
  ****************************************************************************/
 
+#ifdef PMPF
+#define _PMPRINTF_
+#include <PMPRINTF.H>
+#endif
 
 // --------------------------------------------------------------------------
 // CONSTANTS
@@ -45,8 +49,8 @@
 #define CONV_OK         1   // Operation succeeded
 
 // global.fsClause flags
-#define CLAUSE_READY  0x01  // current clause has been converted
-#define PHRASE_READY  0x02  // current phrase has been converted
+#define CLAUSE_READY        0x01  // current clause has been converted
+#define CLAUSE_PHRASE_READY 0x02  // current phrase has been converted
 
 
 #ifndef WS_TOPMOST

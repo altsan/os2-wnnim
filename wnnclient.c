@@ -841,6 +841,7 @@ BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOO
         pszEUC = (PSZ) calloc( iLen+1, sizeof( CHAR ));
         if ( !pszEUC ) goto done;
         wnn_sStrcpy( pszEUC, kanji );
+
         // Now convert that to UCS-2 for return to the caller
         *ppuszString = (UniChar *) calloc( iLen, sizeof( UniChar ));
         if ( *ppuszString ) {

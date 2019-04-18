@@ -105,6 +105,20 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                     WinPostMsg( g_hwndClient, global.wmDelChar, pQmsg->mp1, pQmsg->mp2 );
                     return TRUE;
                 }
+                else if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKNext, global.usKeyNext )) {
+                    // Select next (or first) phrase within clause
+                    WinPostMsg( g_hwndClient, WM_COMMAND,
+                                MPFROMSHORT( ID_HOTKEY_NEXT ),
+                                MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
+                    return TRUE;
+                }
+                else if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKPrev, global.usKeyPrev )) {
+                    // Select previous (or last) phrase within clause
+                    WinPostMsg( g_hwndClient, WM_COMMAND,
+                                MPFROMSHORT( ID_HOTKEY_PREV ),
+                                MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
+                    return TRUE;
+                }
                 else if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKConvert, global.usKeyConvert )) {
                     // Convert clause buffer to CJK characters
                     WinPostMsg( g_hwndClient, WM_COMMAND,

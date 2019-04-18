@@ -1,5 +1,6 @@
 #define INCL_GPI
 #define INCL_WIN
+#define INCL_DOSPROCESS
 #include <os2.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,10 +27,10 @@ int main( void )
     LONG  scr_cx, scr_cy,           // screen size coordinates
           win_cx, win_cy;           // initial window size
     ULONG flFrameOpts = FCF_STANDARD & ~FCF_SHELLPOSITION & ~FCF_ICON & ~FCF_MENU & ~FCF_ACCELTABLE;
-    WNDPARAMS wp  = {0};
     CWCTLDATA cwd = {0};
     UniChar   aus[ 11 ];
-    USHORT    ausPhrase[ 3 ];
+    PUSHORT   pusPhrases = NULL;
+
 
     aus[0] = L'T';
     aus[1] = L'e';
@@ -43,9 +44,10 @@ int main( void )
     aus[9] = 0x529b;
     aus[10] = 0;
 
-    ausPhrase[ 0 ] = 4;
-    ausPhrase[ 1 ] = 7;
-    ausPhrase[ 2 ] = 9;
+    pusPhrases = (PUSHORT) calloc( 3, sizeof(USHORT));
+    pusPhrases[ 0 ] = 4;
+    pusPhrases[ 1 ] = 7;
+    pusPhrases[ 2 ] = 9;
 
     hab = WinInitialize( 0 );
     hmq = WinCreateMsgQueue( hab, 0 );
@@ -74,18 +76,27 @@ int main( void )
 
     WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( CWT_ALL, 0 ), 0L );
     WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( CWT_ALL, 10 ), MPFROMP( aus ));
-    WinSendMsg( hwndConv, CWM_SETPHRASES, MPFROMSHORT( 3 ), MPFROMP( ausPhrase ));
+    WinSendMsg( hwndConv, CWM_SETPHRASES, MPFROMSHORT( 3 ), MPFROMP( pusPhrases ));
     WinSendMsg( hwndConv, CWM_SELECTPHRASE, MPFROMSHORT( CWT_FIRST ), 0L );
     WinSendMsg( hwndConv, CWM_SELECTPHRASE, MPFROMSHORT( CWT_NEXT ), 0L );
 
+
+/*
+    WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( CWT_ALL, 0 ), 0L );
+    WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( CWT_ALL, 10 ), MPFROMP( aus ));
+*/
 //    WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( 0, 6 ), MPFROMP( L"Toast "));
 //    WinSendMsg( hwndConv, CWM_ADDCHAR, MPFROMSHORT( 4 ), MPFROMP( L"Text" ));
 
 //    WinSendMsg( hwndConv, CWM_DELCHAR, MPFROMSHORT( 2 ), 0L );
-    ausPhrase[0] = 3;
-    WinSendMsg( hwndConv, CWM_SETPHRASES, MPFROMSHORT( 3 ), MPFROMP( ausPhrase ));
-    WinSendMsg( hwndConv, CWM_SELECTPHRASE, MPFROMSHORT( CWT_FIRST ), 0L );
 
+//    pusPhrases[0] = 2;
+//    pusPhrases[1] = 4;
+//    pusPhrases[2] = 7;
+//    WinSendMsg( hwndConv, CWM_SETPHRASES, MPFROMSHORT( 3 ), MPFROMP( pusPhrases ));
+//    WinSendMsg( hwndConv, CWM_SELECTPHRASE, MPFROMSHORT( CWT_NEXT ), 0L );
+
+    free ( pusPhrases );
 
     while ( WinGetMsg( hab, &qmsg, 0, 0, 0 )) WinDispatchMsg( hab, &qmsg );
 

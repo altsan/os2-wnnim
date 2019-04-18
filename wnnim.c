@@ -60,6 +60,7 @@ INT              ConvertClauseText( USHORT usPhrase );
 void             DoClauseConversion( HWND hwnd );
 void             DoPhraseConversion( HWND hwnd );
 void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
+void             EnterPhrase( HWND hwnd, USHORT usWhich );
 VOID APIENTRY    ExeTrap( void );
 void             DismissConversionWindow( HWND hwnd );
 void             NextInputMode( HWND hwnd );
@@ -276,11 +277,11 @@ void DismissConversionWindow( HWND hwnd )
 
     // Reset the IME conversion state
     ClearConversion( global.pSession );
+    global.fsClause = 0;
 
     // Update the input mode status
     pShared->fsMode &= ~MODE_CJK_ENTRY;
     pShared->fsMode &= ~MODE_CJK_PHRASE;
-    global.fsClause &= ~CLAUSE_READY;
 }
 
 
@@ -681,6 +682,9 @@ void DoClauseConversion( HWND hwnd )
 
     if ( !global.hwndClause || !global.hwndInput ) return;
 
+    pShared->fsMode &= ~MODE_CJK_PHRASE;
+    global.fsClause &= ~CLAUSE_PHRASE_READY;
+
 #if 0
     // See if we already initialized this clause (by getting the phrase count)
     rc = GetPhraseCount( global.pSession );
@@ -756,7 +760,7 @@ void DoPhraseConversion( HWND hwnd )
     if ( usPhrase == CWT_NONE ) return;
 
     if ((( global.fsClause & 0xFF00 ) != usPhrase ) ||
-        (( global.fsClause & PHRASE_READY ) != PHRASE_READY ))
+        (( global.fsClause & CLAUSE_PHRASE_READY ) != CLAUSE_PHRASE_READY ))
     {
         // This phrase has not been converted yet, so do that now
 
@@ -764,7 +768,7 @@ void DoPhraseConversion( HWND hwnd )
             ErrorPopup( hwnd, global.szEngineError );
             return;
         }
-        global.fsClause |= PHRASE_READY;
+        global.fsClause |= CLAUSE_PHRASE_READY;
         global.fsClause |= usPhrase << 16;
 
         rc = PrepareCandidates( global.pSession );
@@ -785,6 +789,74 @@ void DoPhraseConversion( HWND hwnd )
                     MPFROMP( puszCandidate ));
         free ( puszCandidate );
     }
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * EnterPhrase                                                               *
+ *                                                                           *
+ * ------------------------------------------------------------------------- */
+void EnterPhrase( HWND hwnd, USHORT usWhich )
+{
+    UniChar *puszPhrase;
+    USHORT  usPhrase;
+    PUSHORT pusPhrases;
+    BOOL    fRC;
+    INT     iCount,
+            iLen,
+            i;
+
+    if ( !global.hwndClause || !global.hwndInput ) return;
+    if (( global.fsClause & CLAUSE_READY ) != CLAUSE_READY ) return;
+
+    if (( pShared->fsMode & MODE_CJK_PHRASE ) != MODE_CJK_PHRASE ) {
+        // Entering phrase mode, so set the phrase boundaries
+
+        iCount = GetPhraseCount( global.pSession );
+        if ( iCount == 0 ) return;
+        pusPhrases = (PUSHORT) calloc( iCount, sizeof( USHORT ));
+        if ( !pusPhrases ) return;
+
+        _PmpfF(("Phrase mode activated."));
+        _PmpfF(("Setting boundaries for %d phrases:", iCount ));
+        _PmpfF(("Array address: 0x%08X", pusPhrases ));
+
+        for ( i = 0; i < iCount; i++ ) {
+            if ( CONV_OK == GetConvertedString( global.pSession, i, i+1,
+                                                FALSE, &puszPhrase ))
+            {
+                _PmpfF(("String address: 0x%08X", puszPhrase ));
+
+                iLen = UniStrlen( puszPhrase );
+                pusPhrases[ i ] = i? ( pusPhrases[ i-1 ] + iLen ):
+                                     ( iLen - 1 );
+
+                _PmpfF((" %d) %d", i, pusPhrases[i] ));
+
+                free( puszPhrase );
+            }
+            else {
+                _PmpfF((" %d) Failed to get converted string!", i ));
+                free( pusPhrases );
+                return;
+            }
+        }
+        fRC = WinSendMsg( global.hwndClause, CWM_SETPHRASES,
+                          MPFROMSHORT( iCount ), MPFROMP( pusPhrases ));
+        free( pusPhrases );
+        if ( !fRC ) {
+            _PmpfF(("Failed to set phrase boundaries!"));
+            return;
+        }
+
+        pShared->fsMode |= MODE_CJK_PHRASE;
+    }
+
+    usPhrase = (USHORT) WinSendMsg( global.hwndClause, CWM_SELECTPHRASE,
+                                    MPFROMSHORT( usWhich ), 0L );
+
+    _PmpfF(("Phrase %d selected.", usPhrase ));
+
 }
 
 
@@ -1435,6 +1507,14 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
                 case ID_HOTKEY_CANCEL:
                     DismissConversionWindow( hwnd );
+                    break;
+
+                case ID_HOTKEY_NEXT:
+//                    EnterPhrase( hwnd, CWT_NEXT );
+                    break;
+
+                case ID_HOTKEY_PREV:
+//                    EnterPhrase( hwnd, CWT_PREV );
                     break;
 
                 case IDM_HIRAGANA:

@@ -87,6 +87,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
     PUSHORT    pusArray;
     BOOL       fRC;
 
+
     switch( msg ) {
 
         case WM_CREATE:
@@ -383,7 +384,8 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             // Now update the phrase boundaries
             if ( pCtl->usPhraseCount && pCtl->pusPhraseEnd ) {
                 if (( i == 0 ) ||
-                    (( pCtl->usPhraseCount > 1 ) && ( i < pCtl->pusPhraseEnd[ pCtl->usPhraseCount-2 ]))) {
+                    (( pCtl->usPhraseCount > 1 ) && ( i < pCtl->pusPhraseEnd[ pCtl->usPhraseCount-2 ])))
+                {
                     free( pCtl->pusPhraseEnd );
                     pCtl->usPhraseCount = 0;
                     pCtl->usCurrentPhrase = CWT_NONE;
@@ -433,6 +435,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                                             pCtl->usTextLen - 1:
                                             pusArray[ i ];
             }
+
             return (MRESULT) TRUE;
 
 
@@ -452,12 +455,19 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          *               CWT_NONE   Deselect all phrases                      *
          *  - mp2:                                                            *
          *     Unused, should be 0.                                           *
-         *  Returns BOOL                                                      *
+         *  Returns USHORT                                                    *
+         *  Selected phrase number, or CWT_NONE for none.                     *
          * .................................................................. */
         case CWM_SELECTPHRASE:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
-            if ( !pCtl ) return (MRESULT) FALSE;
+            if ( !pCtl ) return (MRESULT) CWT_NONE;
+            if ( !pCtl->usPhraseCount ) {
+                pCtl->usCurrentPhrase = CWT_NONE;
+                return (MRESULT) CWT_NONE;
+            }
+
             usPhrase = (USHORT) mp1;
+
             switch ( usPhrase ) {
                 default:
                 case CWT_NONE:
@@ -473,7 +483,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     if ( pCtl->usCurrentPhrase == CWT_NONE )
                         pCtl->usCurrentPhrase = 0;
                     else if ( 1 + pCtl->usCurrentPhrase >= pCtl->usPhraseCount )
-                        return (MRESULT) FALSE;     // no next phrase!
+                        pCtl->usCurrentPhrase = CWT_NONE;   // no next phrase
                     else
                         pCtl->usCurrentPhrase++;
                     break;
@@ -481,13 +491,16 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     if ( pCtl->usCurrentPhrase == CWT_NONE )
                         pCtl->usCurrentPhrase = pCtl->usPhraseCount - 1;
                     else if ( pCtl->usCurrentPhrase < 1 )
-                        return (MRESULT) FALSE;     // no previous phrase!
+                        pCtl->usCurrentPhrase = CWT_NONE;   // no previous phrase
                     else
                         pCtl->usCurrentPhrase--;
                     break;
             }
 
-            return (MRESULT) TRUE;
+            hps = WinGetPS( hwnd );
+            WinInvalidateRect( hwnd, NULL, FALSE );
+            WinReleasePS( hps );
+            return (MRESULT) pCtl->usCurrentPhrase;
 
 
         /* .................................................................. *
