@@ -69,7 +69,7 @@
 #define CWT_NEXT                0xFFFB
 #define CWT_PREV                0xFFFA
 
-#define MAX_PHRASES             127     // Seems reasonable...
+#define MAX_PHRASES             64      // Seems reasonable...
 #define MAX_CLAUSE_LENGTH       1024    // Ditto
 
 #define BUFFER_INCREMENT        32      // Default text buffer increment (in UniChars)
@@ -99,7 +99,7 @@ typedef struct _COW_Private_Data {
     USHORT      usBufLen;               // length of preallocated text buffer (in UniChars)
     USHORT      usPhraseCount;          // total number of sub-phrases
     USHORT      usCurrentPhrase;        // number of the current sub-phrase
-    PUSHORT     pusPhraseEnd;           // array of phrase-end positions
+    USHORT      ausPhraseEnd[ MAX_PHRASES ];    // array of phrase-end positions
     LONG        lDPI;                   // current font DPI
     FATTRS      fattrs;                 // attributes of the display font
     HWND        hwndSource;             // window to which we are 'attached'

@@ -120,7 +120,6 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             // Deallocate our private data
             if (( pCtl = WinQueryWindowPtr( hwnd, 0 )) != NULL ) {
                 if ( pCtl->puszText ) free( pCtl->puszText );
-                if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
                 free( pCtl );
             }
             //WinDestroyCursor( hwnd );
@@ -249,9 +248,9 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 usLen = pCtl->usTextLen;
             else if ( usPhrase >= pCtl->usPhraseCount )
                 usLen = 0;
-            else if ( pCtl->pusPhraseEnd != NULL ) {
-                usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase-1 ]: 0;
-                usLen = pCtl->pusPhraseEnd[ usPhrase ] - usStart + 1;
+            else {
+                usStart = usPhrase? 1 + pCtl->ausPhraseEnd[ usPhrase-1 ]: 0;
+                usLen = pCtl->ausPhraseEnd[ usPhrase ] - usStart + 1;
             }
             return (MRESULT) usLen;
 
@@ -278,13 +277,11 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             }
             else if ( usPhrase >= pCtl->usPhraseCount )
                 return (MRESULT) FALSE;     // invalid phrase number
-            else if ( pCtl->pusPhraseEnd != NULL ) {
-                usStart = usPhrase? 1 + pCtl->pusPhraseEnd[ usPhrase-1 ]: 0;
+            else {
+                usStart = usPhrase? 1 + pCtl->ausPhraseEnd[ usPhrase-1 ]: 0;
                 usLen = min( SHORT2FROMMP( mp1 ),
-                             pCtl->pusPhraseEnd[ usPhrase ] - usStart );
+                             pCtl->ausPhraseEnd[ usPhrase ] - usStart );
             }
-            else
-                return (MRESULT) FALSE;
             UniStrncpy( (UniChar *)mp2, pCtl->puszText + usStart, usLen );
             return (MRESULT) TRUE;
 
@@ -315,7 +312,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             }
             else if ( usPhrase >= pCtl->usPhraseCount )
                 return (MRESULT) FALSE;     // invalid phrase number
-            else if ( pCtl->puszText && pCtl->pusPhraseEnd ) {
+            else if ( pCtl->puszText ) {
                 // Replace only the indicated phrase
                 if ( ! ReplacePhraseText( hwnd, pCtl, usPhrase, usLen, (UniChar *) mp2 ))
                     return (MRESULT) FALSE;
@@ -382,16 +379,15 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             pCtl->usTextLen = i;
 
             // Now update the phrase boundaries
-            if ( pCtl->usPhraseCount && pCtl->pusPhraseEnd ) {
+            if ( pCtl->usPhraseCount ) {
                 if (( i == 0 ) ||
-                    (( pCtl->usPhraseCount > 1 ) && ( i < pCtl->pusPhraseEnd[ pCtl->usPhraseCount-2 ])))
+                    (( pCtl->usPhraseCount > 1 ) && ( i < pCtl->ausPhraseEnd[ pCtl->usPhraseCount-2 ])))
                 {
-                    free( pCtl->pusPhraseEnd );
                     pCtl->usPhraseCount = 0;
                     pCtl->usCurrentPhrase = CWT_NONE;
                 }
                 else
-                    pCtl->pusPhraseEnd[ pCtl->usPhraseCount-1 ] = i - 1;
+                    pCtl->ausPhraseEnd[ pCtl->usPhraseCount-1 ] = i - 1;
             }
 
             hps = WinGetPS( hwnd );
@@ -421,19 +417,20 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
             // Create the new boundary array
             usPhrase = (USHORT) mp1;
-            pusArray = (PUSHORT) calloc( usPhrase, sizeof( USHORT ));
-            if ( !pusArray ) return (MRESULT) FALSE;
-            if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
-            pCtl->pusPhraseEnd = pusArray;
+            memset( pCtl->ausPhraseEnd, 0, sizeof( pCtl->ausPhraseEnd ));
             pCtl->usPhraseCount = usPhrase;
             pCtl->usCurrentPhrase = CWT_NONE;
+
+            _PmpfF(("Setting %d phrase boundaries:", usPhrase ));
 
             // Copy the new values
             pusArray = (PUSHORT) mp2;
             for ( i = 0; i < usPhrase; i++ ) {
-                pCtl->pusPhraseEnd[ i ] = ( i + 1 == usPhrase )?
+                pCtl->ausPhraseEnd[ i ] = ( i + 1 == usPhrase )?
                                             pCtl->usTextLen - 1:
                                             pusArray[ i ];
+
+                _PmpfF((" %d", pCtl->ausPhraseEnd[ i ] ));
             }
 
             return (MRESULT) TRUE;
@@ -495,6 +492,13 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     else
                         pCtl->usCurrentPhrase--;
                     break;
+            }
+
+            if ( pCtl->usCurrentPhrase == CWT_NONE ) {
+                _PmpfF(("Deselected phrase (%u total).", pCtl->usPhraseCount ));
+            }
+            else {
+                _PmpfF(("Selected phrase %u (%u total)", pCtl->usCurrentPhrase, pCtl->usPhraseCount ));
             }
 
             hps = WinGetPS( hwnd );
@@ -612,7 +616,6 @@ BOOL SetFullText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText )
         UniStrncpy( pCtl->puszText, puszText, usLen );
         pCtl->usTextLen = usLen;
     }
-    if ( pCtl->pusPhraseEnd ) free( pCtl->pusPhraseEnd );
     pCtl->usPhraseCount = 0;
     pCtl->usCurrentPhrase = CWT_NONE;
     return TRUE;
@@ -641,30 +644,30 @@ BOOL ReplacePhraseText( HWND hwnd, PCWDATA pCtl,
     // Add all phrases before the modified one to the new buffer
     usStart = 0;
     for ( i = 0; i < usPhrase; i++ ) {
-        usKeep = pCtl->pusPhraseEnd[ i ] - usStart + 1;
+        usKeep = pCtl->ausPhraseEnd[ i ] - usStart + 1;
         UniStrncat( puszTemp, pCtl->puszText + usStart, usKeep );
-        usStart = pCtl->pusPhraseEnd[ i ] + 1;
+        usStart = pCtl->ausPhraseEnd[ i ] + 1;
     }
     // Move the start position past the phrase to be replaced
-    usStart = pCtl->pusPhraseEnd[ usPhrase ] + 1;
+    usStart = pCtl->ausPhraseEnd[ usPhrase ] + 1;
 
     // Append the modified phrase and set its end position
     if ( usLen && puszText ) {
         UniStrncat( puszTemp, puszText, usLen );
-        pCtl->pusPhraseEnd[ usPhrase ] = usPhrase ?
-                                            pCtl->pusPhraseEnd[ usPhrase-1 ] + usLen - 1 :
+        pCtl->ausPhraseEnd[ usPhrase ] = usPhrase ?
+                                            pCtl->ausPhraseEnd[ usPhrase-1 ] + usLen - 1 :
                                             usLen - 1;
     }
     else
-        pCtl->pusPhraseEnd[ usPhrase ] = usPhrase ? pCtl->pusPhraseEnd[ usPhrase-1 ] : 0;
+        pCtl->ausPhraseEnd[ usPhrase ] = usPhrase ? pCtl->ausPhraseEnd[ usPhrase-1 ] : 0;
 
     // Append all subsequent phrases and update their end positions
     for ( i = usPhrase + 1; i < pCtl->usPhraseCount; i++ ) {
-        usKeep = 1 + pCtl->pusPhraseEnd[ i ] - usStart;
+        usKeep = 1 + pCtl->ausPhraseEnd[ i ] - usStart;
         UniStrncat( puszTemp,
                     pCtl->puszText + usStart,
                     usKeep );
-        pCtl->pusPhraseEnd[ i ] = pCtl->pusPhraseEnd[ i-1 ] + usKeep;
+        pCtl->ausPhraseEnd[ i ] = pCtl->ausPhraseEnd[ i-1 ] + usKeep;
         usStart += usKeep;
     }
 
@@ -724,8 +727,8 @@ BOOL AppendText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText )
     UniStrncat( pCtl->puszText, puszText, usLen );
     pCtl->usTextLen += usLen;
 
-    if ( pCtl->usPhraseCount && pCtl->pusPhraseEnd ) {
-        pCtl->pusPhraseEnd[ pCtl->usPhraseCount-1 ] = pCtl->usTextLen - 1;
+    if ( pCtl->usPhraseCount ) {
+        pCtl->ausPhraseEnd[ pCtl->usPhraseCount-1 ] = pCtl->usTextLen - 1;
     }
 
     return TRUE;
@@ -821,13 +824,11 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
         ptl.y = 1 + max( fm.lMaxDescender, fm.lEmHeight / 5 );
         GpiMove( hps, &ptl );
 
-        if (( pCtl->usCurrentPhrase != CWT_NONE ) &&
-             pCtl->usPhraseCount && pCtl->pusPhraseEnd )
-        {
+        if (( pCtl->usCurrentPhrase != CWT_NONE ) && pCtl->usPhraseCount ) {
             // Draw each phrase, inverting fg/bg for the current phrase
             for ( i = 0, usStart = 0; i < pCtl->usPhraseCount; i++ ) {
                 pchText = (PCH) pCtl->puszText + ( usStart * 2 );
-                cb = ( 1 + pCtl->pusPhraseEnd[ i ] - usStart ) * 2;
+                cb = ( 1 + pCtl->ausPhraseEnd[ i ] - usStart ) * 2;
                 if ( i == pCtl->usCurrentPhrase ) {
                     GpiSetColor( hps, SYSCLR_HILITEFOREGROUND );     // GpiSetColor( hps, lClrBG );
                     GpiSetBackColor( hps, SYSCLR_HILITEBACKGROUND ); // GpiSetBackColor( hps, lClrFG );
@@ -843,7 +844,7 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
                 rclPhrase.yBottom = 1;
                 rclPhrase.yTop = rcl.yTop - 2;
                 GpiCharStringPos( hps, &rclPhrase, CHS_CLIP | CHS_OPAQUE, cb, pchText, NULL );
-                usStart = pCtl->pusPhraseEnd[ i ] + 1;
+                usStart = pCtl->ausPhraseEnd[ i ] + 1;
             }
         }
         else {

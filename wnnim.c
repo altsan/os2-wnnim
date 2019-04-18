@@ -800,7 +800,7 @@ void EnterPhrase( HWND hwnd, USHORT usWhich )
 {
     UniChar *puszPhrase;
     USHORT  usPhrase;
-    PUSHORT pusPhrases;
+    USHORT  ausPhrases[ MAX_PHRASES ];
     BOOL    fRC;
     INT     iCount,
             iLen,
@@ -814,36 +814,33 @@ void EnterPhrase( HWND hwnd, USHORT usWhich )
 
         iCount = GetPhraseCount( global.pSession );
         if ( iCount == 0 ) return;
-        pusPhrases = (PUSHORT) calloc( iCount, sizeof( USHORT ));
-        if ( !pusPhrases ) return;
+        if ( iCount > MAX_PHRASES ) iCount = MAX_PHRASES;
+
+        memset( ausPhrases, 0, sizeof( ausPhrases ));
 
         _PmpfF(("Phrase mode activated."));
-        _PmpfF(("Setting boundaries for %d phrases:", iCount ));
-        _PmpfF(("Array address: 0x%08X", pusPhrases ));
+
+        //_PmpfF(("Setting boundaries for %d phrases:", iCount ));
 
         for ( i = 0; i < iCount; i++ ) {
             if ( CONV_OK == GetConvertedString( global.pSession, i, i+1,
                                                 FALSE, &puszPhrase ))
             {
-                _PmpfF(("String address: 0x%08X", puszPhrase ));
-
                 iLen = UniStrlen( puszPhrase );
-                pusPhrases[ i ] = i? ( pusPhrases[ i-1 ] + iLen ):
+                ausPhrases[ i ] = i? ( ausPhrases[ i-1 ] + iLen ):
                                      ( iLen - 1 );
 
-                _PmpfF((" %d) %d", i, pusPhrases[i] ));
+//                _PmpfF((" %d) %d", i, ausPhrases[ i ] ));
 
                 free( puszPhrase );
             }
             else {
                 _PmpfF((" %d) Failed to get converted string!", i ));
-                free( pusPhrases );
                 return;
             }
         }
-        fRC = WinSendMsg( global.hwndClause, CWM_SETPHRASES,
-                          MPFROMSHORT( iCount ), MPFROMP( pusPhrases ));
-        free( pusPhrases );
+        fRC = (BOOL) WinSendMsg( global.hwndClause, CWM_SETPHRASES,
+                                 MPFROMSHORT( iCount ), MPFROMP( ausPhrases ));
         if ( !fRC ) {
             _PmpfF(("Failed to set phrase boundaries!"));
             return;
@@ -1510,11 +1507,11 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     break;
 
                 case ID_HOTKEY_NEXT:
-//                    EnterPhrase( hwnd, CWT_NEXT );
+                    EnterPhrase( hwnd, CWT_NEXT );
                     break;
 
                 case ID_HOTKEY_PREV:
-//                    EnterPhrase( hwnd, CWT_PREV );
+                    EnterPhrase( hwnd, CWT_PREV );
                     break;
 
                 case IDM_HIRAGANA:
@@ -1616,7 +1613,11 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             else if (( msg == pShared->wmDelChar ) && global.hwndClause ) {
                 // Backspace
                 WinSendMsg( global.hwndClause, CWM_DELCHAR, MPFROMSHORT( 1 ), 0L );
-                // Clause text changed, so reset the conversion state
+
+                // Obviously this should cancel any in-progress character entry
+                ClearInputBuffer();
+
+                // And since the clause text changed, we reset the conversion state
                 if (( global.fsClause & CLAUSE_READY ) == CLAUSE_READY )
                 {
                     ClearConversion( global.pSession );
