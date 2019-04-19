@@ -85,7 +85,7 @@ int main( void )
     WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( CWT_ALL, 0 ), 0L );
     WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( CWT_ALL, 10 ), MPFROMP( aus ));
 */
-//    WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( 0, 6 ), MPFROMP( L"Toast "));
+    WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( 0, 6 ), MPFROMP( L"Toast "));
 //    WinSendMsg( hwndConv, CWM_ADDCHAR, MPFROMSHORT( 4 ), MPFROMP( L"Text" ));
 
 //    WinSendMsg( hwndConv, CWM_DELCHAR, MPFROMSHORT( 2 ), 0L );
@@ -95,6 +95,8 @@ int main( void )
 //    pusPhrases[2] = 7;
 //    WinSendMsg( hwndConv, CWM_SETPHRASES, MPFROMSHORT( 3 ), MPFROMP( pusPhrases ));
 //    WinSendMsg( hwndConv, CWM_SELECTPHRASE, MPFROMSHORT( CWT_NEXT ), 0L );
+
+    WinSendMsg( hwndConv, CWM_SETTEXT, MPFROM2SHORT( 2, 5 ), MPFROMP( L"Input"));
 
     free ( pusPhrases );
 

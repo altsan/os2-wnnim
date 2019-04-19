@@ -22,7 +22,14 @@ CFLAGS_EXE = /Gm+ /O /Ss /Wuse /I$(WNNINCLUDE) /I..
 LFLAGS_EXE = /NOE /NOLOGO /MAP
 
 HEADERS_ALL = ..\codepage.h ..\wnnclient.h ..\wnnhook.h ..\wnnim.h
-LIBS = libuls.lib libconv.lib wnn0_dll.lib
+LIBS = libuls.lib libconv.lib wnn0_dll.lib pmprintf.lib
+
+PMPF = 1
+
+!ifdef PMPF
+    LIBS_EXE = $(LIBS_EXE) pmprintf.lib
+    CFLAGS_EXE = $(CFLAGS_EXE) /D_PMPRINTF_
+!endif
 
 !ifdef DEBUG
     CFLAGS_EXE = $(CFLAGS_EXE) /Ti+

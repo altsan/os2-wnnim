@@ -53,6 +53,31 @@ void             UpdateWidth( HWND hwnd, HPS hps, PCWDATA pCtl );
 
 
 
+/*
+char *strconv( UniChar *input )
+{
+    UconvObject uconvTo;
+    unsigned long out_len,
+                  rc;
+    char *output = NULL;
+
+    if ( UniCreateUconvObject(L"@map=display,path=no", &uconvTo ) != ULS_SUCCESS ) {
+        goto done;
+    }
+    out_len = UniStrlen( input ) * 3;
+    output = (char *) calloc( out_len + 1, sizeof( char ));
+    rc = UniStrFromUcs( uconvTo, output, input, out_len+1 );
+    if ( rc != ULS_SUCCESS ) {
+        sprintf( output, "%X", rc );
+    }
+
+done:
+    UniFreeUconvObject( uconvTo );
+    return output;
+}
+*/
+
+
 /* ------------------------------------------------------------------------- *
  * CWinRegisterClass                                                         *
  *                                                                           *
@@ -122,7 +147,6 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 if ( pCtl->puszText ) free( pCtl->puszText );
                 free( pCtl );
             }
-            //WinDestroyCursor( hwnd );
             break;
 
 /*
@@ -250,7 +274,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                 usLen = 0;
             else {
                 usStart = usPhrase? 1 + pCtl->ausPhraseEnd[ usPhrase-1 ]: 0;
-                usLen = pCtl->ausPhraseEnd[ usPhrase ] - usStart + 1;
+                usLen = ( pCtl->ausPhraseEnd[ usPhrase ] - usStart ) + 1;
             }
             return (MRESULT) usLen;
 
@@ -273,16 +297,16 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             usPhrase = SHORT1FROMMP( mp1 );
             if ( usPhrase == CWT_ALL ) {
                 usStart = 0;
-                usLen = min( SHORT2FROMMP( mp1 ), pCtl->usTextLen );
+                usLen = min( SHORT2FROMMP( mp1 ) - 1, pCtl->usTextLen );
             }
             else if ( usPhrase >= pCtl->usPhraseCount )
                 return (MRESULT) FALSE;     // invalid phrase number
             else {
                 usStart = usPhrase? 1 + pCtl->ausPhraseEnd[ usPhrase-1 ]: 0;
-                usLen = min( SHORT2FROMMP( mp1 ),
-                             pCtl->ausPhraseEnd[ usPhrase ] - usStart );
+                usLen = min( SHORT2FROMMP( mp1 - 1 ),
+                             ( pCtl->ausPhraseEnd[ usPhrase ] - usStart ) + 1 );
             }
-            UniStrncpy( (UniChar *)mp2, pCtl->puszText + usStart, usLen );
+            UniStrncpy( (UniChar *) mp2, pCtl->puszText + usStart, usLen );
             return (MRESULT) TRUE;
 
 
@@ -634,12 +658,17 @@ BOOL ReplacePhraseText( HWND hwnd, PCWDATA pCtl,
              usStart,
              i;
 
+    if ( !pCtl->usPhraseCount ) return FALSE;
+
     // Create a new buffer
     usBuf = pCtl->usTextLen + usLen + 1;
     if ( usBuf > pCtl->usBufLen )
         usBuf = max( pCtl->usBufLen + BUFFER_INCREMENT, usBuf );
     puszTemp = (UniChar *) calloc( usBuf, sizeof( UniChar ));
     if ( !puszTemp ) return FALSE;
+
+    _PmpfF(("Replacing phrase %d text", usPhrase ));
+    _PmpfF(("Old text: %d to %d", usPhrase? pCtl->ausPhraseEnd[ usPhrase-1 ] + 1: 0, pCtl->ausPhraseEnd[ usPhrase ] ));
 
     // Add all phrases before the modified one to the new buffer
     usStart = 0;
@@ -655,11 +684,13 @@ BOOL ReplacePhraseText( HWND hwnd, PCWDATA pCtl,
     if ( usLen && puszText ) {
         UniStrncat( puszTemp, puszText, usLen );
         pCtl->ausPhraseEnd[ usPhrase ] = usPhrase ?
-                                            pCtl->ausPhraseEnd[ usPhrase-1 ] + usLen - 1 :
+                                            pCtl->ausPhraseEnd[ usPhrase-1 ] + usLen :
                                             usLen - 1;
     }
     else
         pCtl->ausPhraseEnd[ usPhrase ] = usPhrase ? pCtl->ausPhraseEnd[ usPhrase-1 ] : 0;
+
+//    _PmpfF(("New text: %d to %d (length %d)", usPhrase? pCtl->ausPhraseEnd[ usPhrase-1 ] + 1: 0, pCtl->ausPhraseEnd[ usPhrase ], usLen ));
 
     // Append all subsequent phrases and update their end positions
     for ( i = usPhrase + 1; i < pCtl->usPhraseCount; i++ ) {
@@ -677,32 +708,10 @@ BOOL ReplacePhraseText( HWND hwnd, PCWDATA pCtl,
     pCtl->usTextLen = UniStrlen( puszTemp );
     pCtl->usBufLen = usBuf;
 
+//    _PmpfF(("Updated text length (%d characters): %s", pCtl->usTextLen, strconv( pCtl->puszText ) ));
+
     return TRUE;
 }
-
-/*
-char *strconv( UniChar *input )
-{
-    UconvObject uconvTo;
-    unsigned long out_len,
-                  rc;
-    char *output = NULL;
-
-    if ( UniCreateUconvObject(L"@map=display,path=no", &uconvTo ) != ULS_SUCCESS ) {
-        goto done;
-    }
-    out_len = UniStrlen( input ) * 3;
-    output = (char *) calloc( out_len + 1, sizeof( char ));
-    rc = UniStrFromUcs( uconvTo, output, input, out_len+1 );
-    if ( rc != ULS_SUCCESS ) {
-        sprintf( output, "%X", rc );
-    }
-
-done:
-    UniFreeUconvObject( uconvTo );
-    return output;
-}
-*/
 
 
 /* ------------------------------------------------------------------------- *
@@ -825,7 +834,7 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
         GpiMove( hps, &ptl );
 
         if (( pCtl->usCurrentPhrase != CWT_NONE ) && pCtl->usPhraseCount ) {
-            // Draw each phrase, inverting fg/bg for the current phrase
+            // Draw each phrase, with highlighting for the current phrase
             for ( i = 0, usStart = 0; i < pCtl->usPhraseCount; i++ ) {
                 pchText = (PCH) pCtl->puszText + ( usStart * 2 );
                 cb = ( 1 + pCtl->ausPhraseEnd[ i ] - usStart ) * 2;
@@ -858,9 +867,6 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     }
     GpiQueryCurrentPosition( hps, &ptl2 );
 
-    // Position the cursor
-//    WinCreateCursor( hwnd, ptl2.x, 0, 0, 0, CURSOR_SETPOS, &rcl );
-
     if ( pCtl->puszText ) {
         // Underline the text
         GpiSetLineType( hps, LINETYPE_SOLID );
@@ -871,15 +877,17 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
         GpiLine( hps, &ptl2 );
     }
 
-    // Draw a pseudo-cursor
-    GpiSetColor( hps, SYSCLR_SHADOWTEXT );
-    GpiSetLineType( hps, LINETYPE_SOLID );
-    ptl.x = ptl2.x + 3;
-    ptl.y = ptl2.y;
-    ptl2.x = ptl.x + 2;
-    ptl2.y = ptl.y + fm.lEmHeight;
-    GpiMove( hps, &ptl );
-    GpiBox( hps, DRO_FILL, &ptl2, 0, 0 );
+    // Draw a pseudo-cursor if we're not in phrase mode
+    if (( pCtl->usCurrentPhrase == CWT_NONE )) {
+        GpiSetColor( hps, SYSCLR_MENUDISABLEDTEXT );
+        GpiSetLineType( hps, LINETYPE_SOLID );
+        ptl.x = ptl2.x + 3;
+        ptl.y = ptl2.y;
+        ptl2.x = ptl.x + 2;
+        ptl2.y = ptl.y + fm.lEmHeight;
+        GpiMove( hps, &ptl );
+        GpiBox( hps, DRO_FILL, &ptl2, 0, 0 );
+    }
 
     GpiSetColor( hps, lClrFG );
     if ( pCtl->ctldata.flFlags & CWS_BORDER ) {
