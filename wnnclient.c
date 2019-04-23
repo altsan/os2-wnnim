@@ -782,14 +782,14 @@ BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
  *    for the entire clause.  If SetCandidate was called in between, then    *
  *    the indicated candidate (i.e. alternate result) will be returned.      *
  *    If ConvertPhrase was called after ConvertClause, then the conversion   *
- *    result (or candidate) for the converted phrase will be returned.
+ *    result (or candidate) for the converted phrase will be returned.       *
  *                                                                           *
  * NOTES:                                                                    *
  * - Before any of this can work, jl_ren_conv must have been called on the   *
  *   the clause buffer (i.e. using ConvertClause).                           *
  * - Obtaining an individual phrase also requires jl_tan_conv to have been   *
  *   called subsequently on that phrase (i.e. using ConvertPhrase).          *
- * - To obtain a conversion candidate, jl_zenkouhou and jl_next/jl_previous  *
+ * - To obtain a conversion candidate, jl_zenkouho and jl_next/jl_previous   *
  *   must then have been called as well (i.e. using PrepareCandidates and    *
  *   SetCandidate).                                                          *
  *                                                                           *
@@ -797,6 +797,8 @@ BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
  *   PVOID pSession: Pointer to Wnn data buffer.                             *
  *   INT   iPhrase : First phrase in the clause to retrieve (first = 0)      *
  *   INT   iCount  : Number of phrases to retrieve (-1 for rest of clause)   *
+ *                   (If retrieving a candidate for a phrase, then -1 can be *
+ *                   used, since the candidate has only the one phrase.)     *
  *   BOOL  fReading: If TRUE, return unconverted reading instead of kanji.   *
  *   UniChar **ppuszString: Pointer to UCS-2 string containing the result.   *
  *                          String will be allocated by this function and    *
@@ -826,11 +828,19 @@ BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOO
     // Get the requested string length
     iLen = fReading? jl_yomi_len( bdata, iPhrase, iCount ) :
                      jl_kanji_len( bdata, iPhrase, iCount );
-    if ( !iLen ) return bResult;
+    if ( !iLen ) {
+        if ( !global.szEngineError[0] )
+            // Set a generic error message if FreeWnn didn't provide one
+            sprintf( global.szEngineError, "Conversion string not available for phrase %d.", iPhrase );
+        return bResult;
+    }
 
     // Allocate a buffer for the string
     kanji = (w_char *) calloc( iLen+1, sizeof( w_char ));
-    if ( !kanji ) return bResult;
+    if ( !kanji ) {
+        strcpy( global.szEngineError, "Error allocating memory.");
+        return bResult;
+    }
 
     // Now retrieve the requested string or substring(s)
     iLen = fReading? jl_get_yomi( bdata, iPhrase, iCount, kanji ) :
@@ -848,8 +858,12 @@ BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOO
             StrConvert( (PCH)pszEUC, (PCH)(*ppuszString), uconvEUC, NULL );
             bResult = CONV_OK;
         }
+        else strcpy( global.szEngineError, "Error allocating memory.");
         free( pszEUC );
     }
+    else if ( !global.szEngineError[0] )
+        // Set a generic error message if FreeWnn didn't provide one
+        strcpy( global.szEngineError, "Failed to retrieve conversion string.");
 
 done:
     free( kanji );

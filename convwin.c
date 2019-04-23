@@ -445,7 +445,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             pCtl->usPhraseCount = usPhrase;
             pCtl->usCurrentPhrase = CWT_NONE;
 
-            _PmpfF(("Setting %d phrase boundaries:", usPhrase ));
+//            _PmpfF(("Setting %d phrase boundaries:", usPhrase ));
 
             // Copy the new values
             pusArray = (PUSHORT) mp2;
@@ -454,7 +454,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                                             pCtl->usTextLen - 1:
                                             pusArray[ i ];
 
-                _PmpfF((" %d", pCtl->ausPhraseEnd[ i ] ));
+//                _PmpfF((" %d", pCtl->ausPhraseEnd[ i ] ));
             }
 
             return (MRESULT) TRUE;
@@ -667,8 +667,8 @@ BOOL ReplacePhraseText( HWND hwnd, PCWDATA pCtl,
     puszTemp = (UniChar *) calloc( usBuf, sizeof( UniChar ));
     if ( !puszTemp ) return FALSE;
 
-    _PmpfF(("Replacing phrase %d text", usPhrase ));
-    _PmpfF(("Old text: %d to %d", usPhrase? pCtl->ausPhraseEnd[ usPhrase-1 ] + 1: 0, pCtl->ausPhraseEnd[ usPhrase ] ));
+//    _PmpfF(("Replacing phrase %d text", usPhrase ));
+//    _PmpfF(("Old text: %d to %d", usPhrase? pCtl->ausPhraseEnd[ usPhrase-1 ] + 1: 0, pCtl->ausPhraseEnd[ usPhrase ] ));
 
     // Add all phrases before the modified one to the new buffer
     usStart = 0;

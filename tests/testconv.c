@@ -112,8 +112,21 @@ int main( int argc, char *argv[] )
             pszOutput = (PSZ) malloc( iLen + 1 );
             StrConvert( (PCH) puszPhrase, pszOutput, NULL, uconvSJIS );
             printf("%s\n", pszOutput );
-            free( puszPhrase );
             free( pszOutput );
+
+            if ( CONV_OK == ConvertPhrase( pSession, puszPhrase )) {
+                UniChar *puszPCand;
+                if ( CONV_OK == GetConvertedString( pSession, i, -1, FALSE, &puszPCand )) {
+                    iLen = UniStrlen( puszPCand );
+                    pszOutput = (PSZ) malloc( iLen + 1 );
+                    StrConvert( (PCH) puszPCand, pszOutput, NULL, uconvSJIS );
+                    printf("   %s\n", pszOutput );
+                    free( pszOutput );
+                    free( puszPCand );
+                }
+            }
+
+            free( puszPhrase );
         }
     }
     printf("\n");
@@ -127,6 +140,7 @@ int main( int argc, char *argv[] )
         free( pszOutput );
         free( puszCandidate );
     }
+
 
     iCount = PrepareCandidates( pSession );
     if ( iCount == CONV_CONNECT ) {

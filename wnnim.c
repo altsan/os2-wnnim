@@ -60,13 +60,13 @@ INT              ConvertClauseText( USHORT usPhrase );
 void             DoClauseConversion( HWND hwnd );
 void             DoPhraseConversion( HWND hwnd );
 void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
-void             EnterPhrase( HWND hwnd, USHORT usWhich );
 VOID APIENTRY    ExeTrap( void );
 void             DismissConversionWindow( HWND hwnd );
 void             NextInputMode( HWND hwnd );
 void             PaintIMEButton( PUSERBUTTON pBtnData );
 MRESULT          PassStdEvent( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 );
+void             SelectPhrase( HWND hwnd, USHORT usWhich );
 void             SendCharacter( HWND hwndSource, PSZ pszBuffer, UniChar *puszBuffer );
 BOOL             SetConversionWindow( HWND hwnd, HWND hwndSource );
 void             SetInputMode( HWND hwnd, USHORT usNewMode );
@@ -641,6 +641,16 @@ void AcceptClause( HWND hwnd )
 /* ------------------------------------------------------------------------- *
  * ConvertClauseText                                                         *
  *                                                                           *
+ * Get the clause text (or the specified portion of it) from the conversion  *
+ * window, and tell the IME backend to convert it.  Note that this is NOT    *
+ * how we normally do individual phrase conversion; the usPhrase argument    *
+ * here is for possible future use but at the moment it is always CWT_ALL.   *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   USHORT usPhrase: CWT_ALL or a phrase number.                            *
+ *                                                                           *
+ * RETURNS: INT                                                              *
+ *   Return code from IME backend.                                           *
  * ------------------------------------------------------------------------- */
 INT ConvertClauseText( USHORT usPhrase )
 {
@@ -660,10 +670,7 @@ INT ConvertClauseText( USHORT usPhrase )
                        MPFROMP( puszText )))
         rc = CONV_FAILED;
     else {
-        if ( usPhrase == CWT_ALL )
-            rc = ConvertClause( global.pSession, puszText );
-        else
-            rc = ConvertPhrase( global.pSession, puszText );
+        rc = ConvertClause( global.pSession, puszText );
     }
 
     free( puszText );
@@ -748,6 +755,7 @@ void DoClauseConversion( HWND hwnd )
  * ------------------------------------------------------------------------- */
 void DoPhraseConversion( HWND hwnd )
 {
+    UniChar *puszReading;       // Deconverted phrase text (phonetic reading)
     UniChar *puszCandidate;     // Current conversion candidate
     USHORT   usPhrase;
     INT      rc;
@@ -759,31 +767,50 @@ void DoPhraseConversion( HWND hwnd )
                                     CWM_GETSELECTEDPHRASE, 0L, 0L );
     if ( usPhrase == CWT_NONE ) return;
 
-    if ((( global.fsClause & 0xFF00 ) != usPhrase ) ||
-        (( global.fsClause & CLAUSE_PHRASE_READY ) != CLAUSE_PHRASE_READY ))
+    if (( HIBYTE( global.fsClause & 0xFF00 ) != usPhrase ) ||
+        ( !( global.fsClause & CLAUSE_PHRASE_READY )))
     {
         // This phrase has not been converted yet, so do that now
+        _PmpfF(("Converting phrase %d", usPhrase ));
 
-        if ( CONV_OK != ConvertClauseText( usPhrase )) {
+        // Get the unconverted version (phonetic reading) of the phrase
+        rc = GetConvertedString( global.pSession, usPhrase, usPhrase + 1,
+                                 TRUE, &puszReading );
+        if ( rc == CONV_OK ) {
+            // Got it, now convert it as a phrase
+            rc = ConvertPhrase( global.pSession, puszReading );
+        }
+
+        if ( rc != CONV_OK ) {
+            _PmpfF(("Error converting phrase %d", usPhrase ));
             ErrorPopup( hwnd, global.szEngineError );
             return;
         }
+
+        // Update the conversion status flags
         global.fsClause |= CLAUSE_PHRASE_READY;
-        global.fsClause |= usPhrase << 16;
+        global.fsClause &= 0xFF;
+        global.fsClause |= (usPhrase << 8);
 
         rc = PrepareCandidates( global.pSession );
         if ( rc == CONV_CONNECT ) {
             ErrorPopup( hwnd, global.szEngineError );
             return;
         }
+
+        _PmpfF((" -> %d candidates", rc ));
     }
-    else        // Already converted, just advance to the next candidate
+    else {      // Already converted, just advance to the next candidate
+        _PmpfF(("Requesting next candidate for phrase %d", usPhrase ));
         SetCandidate( global.pSession, TRUE );
+    }
 
     // Get the converted string
     if ( CONV_OK == GetConvertedString( global.pSession, 0, -1,
                                         FALSE, &puszCandidate ))
     {
+        _PmpfF(("Updating text for phrase %d (%d characters)", usPhrase, UniStrlen( puszCandidate )));
+
         WinSendMsg( global.hwndClause, CWM_SETTEXT,
                     MPFROM2SHORT( usPhrase, UniStrlen( puszCandidate )),
                     MPFROMP( puszCandidate ));
@@ -793,10 +820,10 @@ void DoPhraseConversion( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
- * EnterPhrase                                                               *
+ * SelectPhrase                                                               *
  *                                                                           *
  * ------------------------------------------------------------------------- */
-void EnterPhrase( HWND hwnd, USHORT usWhich )
+void SelectPhrase( HWND hwnd, USHORT usWhich )
 {
     UniChar *puszPhrase;
     USHORT  usPhrase;
@@ -810,7 +837,9 @@ void EnterPhrase( HWND hwnd, USHORT usWhich )
     if (( global.fsClause & CLAUSE_READY ) != CLAUSE_READY ) return;
 
     if (( pShared->fsMode & MODE_CJK_PHRASE ) != MODE_CJK_PHRASE ) {
-        // Entering phrase mode, so set the phrase boundaries
+        // We are entering phrase mode
+
+        // Set the phrase boundaries
 
         iCount = GetPhraseCount( global.pSession );
         if ( iCount == 0 ) return;
@@ -1495,7 +1524,12 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     break;
 
                 case ID_HOTKEY_CONVERT:
-                    DoClauseConversion( hwnd );
+#if 1
+                    if (( pShared->fsMode & MODE_CJK_PHRASE ) == MODE_CJK_PHRASE )
+                        DoPhraseConversion( hwnd );
+                    else
+#endif
+                        DoClauseConversion( hwnd );
                     break;
 
                 case ID_HOTKEY_ACCEPT:
@@ -1507,11 +1541,11 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     break;
 
                 case ID_HOTKEY_NEXT:
-                    EnterPhrase( hwnd, CWT_NEXT );
+                    SelectPhrase( hwnd, CWT_NEXT );
                     break;
 
                 case ID_HOTKEY_PREV:
-                    EnterPhrase( hwnd, CWT_PREV );
+                    SelectPhrase( hwnd, CWT_PREV );
                     break;
 
                 case IDM_HIRAGANA:
