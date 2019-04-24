@@ -552,7 +552,7 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
  *  A. empty (not applicable if we've reached this point)                    *
  *  B. pending (contains a partial sequence which is potentially valid)      *
  *  C. complete (contains a valid romaji sequence ready for conversion)      *
- *  D. candidate (contains a valid romaji                                    *
+ *  D. candidate (contains a valid romaji sequence OR partial sequence)      *
  *  E. invalid (contains a sequence that is not nor could ever become valid) *
  *                                                                           *
  * A does not apply at this point.  In the case of B, we simply keep the     *
@@ -670,6 +670,14 @@ INT ConvertClauseText( USHORT usPhrase )
                        MPFROMP( puszText )))
         rc = CONV_FAILED;
     else {
+        if ( usPhrase == CWT_ALL ) {
+            // Save a copy of the unconverted full clause
+            if ( global.puszClause ) free( global.puszClause );
+            global.puszClause = (UniChar *) calloc( usLen + 1, sizeof( UniChar ));
+            if ( global.puszClause ) {
+                UniStrncpy( global.puszClause, puszText, usLen );
+            }
+        }
         rc = ConvertClause( global.pSession, puszText );
     }
 
@@ -692,25 +700,7 @@ void DoClauseConversion( HWND hwnd )
     pShared->fsMode &= ~MODE_CJK_PHRASE;
     global.fsClause &= ~CLAUSE_PHRASE_READY;
 
-#if 0
-    // See if we already initialized this clause (by getting the phrase count)
-    rc = GetPhraseCount( global.pSession );
-    if ( rc == CONV_CONNECT ) {
-        // Lost connection, try (once) to reestablish
-        rc = InitConversionMethod( NULL, pShared->fsMode & 0xF00,
-                                   (PVOID *) &(global.pSession) );
-        if ( rc != CONV_CONNECT )
-            rc = GetPhraseCount( global.pSession );
-        if ( rc == CONV_CONNECT ) {
-            // No dice, give up
-            ErrorPopup( hwnd, global.szEngineError );
-            return;
-        }
-    }
-    if ( rc < 1 ) {
-#else
     if ( (global.fsClause & CLAUSE_READY) != CLAUSE_READY ) {
-#endif
         // This is a new clause, not yet initialized.  So do that now.
 
         rc = ConvertClauseText( CWT_ALL );
@@ -771,6 +761,21 @@ void DoPhraseConversion( HWND hwnd )
         ( !( global.fsClause & CLAUSE_PHRASE_READY )))
     {
         // This phrase has not been converted yet, so do that now
+
+        if (( global.fsClause & CLAUSE_PHRASE_READY ) &&
+            ( HIBYTE( global.fsClause & 0xFF00 ) != usPhrase ) &&
+            ( global.puszClause != NULL ))
+        {
+            // We were already in phrase mode, only for a different phrase.
+            // Reset the top-level clause data so we can get another phrase.
+            _PmpfF(("Resetting clause info"));
+            rc = ConvertClause( global.pSession, global.puszClause );
+            if ( rc != CONV_OK ) {
+                _PmpfF(("Failed to reset clause info!"));
+                ErrorPopup( hwnd, global.szEngineError );
+                return;
+            }
+        }
         _PmpfF(("Converting phrase %d", usPhrase ));
 
         // Get the unconverted version (phonetic reading) of the phrase
@@ -1809,6 +1814,7 @@ int main( int argc, char **argv )
 
 cleanup:
     if ( global.pRclConv ) DosFreeMem( global.pRclConv );
+    if ( global.puszClause ) free( global.puszClause );
 
     WinDeleteAtom( g_hSATbl, g_cfUnicode );
 

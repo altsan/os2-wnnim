@@ -45,7 +45,8 @@
 #define CONV_CONNECT   -2   // Operation not attempted due to no connection to server
 #define CONV_OK         1   // Operation succeeded
 
-// global.fsClause flags
+// Flags for the low byte of global.fsClause (the high byte contains the
+// phrase number to which CLAUSE_PHRASE_READY refers)
 #define CLAUSE_READY        0x01  // current clause has been converted
 #define CLAUSE_PHRASE_READY 0x02  // current phrase has been converted
 
@@ -98,6 +99,7 @@ typedef struct _WnnClientData {
     CHAR        szRomaji[ MAX_CHAR_BUFZ ];         // input buffer (characters as typed)
     UniChar     uszKana[ MAX_KANA_BUFZ ];          // buffer for converted phonetic characters
     UniChar     uszPending[ MAX_KANA_BUFZ ];       // buffer for 'candidate' phonetic characters (Korean only)
+    UniChar    *puszClause;                        // original unconverted clause string
     UconvObject uconvOut;                          // conversion object for DBCS output codepage
     USHORT      fsClause;                          // misc. clause state flags
     CHAR        szEngineError[ MAX_ENGINE_ERRZ ];  // error messages from the IME engine
