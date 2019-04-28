@@ -428,7 +428,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          * of the current string.  The processing of this message will ensure *
          * this if necessary.                                                 *
          *  - mp1:                                                            *
-         *     USHORT:  Number of phrase boundaries.                          *
+         *     USHORT:  Number of phrase boundaries (0 to remove all phrases) *
          *  - mp2:                                                            *
          *     PUSHORT: Array of USHORT character indices indicating the      *
          *              final character of each phrase.  These are offsets    *
@@ -444,6 +444,9 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
             memset( pCtl->ausPhraseEnd, 0, sizeof( pCtl->ausPhraseEnd ));
             pCtl->usPhraseCount = usPhrase;
             pCtl->usCurrentPhrase = CWT_NONE;
+
+            if ( !usPhrase ) return (MRESULT) TRUE;
+            else if ( !mp2 ) return (MRESULT) FALSE;
 
 //            _PmpfF(("Setting %d phrase boundaries:", usPhrase ));
 
