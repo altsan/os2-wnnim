@@ -901,6 +901,12 @@ INT IM_CALLCNV PrepareCandidates( PVOID pSession )
         return CONV_CONNECT;
     }
 
+    if ( !jl_bun_suu( bdata )) {
+        if ( !global.szEngineError[0] )
+            strcpy( global.szEngineError, "Phrase not converted!");
+        return CONV_FAILED;
+    }
+
     jl_zenkouho( bdata, 0, WNN_USE_MAE, WNN_UNIQ_KNJ );
     return jl_zenkouho_suu( bdata );
 }
@@ -917,6 +923,12 @@ INT IM_CALLCNV GetCandidateCount( PVOID pSession )
     if (  !bdata || !jl_isconnect( bdata )) {
         strcpy( global.szEngineError, "Lost connection to server.");
         return CONV_CONNECT;
+    }
+
+    if ( !jl_bun_suu( bdata )) {
+        if ( !global.szEngineError[0] )
+            strcpy( global.szEngineError, "Phrase not converted!");
+        return CONV_FAILED;
     }
 
     return jl_zenkouho_suu( bdata );
