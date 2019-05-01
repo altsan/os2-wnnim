@@ -55,6 +55,7 @@ PMPF=1
 $(EXE).exe: $(OBJS_EXE) $(EXE).res $(DLL).lib $(HEADERS_ALL)
         $(LINK) $(LFLAGS_EXE) $(OBJS_EXE) $(DLL).lib $(LIBS_EXE) /OUT:$@
         rc -x $(EXE).res $(EXE).exe
+        mapxqs $(EXE).map
 
 $(EXE).obj: $(EXE).c $(HEADERS_ALL)
         $(CC) /c $(CFLAGS_EXE) $<
