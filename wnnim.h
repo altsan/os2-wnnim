@@ -43,6 +43,7 @@
 // Status returned by various clause conversion functions
 #define CONV_FAILED    -1   // Operation failed (check error message from Wnn)
 #define CONV_CONNECT   -2   // Operation not attempted due to no connection to server
+#define CONV_NOOP       0   // Operation cancelled or nothing to convert
 #define CONV_OK         1   // Operation succeeded
 
 // Flags for the low byte of global.fsClause (the high byte contains the

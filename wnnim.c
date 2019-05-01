@@ -664,7 +664,7 @@ INT ConvertClauseText( USHORT usPhrase )
 
     usLen = (USHORT) WinSendMsg( global.hwndClause, CWM_QUERYTEXTLENGTH,
                                  MPFROMSHORT( usPhrase ), 0 );
-    if ( ! usLen ) return CONV_FAILED;
+    if ( !usLen ) return CONV_NOOP;
 
     puszText = (UniChar *) calloc( usLen + 1, sizeof( UniChar ));
     if ( !puszText ) return CONV_FAILED;
@@ -710,7 +710,8 @@ void DoClauseConversion( HWND hwnd )
 
         rc = ConvertClauseText( CWT_ALL );
         if ( rc != CONV_OK ) {
-            ErrorPopup( hwnd, global.szEngineError );
+            if ( rc != CONV_NOOP )
+                ErrorPopup( hwnd, global.szEngineError );
             return;
         }
         global.fsClause |= CLAUSE_READY;
@@ -725,7 +726,7 @@ void DoClauseConversion( HWND hwnd )
         // The clause has now had its initial processing by the IME engine.
         // That means we have (a) candidate conversions for the entire clause,
         // and (b) a breakdown of component phrases within the clause.
-        // The default conversion is now available to be retrieved with
+        // The default conversion is also now available to be retrieved with
         // GetConvertedString().
     }
 
