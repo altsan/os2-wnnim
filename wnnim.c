@@ -278,10 +278,14 @@ void DismissConversionWindow( HWND hwnd )
     // Reset the IME conversion state
     ClearConversion( global.pSession );
     global.fsClause = 0;
+// Not necessary, since it will be free()d  next time a clause is initialized:
+//    if ( global.puszClause ) free( global.puszClause );
 
     // Update the input mode status
     pShared->fsMode &= ~MODE_CJK_ENTRY;
     pShared->fsMode &= ~MODE_CJK_PHRASE;
+
+    ClearInputBuffer();
 }
 
 
@@ -293,13 +297,12 @@ void DismissConversionWindow( HWND hwnd )
  * source window a Shift+Insert key event.  This should only be used with    *
  * specific applications where we know this is likely to work.               *
  *                                                                           *
- * If there is data already on the clipboard in one of the standard OS/2     *
- * formats, it will be preserved.  Other formats that we don't know about,   *
- * however, will be lost.                                                    *
+ * If there is data already on the clipboard, it will be lost.  This is      *
+ * another reason why this method should only be used as a last resort.      *
  * ------------------------------------------------------------------------- */
 BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
 {
-#ifdef PRESERVE_CLIPBOARD
+#ifdef PRESERVE_CLIPBOARD   // Do not use, see comment below
     // Saved clipboard information
     ULONG    ulFmtBMP    = 0,
              ulFmtDspBMP = 0,
@@ -519,6 +522,8 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
             ClearConversion( global.pSession );
             pShared->fsMode &= ~MODE_CJK_PHRASE;
             global.fsClause &= ~CLAUSE_READY;
+//            if ( global.puszClause ) free( global.puszClause );
+            WinSendMsg( global.hwndClause, CWM_SETPHRASES, 0L, 0L );
         }
 
         // Add character to clause conversion window
@@ -577,7 +582,6 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
         global.hwndInput = hwndSource;
         ClearInputBuffer();
         DismissConversionWindow( hwnd );
-        // ClearClauseBuffer();
     }
 
     szChar[ 0 ] = (UCHAR) SHORT1FROMMP( mp2 );
@@ -702,6 +706,7 @@ void DoClauseConversion( HWND hwnd )
 
     if ( (global.fsClause & CLAUSE_READY) != CLAUSE_READY ) {
         // This is a new clause, not yet initialized.  So do that now.
+        _PmpfF(("Converting new clause"));
 
         rc = ConvertClauseText( CWT_ALL );
         if ( rc != CONV_OK ) {
@@ -712,7 +717,7 @@ void DoClauseConversion( HWND hwnd )
 
         // Now set up the candidate list
         rc = PrepareCandidates( global.pSession );
-        if ( rc == CONV_CONNECT ) {
+        if ( rc < 0 ) {
             ErrorPopup( hwnd, global.szEngineError );
             return;
         }
@@ -798,7 +803,7 @@ void DoPhraseConversion( HWND hwnd )
         global.fsClause |= (usPhrase << 8);
 
         rc = PrepareCandidates( global.pSession );
-        if ( rc == CONV_CONNECT ) {
+        if ( rc < 0 ) {
             ErrorPopup( hwnd, global.szEngineError );
             return;
         }
@@ -1662,6 +1667,8 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     ClearConversion( global.pSession );
                     pShared->fsMode &= ~MODE_CJK_PHRASE;
                     global.fsClause &= ~CLAUSE_READY;
+//                    if ( global.puszClause ) free( global.puszClause );
+                    WinSendMsg( global.hwndClause, CWM_SETPHRASES, 0L, 0L );
                 }
                 return 0;
             }
