@@ -69,8 +69,8 @@
 #define CWT_NEXT                0xFFFB
 #define CWT_PREV                0xFFFA
 
-#define MAX_PHRASES             64      // Seems reasonable...
-#define MAX_CLAUSE_LENGTH       1024    // Ditto
+#define MAX_PHRASES             128     // Seems reasonable...
+#define MAX_CLAUSE_LENGTH       512     // Ditto (not currently used)
 
 #define BUFFER_INCREMENT        32      // Default text buffer increment (in UniChars)
 
