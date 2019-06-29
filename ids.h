@@ -81,4 +81,6 @@
 #define ID_HOTKEY_CANCEL            1005
 #define ID_HOTKEY_NEXT              1006
 #define ID_HOTKEY_PREV              1007
+#define ID_CONV_TOP                 1010
+#define ID_CONV_UNTOP               1011
 

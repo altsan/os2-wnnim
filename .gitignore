@@ -10,6 +10,7 @@
 # Other build files
 *.res
 *.xqs
+wnnim.def
 
 # Linker output
 *.ilk

@@ -44,9 +44,6 @@
 #include "clipfuncs.h"
 
 
-//#define PRESERVE_CLIPBOARD 1
-
-
 // --------------------------------------------------------------------------
 // FUNCTION DECLARATIONS
 //
@@ -118,6 +115,10 @@ void ClearInputBuffer( void )
  *                                                                           *
  * Open the clause conversion overlay window and position it over the source *
  * window.                                                                   *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND   hwnd      : Our own window handle.                               *
+ *   HWND   hwndSource: Handle of source (application) window.               *
  * ------------------------------------------------------------------------- */
 BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
 {
@@ -153,7 +154,7 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
         ctldata.fsMode = pShared->fsMode & 0xF00;
         ctldata.flFlags = CWS_BORDER;
         global.hwndClause = WinCreateWindow( HWND_DESKTOP, WC_WNNIMCONVWIN, "",
-                                             0L, 0, 0, 0, 0, hwnd, HWND_TOP,
+                                             WS_TOPMOST, 0, 0, 0, 0, hwnd, HWND_TOP,
                                              IDD_CLAUSE, &ctldata, NULL );
         lClr = SYSCLR_WINDOW;
         WinSetPresParam( global.hwndClause, PP_BACKGROUNDCOLORINDEX,
@@ -260,6 +261,9 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
  * DismissConversionWindow                                                   *
  *                                                                           *
  * Hide the conversion window and clear its contents.                        *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our own window handle.                                       *
  * ------------------------------------------------------------------------- */
 void DismissConversionWindow( HWND hwnd )
 {
@@ -279,7 +283,10 @@ void DismissConversionWindow( HWND hwnd )
     ClearConversion( global.pSession );
     global.fsClause = 0;
 // Not necessary, since it will be free()d  next time a clause is initialized:
-//    if ( global.puszClause ) free( global.puszClause );
+//    if ( global.puszClause ) {
+//        free( global.puszClause );
+//        global.puszClause = NULL;
+//    }
 
     // Update the input mode status
     pShared->fsMode &= ~MODE_CJK_ENTRY;
@@ -299,6 +306,13 @@ void DismissConversionWindow( HWND hwnd )
  *                                                                           *
  * If there is data already on the clipboard, it will be lost.  This is      *
  * another reason why this method should only be used as a last resort.      *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND     hwndSource: HWND of source (application) window.               *
+ *   UniChar *puszBuffer: Character buffer in unconverted UCS-2 format.      *
+ *                                                                           *
+ * RETURNS: BOOL                                                             *
+ *   TRUE if the clipboard was opened successfully, FALSE if it could not be.*
  * ------------------------------------------------------------------------- */
 BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
 {
@@ -328,7 +342,7 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
 
     if ( ! WinOpenClipbrd( global.hab )) return FALSE;
 
-#ifdef PRESERVE_CLIPBOARD
+#ifdef PRESERVE_CLIPBOARD       // Do not use, see comment below
     // Save existing clipboard contents (this only works for standard formats)
     if ( WinQueryClipbrdFmtInfo( global.hab, CF_BITMAP, &ulFmtBMP )) {
         hTmpBMP = (HBITMAP) WinQueryClipbrdData( global.hab, CF_BITMAP );
@@ -379,17 +393,21 @@ BOOL PasteCharacters( HWND hwndSource, UniChar *puszBuffer )
                     MPFROMSH2CH( KC_VIRTUALKEY | KC_SHIFT, 1, 0 ),
                     MPFROM2SHORT( 0, VK_INSERT ));
         // Reopen the clipboard
-#ifdef PRESERVE_CLIPBOARD
+#ifdef PRESERVE_CLIPBOARD           // Do not use, see comment below
         if ( ! WinOpenClipbrd( global.hab )) return TRUE;
 #endif
     }
+
 #ifdef PRESERVE_CLIPBOARD
-    // Unfortunately this doesn't work reliably.  The problem is that the app may
+    // This was a neat idea, but in retrospect it shouldn't be used.  It
+    // unfortunately doesn't work reliably.  The problem is that the app may
     // not actually process the paste event until after this takes place.  This
     // seems to be timing sensitive, and since we don't have access to the app's
     // side of the conversation, semaphores and IPC tricks aren't an option.
-    // All we can really do is leave our IME text in the clipboard so that the app
-    // pastes it once it's ready (which means we can't save the old clipboard data).
+
+    // Ultimately, all we can really do is leave our IME text in the clipboard
+    // so that the app pastes it once it's ready (which means we can't save the
+    // old clipboard data, hence all this logic is dummied out).
 
     WinEmptyClipbrd( global.hab );
     // Finish up by restoring any saved clipboard contents
@@ -501,6 +519,12 @@ void SendCharacter( HWND hwndSource, PSZ pszBuffer, UniChar *puszBuffer )
  * it in the pending buffer and display it in the overlay window.)           *
  * Otherwise, send it directly to the target window, and clear all buffers.  *
  *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND  hwnd      : Our own window handle.                                *
+ *   HWND  hwndSource: Handle of source (application) window.                *
+ *   BYTE  bStatus   : Last conversion status from Convert*** function.      *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
 {
@@ -607,6 +631,10 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
  * Accept the current clause text as shown in the overlay window and send it *
  * to the source application window.  Then dismiss the overlay window.       *
  *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our own window handle.                                       *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void AcceptClause( HWND hwnd )
 {
@@ -693,6 +721,13 @@ INT ConvertClauseText( USHORT usPhrase )
 /* ------------------------------------------------------------------------- *
  * DoClauseConversion                                                        *
  *                                                                           *
+ * User selected clause conversion (i.e. by pressing Space or the equivalent *
+ * assigned hotkey when no specific phrase is selected).  Handle it.         *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our own window handle.                                       *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void DoClauseConversion( HWND hwnd )
 {
@@ -748,6 +783,13 @@ void DoClauseConversion( HWND hwnd )
 /* ------------------------------------------------------------------------- *
  * DoPhraseConversion                                                        *
  *                                                                           *
+ * User selected phrase conversion (i.e. by pressing Space or the equivalent *
+ * assigned hotkey while a phrase is selected).  Handle it.                  *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND hwnd: Our own window handle.                                       *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void DoPhraseConversion( HWND hwnd )
 {
@@ -831,8 +873,15 @@ void DoPhraseConversion( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
- * SelectPhrase                                                               *
+ * SelectPhrase                                                              *
  *                                                                           *
+ * User asked to select a particular phrase within the clause.  Handle it.   *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND  hwnd    : Our own window handle.                                  *
+ *   USHORT usWhich: Indicates which phrase to select.                       *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void SelectPhrase( HWND hwnd, USHORT usWhich )
 {
@@ -848,7 +897,7 @@ void SelectPhrase( HWND hwnd, USHORT usWhich )
     if (( global.fsClause & CLAUSE_READY ) != CLAUSE_READY ) return;
 
     if (( pShared->fsMode & MODE_CJK_PHRASE ) != MODE_CJK_PHRASE ) {
-        // We are entering phrase mode
+        // We are entering phrase mode (i.e. we were in clause mode until now)
 
         // Set the phrase boundaries
 
@@ -1288,6 +1337,7 @@ void ToggleInputConversion( HWND hwnd )
 {
     BYTE bInputMode = pShared->fsMode & 0xFF;
 
+    ClearInputBuffer();
     if ( bInputMode ) {
         global.fsLastMode = pShared->fsMode;
         pShared->fsMode &= 0xFF00;              // turn off all
@@ -1329,6 +1379,8 @@ void SetInputMode( HWND hwnd, USHORT usNewMode )
     if (( usNewMode < 1 ) || ( usNewMode > usNumModes ))
         usNewMode = 1;
     pShared->fsMode |= usNewMode;
+
+    ClearInputBuffer();
 
     for ( i = 1; i <= usNumModes; i++ ) {
         usID = IDM_INPUT_BASE + i;
@@ -1511,6 +1563,21 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case WM_COMMAND:
             switch( COMMANDMSG(&msg)->cmd ) {
 
+                case ID_CONV_TOP:
+                    // Make the conversion window float on top. Call this when it or
+                    // the window which is currently doing a conversion gains focus.
+                    if (( pShared->fsMode & MODE_CJK_ENTRY ) && global.hwndClause )
+                        WinSetWindowBits( global.hwndClause, QWL_STYLE, 1L, WS_TOPMOST );
+                    break;
+
+                case ID_CONV_UNTOP:
+                    // Make the conversion window stop floating on top. Call this when
+                    // the window which is currently doing a conversion loses focus (to
+                    // anything other than the conversion window itself).
+                    if (( pShared->fsMode & MODE_CJK_ENTRY ) && global.hwndClause )
+                        WinSetWindowBits( global.hwndClause, QWL_STYLE, 0L, WS_TOPMOST );
+                    break;
+
                 case IDD_INPUT:
                     ToggleInputConversion( hwnd );
                     if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
@@ -1535,11 +1602,9 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     break;
 
                 case ID_HOTKEY_CONVERT:
-#if 1
                     if (( pShared->fsMode & MODE_CJK_PHRASE ) == MODE_CJK_PHRASE )
                         DoPhraseConversion( hwnd );
                     else
-#endif
                         DoClauseConversion( hwnd );
                     break;
 
@@ -1603,7 +1668,10 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
 
         case WM_FOCUSCHANGE:
-            // If our window got focus, remember the previously-active window
+            // If our (IME control) window got focus, remember the previously-active window.
+            // (We will use this to restore input to that window when one of our buttons is
+            // clicked.  This allows the user to use the IME button controls without giving
+            // up focus in the window where they're typing.)
             hwndFocus = (HWND) mp1;
             if (( SHORT1FROMMP( mp2 ) == TRUE ) &&
                 ! WinIsChild( hwndFocus, global.hwndFrame ))
@@ -1668,7 +1736,10 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                     ClearConversion( global.pSession );
                     pShared->fsMode &= ~MODE_CJK_PHRASE;
                     global.fsClause &= ~CLAUSE_READY;
-//                    if ( global.puszClause ) free( global.puszClause );
+//                    if ( global.puszClause ) {
+//                        free( global.puszClause );
+//                        global.puszClause = NULL;
+//                    }
                     WinSendMsg( global.hwndClause, CWM_SETPHRASES, 0L, 0L );
                 }
                 return 0;

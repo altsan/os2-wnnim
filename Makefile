@@ -8,6 +8,12 @@ LINK       = ilink
 # Set as appropriate
 WNNINCLUDE = e:\usr\local\include\wnn
 
+# Uncomment to enable PMPrintf support (for tracing & diagnostics)
+#PMPF       = 1
+
+BL_NAME    = "WnnIM/2 IME client (Japanese)"
+BL_VEND    = "Alexander Taylor"
+
 # Compiler flags:
 # /Gm+      Use multithread library
 # /Ge-      Generate DLL
@@ -30,10 +36,8 @@ EXE      = wnnim
 OBJS_EXE = $(EXE).obj codepage.obj settings.obj wnnclient.obj wnnconv.obj convwin.obj clipfuncs.obj
 LIBS_EXE = libuls.lib libconv.lib wnn0_dll.lib
 
-DLL = wnnhook
+DLL      = wnnhook
 OBJS_DLL = $(DLL).obj
-
-PMPF=1
 
 !ifdef PMPF
     LIBS_EXE = $(LIBS_EXE) pmprintf.lib
@@ -53,7 +57,9 @@ PMPF=1
 .all: $(DLL).dll $(EXE).exe
 
 $(EXE).exe: $(OBJS_EXE) $(EXE).res $(DLL).lib $(HEADERS_ALL)
-        $(LINK) $(LFLAGS_EXE) $(OBJS_EXE) $(DLL).lib $(LIBS_EXE) /OUT:$@
+        @touch $(EXE).def
+        @makedesc -D$(BL_NAME) -N$(BL_VEND) -V"^#define=SZ_VERSION,wnnim.h" $(EXE).def
+        $(LINK) $(LFLAGS_EXE) $(OBJS_EXE) $(DLL).lib $(LIBS_EXE) $(EXE).def /OUT:$@
         rc -x $(EXE).res $(EXE).exe
         mapxqs $(EXE).map
 
