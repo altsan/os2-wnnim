@@ -6,9 +6,8 @@ typing East Asian (CJK) text under Presentation Manager.
 
 Specifically, WnnIM itself is the front-end processor component, and is designed
 to work in conjunction with the open source FreeWnn IME engine on the back-end.
-As such, it will (when finished) require the FreeWnn server for the desired
-language to be installed and running (not necessarily on the same computer, but
-accessible via TCP/IP).
+As such, it requires the FreeWnn server for the desired language to be installed 
+and running (not necessarily on the same computer, but accessible via TCP/IP).
 
 Only Presentation Manager (OS/2 graphical) sessions are supported; DOS and
 Win-OS/2 sessions are not.  OS/2 command lines are not supported either,
