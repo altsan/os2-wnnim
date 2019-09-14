@@ -1428,6 +1428,16 @@ void NextInputMode( HWND hwnd )
 
 
 /* ------------------------------------------------------------------------- *
+ * Draw3DBorder                                                              *
+ *                                                                           *
+ * General paint routine to draw a thin inset or outset border               *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HPS   hps:    Presentation-space handle.                                *
+ *   RECTL rcl:    Bounding rectangle to use for the border.                 *
+ *   BOOL  fInset: TRUE to draw an inset border; FALSE for an outset border. *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
  * ------------------------------------------------------------------------- */
 void Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset )
 {
@@ -1473,6 +1483,8 @@ void Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset )
 
 
 /* ------------------------------------------------------------------------- *
+ * Paint event handler for the subclassed IME button. This gives our buttons *
+ * their custom 'edge-less' look.                                            *
  * ------------------------------------------------------------------------- */
 void PaintIMEButton( PUSERBUTTON pBtnData )
 {
@@ -1529,6 +1541,7 @@ void PaintIMEButton( PUSERBUTTON pBtnData )
 
 
 /* ------------------------------------------------------------------------- *
+ * Main client window procedure of the WNNIM/2 window.                       *
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
@@ -1808,6 +1821,7 @@ BOOL SetupDBCSLanguage( USHORT usLangMode )
 
 
 /* ------------------------------------------------------------------------- *
+ * Exception handler to make sure PM hooks are released before terminating.  *
  * ------------------------------------------------------------------------- */
 VOID APIENTRY ExeTrap()
 {
@@ -1817,6 +1831,7 @@ VOID APIENTRY ExeTrap()
 
 
 /* ------------------------------------------------------------------------- *
+ * The main program                                                          *
  * ------------------------------------------------------------------------- */
 int main( int argc, char **argv )
 {

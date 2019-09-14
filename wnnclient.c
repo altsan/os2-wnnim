@@ -200,10 +200,12 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
             if ( pszPath )
                 sprintf( szModeHyo, "%.240s/%.5s/rk/mode", pszPath, szLang );
             else
-                sprintf( szModeHyo, "/@unixroot/usr/lib/Wnn/%.5s/rk/mode", szLang );
+                sprintf( szModeHyo, "/@unixroot/usr/lib/wnn/%.5s/rk/mode", szLang );
         }
         pszPath = szModeHyo;
     }
+
+    _PmpfF(("Initializing romkan engine using configuration %s", pszPath ));
 
     romkan_set_lang( szLang );     // This may not actually be needed (?)
 
@@ -527,12 +529,12 @@ INT IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSessio
     PSZ     pszEnv,                 // Return pointer for getenv()
             pszServer,              // Host address of jserver
             pszUser;                // User/environment name to use on the server
-    USHORT  cpEUC;
-    CHAR    szLang[ 6 ];
-    CHAR    szEnvRC[ CCHMAXPATH ];
-    CHAR    fzk[ 1024 ] = {0};
-    ULONG   rc;
-    INT     result = CONV_OK;
+    USHORT  cpEUC;                  // The EUC codepage for the current language
+    CHAR    szLang[ 6 ];            // The current language locale (e.g. "ja_JP")
+    CHAR    szEnvRC[ CCHMAXPATH ];  // Path to the environment configuration file
+    CHAR    fzk[ 1024 ] = {0};      // Name of the auxiliary dictionary
+    ULONG   rc;                     // Called API return code
+    INT     result = CONV_OK;       // This function's return code
 
 
     if ( uconvEUC == NULL ) {
@@ -569,13 +571,17 @@ INT IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSessio
     pszUser = strdup( pszEnv? pszEnv: "root");
 
     if ( pszPath == NULL ) {
+        CHAR szPathBuf[ CCHMAXPATH ];
+
         pszPath = getenv("WNNLIB");
         if ( pszPath )
-            strncpy( szEnvRC, pszPath, CCHMAXPATH - 10 );
+            strncpy( szPathBuf, pszPath, CCHMAXPATH - 16 );
         else
-            sprintf( szEnvRC, "/@unixroot/usr/lib/Wnn/%.5s", szLang );
-        strcat( szEnvRC, "/wnnenvrc");
+            strcpy( szPathBuf, "/@unixroot/usr/lib/wnn");
+        sprintf( szEnvRC, "%.240s/%.5s/wnnenvrc", szPathBuf, szLang );
     }
+
+    _PmpfF(("Opening Wnn jlib engine (%s) on %s for user %s", szLang, pszServer, pszUser ));
 
     // Connect to the server.
     bdata = jl_open_lang( pszUser, pszServer, szLang, NULL, *ErrorFunc, *ErrorFunc, 0 );
@@ -588,8 +594,26 @@ INT IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSessio
         goto done_connect;
     }
 
+    /* We don't actually use the returned value, but asking for the current
+     * auxiliary dictionary is a good way to see if the environment exists.
+     */
     if ( jl_fuzokugo_get( bdata, fzk ) == -1 ) {
         //  Environment isn't active on server, so initialize it now.
+        _PmpfF(("Initializing environment %s", szEnvRC ));
+
+/*
+        // Check to make sure the local configuration file exists
+        // Note - this doesn't work with /@unixroot in the string, since
+        //        unlike the Wnn server, we are not using kLIBC
+        if ( stat( szEnvRC, &st ) == -1 ) {
+            sprintf( global.szEngineError,
+                     "Configuration file not found: %.225s",
+                     szEnvRC );
+            result = CONV_CONNECT;
+            jl_close( bdata );
+            goto done_connect;
+        }
+*/
         wnnenv = jl_env_get( bdata );
         jl_set_env_wnnrc( wnnenv, szEnvRC, (int *) WNN_CREATE, NULL );
     }
