@@ -26,6 +26,7 @@
 #define DEFAULT_GUI_FONT    "8.Helv"
 #define DEFAULT_INPUT_FONT  "Times New Roman MT 30"
 
+#define FONT_PREVIEW_SIZE   17
 
 // Profile (INI) file entries
 

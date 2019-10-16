@@ -54,11 +54,12 @@ MRESULT EXPENTRY ButtonProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 void             ClearInputBuffer( void );
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
 INT              ConvertClauseText( USHORT usPhrase );
+void             DismissConversionWindow( HWND hwnd );
 void             DoClauseConversion( HWND hwnd );
 void             DoPhraseConversion( HWND hwnd );
 void             Draw3DBorder( HPS hps, RECTL rcl, BOOL fInset );
 VOID APIENTRY    ExeTrap( void );
-void             DismissConversionWindow( HWND hwnd );
+void             FinishPhoneticInput( HWND hwnd );
 void             NextInputMode( HWND hwnd );
 void             PaintIMEButton( PUSERBUTTON pBtnData );
 MRESULT          PassStdEvent( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 );
@@ -67,6 +68,7 @@ void             SelectPhrase( HWND hwnd, USHORT usWhich );
 void             SendCharacter( HWND hwndSource, PSZ pszBuffer, UniChar *puszBuffer );
 BOOL             SetConversionWindow( HWND hwnd, HWND hwndSource );
 void             SetInputMode( HWND hwnd, USHORT usNewMode );
+void             SetMenuItemLangText( HWND hwndMenu, USHORT usMenuID, ULONG ulStringID );
 void             SetTopmost( HWND hwnd );
 BOOL             SetupDBCSLanguage( USHORT usLangMode );
 void             SetupWindow( HWND hwnd );
@@ -567,6 +569,41 @@ void SupplyCharacter( HWND hwnd, HWND hwndSource, BYTE bStatus )
 
 
 /* ------------------------------------------------------------------------- *
+ * FinishPhoneticInput                                                       *
+ *                                                                           *
+ * Checks the phonetic input buffer (szRomaji) and tries to force a          *
+ * conversion on anything that's left over in it.  This is mainly to handle  *
+ * cases where the contents could either be a valid character or a fragment, *
+ * and the IME has deferred converting it.  (In Japanese this applies to the *
+ * 'N' kana only.  Korean will be more complicated.)                         *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   HWND   hwnd      : Our own window handle.                               *
+ *                                                                           *
+ * RETURNS: n/a                                                              *
+ * ------------------------------------------------------------------------- */
+void FinishPhoneticInput( HWND hwnd )
+{
+    BYTE bStatus;
+
+    if ( *global.szRomaji == 0 ) return;    // nothing to do
+
+    if ( IS_LANGUAGE( pShared->fsMode, MODE_JP )) {
+        if ((( global.szRomaji[0] & 0xDF ) == 'N') && ( global.szRomaji[1] == 0 )) {
+            // Appending ' to the n-kana forces romkan to convert it as such.
+            // (This is kind of hackish; it would really be better see if
+            // ConvertPhonetic can be tweaked to make this unnecessary)
+            global.szRomaji[1] = '\'';
+            bStatus = ConvertPhonetic( pShared->fsMode );
+//            _PmpfF(("Conversion result of \"%s\": %X", global.szRomaji, bStatus ));
+            if ( bStatus != KANA_INVALID )
+                SupplyCharacter( hwnd, global.hwndInput, bStatus );
+        }
+    }
+}
+
+
+/* ------------------------------------------------------------------------- *
  * ProcessCharacter                                                          *
  *                                                                           *
  * Process an input character (byte) from the input hook and decide how to   *
@@ -690,6 +727,7 @@ INT ConvertClauseText( USHORT usPhrase )
     USHORT   usLen;
     INT      rc;
 
+
     usLen = (USHORT) WinSendMsg( global.hwndClause, CWM_QUERYTEXTLENGTH,
                                  MPFROMSHORT( usPhrase ), 0 );
     if ( !usLen ) return CONV_NOOP;
@@ -735,6 +773,8 @@ void DoClauseConversion( HWND hwnd )
     INT      rc;
 
     if ( !global.hwndClause || !global.hwndInput ) return;
+
+    FinishPhoneticInput( hwnd );
 
     pShared->fsMode &= ~MODE_CJK_PHRASE;
     global.fsClause &= ~CLAUSE_PHRASE_READY;
@@ -992,21 +1032,54 @@ void CentreWindow( HWND hwndCentre, HWND hwndRelative, ULONG flFlags )
 
 
 /* ------------------------------------------------------------------------- *
+ * ErrorPopup                                                                *
+ *                                                                           *
+ * Simple popup error wrapper.                                               *
+ * ------------------------------------------------------------------------- */
+void ErrorPopup( HWND hwnd, PSZ pszText )
+{
+    CHAR szTitle[ 16 ] = {0};
+
+    WinLoadString( global.hab, 0, global.ulLangBase + IDS_ERROR_TITLE,
+                   16, szTitle );
+    WinMessageBox( HWND_DESKTOP, hwnd, pszText, szTitle, 0, MB_OK | MB_ERROR );
+}
+
+
+/* ------------------------------------------------------------------------- *
  * Window procedure for 'About' (product info) dialog.                       *
  * See OS/2 PM reference for a description of input and output.              *
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY AboutDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 {
     CHAR achVersion[ MAX_VERSTRZ ];
-    CHAR achBuf[ 256 ];
+    CHAR achBuf[ 256 ],
+         achRes[ US_RES_MAXZ ];
 
     switch ( msg ) {
         case WM_INITDLG:
-            sprintf( achVersion, "Version %s", SZ_VERSION );
+            if ( WinLoadString( global.hab, 0,
+                                global.ulLangBase + IDS_PRODUCT_NAME,
+                                US_RES_MAXZ, achRes ))
+                WinSetDlgItemText( hwnd, FID_TITLEBAR, achRes );
+
+            if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_PRODUCT_VERSION,
+                                US_RES_MAXZ, achRes ))
+                sprintf( achVersion, achRes, SZ_VERSION );
+            else
+                sprintf( achVersion, "Version %s", SZ_VERSION );
             WinSetDlgItemText( hwnd, IDD_VERSION, achVersion );
-            sprintf( achBuf, "Copyright (C) %s Alexander Taylor.", SZ_COPYRIGHT );
-            strncat( achBuf, "\r\n\nWnnIM for OS/2 is free software published under the terms of the GNU General Public License, version 2.  ", 255 );
-            strncat( achBuf, "See the accompanying documentation for details.", 255 );
+
+            WinLoadString( global.hab, 0, global.ulLangBase + IDS_PRODUCT_COPYRIGHT,
+                           US_RES_MAXZ, achRes );
+            sprintf( achBuf, achRes, SZ_COPYRIGHT );
+            strncat( achBuf, "\r\n\n", 255 );
+            WinLoadString( global.hab, 0, global.ulLangBase + IDS_PRODUCT_NOTICE1,
+                           US_RES_MAXZ, achRes );
+            strncat( achBuf, achRes, 255 );
+            WinLoadString( global.hab, 0, global.ulLangBase + IDS_PRODUCT_NOTICE2,
+                           US_RES_MAXZ, achRes );
+            strncat( achBuf, achRes, 255 );
             WinSetDlgItemText( hwnd, IDD_NOTICES, achBuf );
             CentreWindow( hwnd, NULLHANDLE, SWP_SHOW );
             break;
@@ -1206,12 +1279,21 @@ void SizeWindow( HWND hwnd, POINTL ptl )
  * ------------------------------------------------------------------------- */
 void SetupWindow( HWND hwnd )
 {
+    CHAR achBtn[ 9 ];
     ULONG flBtn = WS_VISIBLE | BS_PUSHBUTTON | BS_NOPOINTERFOCUS | BS_USERBUTTON;
 
-    WinCreateWindow( hwnd, WC_BUTTON, "I", flBtn, 0, 0, 0, 0,
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_BTN_INPUT,
+                         8, achBtn ))
+        strcpy( achBtn, "I");
+    WinCreateWindow( hwnd, WC_BUTTON, achBtn, flBtn, 0, 0, 0, 0,
                      hwnd, HWND_TOP, IDD_INPUT, NULL, NULL );
-    WinCreateWindow( hwnd, WC_BUTTON, "C", flBtn, 0, 0, 0, 0,
+
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_BTN_CLAUSE,
+                         8, achBtn ))
+        strcpy( achBtn, "C");
+    WinCreateWindow( hwnd, WC_BUTTON, achBtn, flBtn, 0, 0, 0, 0,
                      hwnd, HWND_TOP, IDD_KANJI, NULL, NULL );
+
 #ifdef TESTHOOK
     WinCreateWindow( hwnd, WC_MLE, "", WS_VISIBLE,
                      0, 0, 0, 0,  hwnd, HWND_TOP, IDD_TESTINPUT, NULL, NULL );
@@ -1230,6 +1312,55 @@ void SetupWindow( HWND hwnd )
 }
 
 
+
+/* ------------------------------------------------------------------------- *
+ * GetUILang                                                                 *
+ *                                                                           *
+ * Get the current base language ID (used for string resource lookup).       *
+ *                                                                           *
+ * ARGUMENTS:                                                                *
+ *   HMQ hmq                                                                 *
+ *                                                                           *
+ * RETURNS: ULONG                                                            *
+ *   The calculated language ID.                                             *
+ * ------------------------------------------------------------------------- */
+ULONG GetUILang( HMQ hmq )
+{
+    PSZ    pszEnv;
+    USHORT usCC;
+    ULONG  ulCP;
+
+    pszEnv = getenv("LANG");
+    if ( !pszEnv ) return ID_BASE_EN;
+
+    ulCP = WinQueryCp( hmq );
+
+    if ( strnicmp(pszEnv, "EN_", 3 ) == 0 ) usCC = 1;
+    // Uncomment a country's statement if it has a translation in wnnim.rc;
+    // otherwise everything will default to English.
+    // Note: Check the codepage (only) for languages that don't use 850.
+/*
+    else if ( ISRUCODEPG(ulCP) && strnicmp(pszEnv, "RU_", 3 ) == 0 ) usCC = 7;
+    else if ( strnicmp(pszEnv, "NL_", 3 ) == 0 ) usCC = 31;
+    else if ( strnicmp(pszEnv, "FR_", 3 ) == 0 ) usCC = 33;
+    else if ( strnicmp(pszEnv, "ES_", 3 ) == 0 ) usCC = 34;
+    else if ( strnicmp(pszEnv, "IT_", 3 ) == 0 ) usCC = 39;
+    else if ( strnicmp(pszEnv, "SV_", 3 ) == 0 ) usCC = 46;
+    else if ( strnicmp(pszEnv, "DE_", 3 ) == 0 ) usCC = 49;
+*/
+    else if ( ISJPCODEPG(ulCP) && strnicmp(pszEnv, "JA_", 3 ) == 0 ) usCC = 81;
+/*
+    else if ( ISKOCODEPG(ulCP) && strnicmp(pszEnv, "KO_", 3 ) == 0 ) usCC = 82;
+    else if ( ISCNCODEPG(ulCP) && (( strnicmp(pszEnv, "ZH_CN", 5 ) == 0 ) ||
+                                   ( strnicmp(pszEnv, "ZH_SG", 5 ) == 0 ))) usCC = 86;
+    else if ( ISTWCODEPG(ulCP) && (( strnicmp(pszEnv, "ZH_TW", 5 ) == 0 ) ||
+                                   ( strnicmp(pszEnv, "ZH_HK", 5 ) == 0 ))) usCC = 88;
+*/
+    else usCC = 1;
+
+    return (usCC * 100) + 10000;
+}
+
 /* ------------------------------------------------------------------------- *
  * Set the status text to show the current mode.                             *
  *                                                                           *
@@ -1242,6 +1373,7 @@ void UpdateStatus( HWND hwnd )
 {
     CHAR szText[ MAX_STATUSZ ] = {0};
 //    CHAR szBtn[ 3 ] = {0};
+    ULONG ulStringID;
     USHORT usLang = pShared->fsMode & 0xF00,
            usMode = pShared->fsMode & 0xFF;
 
@@ -1249,45 +1381,51 @@ void UpdateStatus( HWND hwnd )
         case MODE_JP:
             switch ( usMode ) {
                 case MODE_HIRAGANA:
-                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
+//                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
 //                    szBtn[ 0 ] = 0x82;
 //                    szBtn[ 1 ] = 0xA0;
-                    strcpy( szText,
-                            pShared->fsMode & MODE_CJK? "Hiragana - Kanji": "Hiragana");
+                    ulStringID = pShared->fsMode & MODE_CJK ?
+                                    IDS_MODE_JP_HIRAGANAKANJI :
+                                    IDS_MODE_JP_HIRAGANA;
                     break;
                 case MODE_KATAKANA:
 //                    szBtn[ 0 ] = 0x83;
 //                    szBtn[ 1 ] = 0x41;
-                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
-                    strcpy( szText,
-                            pShared->fsMode & MODE_CJK? "Katakana - Kanji": "Katakana");
+//                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
+                    ulStringID = pShared->fsMode & MODE_CJK ?
+                                    IDS_MODE_JP_KATAKANAKANJI :
+                                    IDS_MODE_JP_KATAKANA;
                     break;
                 case MODE_HALFWIDTH:
 //                    szBtn[ 0 ] = 0xB1;
 //                    szBtn[ 1 ] = '_';
-                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
-                    strcpy( szText,
-                            pShared->fsMode & MODE_CJK? "Halfwidth - Kanji": "Halfwidth Katakana");
+//                    WinEnableControl( hwnd, IDD_KANJI, TRUE );
+                    ulStringID = pShared->fsMode & MODE_CJK ?
+                                    IDS_MODE_JP_HANKAKUKANJI :
+                                    IDS_MODE_JP_HANKAKU;
                     break;
                 case MODE_FULLWIDTH:
 //                    szBtn[ 0 ] = 0x82;
 //                    szBtn[ 1 ] = 0x60;
                     // Fullwidth mode doesn't support CJK
-                    WinEnableControl( hwnd, IDD_KANJI, FALSE );
-                    strcpy( szText, "Fullwidth ASCII");
+//                    WinEnableControl( hwnd, IDD_KANJI, FALSE );
+                    ulStringID = IDS_MODE_FULLWIDTH;
                     break;
                 case MODE_NONE:
 //                    szBtn[ 0 ] = 'A';
 //                    szBtn[ 1 ] = '_';
                     // Neither does None, obviously
-                    WinEnableControl( hwnd, IDD_KANJI, FALSE );
-                    strcpy( szText, "No conversion");
+//                    WinEnableControl( hwnd, IDD_KANJI, FALSE );
+                    ulStringID = IDS_MODE_NONE;
                     break;
             }
             break;
     }
 //    szBtn[ 2 ] = 0;
 //    WinSetDlgItemText( hwnd, IDD_INPUT, szBtn );
+
+    WinLoadString( global.hab, 0, global.ulLangBase + ulStringID,
+                   US_RES_MAXZ, szText );
     WinSetDlgItemText( hwnd, IDD_STATUS, szText );
 }
 
@@ -1313,6 +1451,8 @@ void ToggleKanjiConversion( HWND hwnd )
     }
     else {
         pShared->fsMode |= MODE_CJK;
+        if ( IS_INPUT_MODE( pShared->fsMode, MODE_NONE ))
+            SetInputMode( hwnd, 1 );
 //        szBtn[ 0 ] = 0x8A;
 //        szBtn[ 1 ] = 0xBF;
     }
@@ -1541,6 +1681,18 @@ void PaintIMEButton( PUSERBUTTON pBtnData )
 
 
 /* ------------------------------------------------------------------------- *
+ * ------------------------------------------------------------------------- */
+void SetMenuItemLangText( HWND hwndMenu, USHORT usMenuID, ULONG ulStringID )
+{
+    CHAR szRes[ US_RES_MAXZ ];
+
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + ulStringID,
+                        US_RES_MAXZ, szRes ))
+        WinSetMenuItemText( hwndMenu, usMenuID, szRes );
+}
+
+
+/* ------------------------------------------------------------------------- *
  * Main client window procedure of the WNNIM/2 window.                       *
  * ------------------------------------------------------------------------- */
 MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
@@ -1556,7 +1708,14 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
     switch ( msg ) {
 
         case WM_CREATE:
-            global.hwndMenu = WinLoadMenu(HWND_OBJECT, 0, IDM_POPUP);
+            global.hwndMenu = WinLoadMenu( HWND_OBJECT, 0, IDM_POPUP );
+            SetMenuItemLangText( global.hwndMenu, IDM_HIRAGANA,  IDS_MENU_HIRAGANA );
+            SetMenuItemLangText( global.hwndMenu, IDM_KATAKANA,  IDS_MENU_KATAKANA );
+            SetMenuItemLangText( global.hwndMenu, IDM_FULLWIDTH, IDS_MENU_FULLWIDTH );
+            SetMenuItemLangText( global.hwndMenu, IDM_FLOAT,     IDS_MENU_FLOAT );
+            SetMenuItemLangText( global.hwndMenu, IDM_SETTINGS,  IDS_MENU_SETTINGS );
+            SetMenuItemLangText( global.hwndMenu, IDM_ABOUT,     IDS_MENU_ABOUT );
+            SetMenuItemLangText( global.hwndMenu, IDM_CLOSE,     IDS_MENU_CLOSE );
             return 0;
 
         case WM_BEGINDRAG:
@@ -1591,8 +1750,9 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                         WinSetWindowBits( global.hwndClause, QWL_STYLE, 0L, WS_TOPMOST );
                     break;
 
-                case IDD_INPUT:
+                case IDD_INPUT:             // Input button pressed
                     ToggleInputConversion( hwnd );
+                    // Restore focus to the active application
                     if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
                     break;
 
@@ -1605,7 +1765,7 @@ MRESULT EXPENTRY ClientWndProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                         NextInputMode( hwnd );
                     break;
 
-                case IDD_KANJI:
+                case IDD_KANJI:             // Kanji conversion button pressed
                     ToggleKanjiConversion( hwnd );
                     if ( global.hwndLast ) WinSetFocus( HWND_DESKTOP, global.hwndLast );
                     break;
@@ -1842,7 +2002,8 @@ int main( int argc, char **argv )
     ULONG   frameFlags = FCF_TASKLIST;
     HMODULE hm;
     POINTL  ptl;
-    CHAR    szErr[ 256 ];
+    CHAR    szRes[ US_RES_MAXZ ],
+            szErr[ 256 ];
 
     LoadExceptq( &exRegRec, "I", "WnnIM-J");
 
@@ -1858,15 +2019,29 @@ int main( int argc, char **argv )
 
     DosExitList( EXLST_ADD, (PFNEXITLIST) ExeTrap );    // trap exceptions to ensure hooks released
 
+    // Get the UI language base ID
+    global.ulLangBase = GetUILang( hmq );
+    if (( global.ulLangBase > ID_BASE_EN ) &&
+        ( ! WinLoadString( global.hab, 0, global.ulLangBase + IDS_PRODUCT_NAME,
+                          US_RES_MAXZ, szRes )))
+    {
+            // If there are no resources for this language, fall back to English
+            global.ulLangBase = ID_BASE_EN;
+    }
+
+    // Register the conversion overlay window class
     CWinRegisterClass( global.hab );
 
+    // Register our own client class and create our window
     WinRegisterClass( global.hab, clientClass, ClientWndProc, CS_CLIPCHILDREN, 0 );
     global.hwndFrame = WinCreateStdWindow( HWND_DESKTOP, 0L, &frameFlags, clientClass,
                                            "WnnIM", 0L, 0, ID_ICON, &global.hwndClient );
 
+    // Initialize the input language settings
     if ( !SetupDBCSLanguage( MODE_JP ))
         goto cleanup;
 
+    // Load program settings and display the window
     SettingsInit( global.hwndClient, &ptl );
     SetupWindow( global.hwndClient );
     SizeWindow( global.hwndClient, ptl );

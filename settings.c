@@ -44,6 +44,8 @@ void  SettingsDlgPopulate( HWND hwnd );
 BOOL  SettingsUpdateKeys( HWND hwnd );
 
 
+static CHAR achErrText[ US_RES_MAXZ ];
+
 
 /* ------------------------------------------------------------------------- *
  * LocateProfile                                                             *
@@ -286,9 +288,15 @@ void GetSelectedKey( HWND hwnd, USHORT usID, PUSHORT pusKC, PUSHORT pusVK )
  * ------------------------------------------------------------------------- */
 void SettingsPopulateKeyList( HWND hwnd, USHORT usID )
 {
+    CHAR  achKeyName[ 32 ];
     SHORT sIdx;
-    sIdx = LIST_ADD_STRING( hwnd, usID, "Space");
+
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEYS_SPACE,
+                         US_RES_MAXZ, achKeyName ))
+        strcpy( achKeyName, "Space");
+    sIdx = LIST_ADD_STRING( hwnd, usID, achKeyName );
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, 0x20 );
+
     sIdx = LIST_ADD_STRING( hwnd, usID, "Enter");
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, 0x0D );
     sIdx = LIST_ADD_STRING( hwnd, usID, "`");
@@ -299,14 +307,31 @@ void SettingsPopulateKeyList( HWND hwnd, USHORT usID )
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, (ULONG)',');
     sIdx = LIST_ADD_STRING( hwnd, usID, "/");
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, (ULONG)'/');
-    sIdx = LIST_ADD_STRING( hwnd, usID, "Left");
+
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEYS_LEFT,
+                         US_RES_MAXZ, achKeyName ))
+        strcpy( achKeyName, "Left");
+    sIdx = LIST_ADD_STRING( hwnd, usID, achKeyName );
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, MAKEULONG( VK_LEFT, KC_VIRTUALKEY ));
-    sIdx = LIST_ADD_STRING( hwnd, usID, "Right");
+
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEYS_RIGHT,
+                         US_RES_MAXZ, achKeyName ))
+        strcpy( achKeyName, "Right");
+    sIdx = LIST_ADD_STRING( hwnd, usID, achKeyName);
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, MAKEULONG( VK_RIGHT, KC_VIRTUALKEY ));
-    sIdx = LIST_ADD_STRING( hwnd, usID, "Up");
+
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEYS_UP,
+                         US_RES_MAXZ, achKeyName ))
+        strcpy( achKeyName, "Up");
+    sIdx = LIST_ADD_STRING( hwnd, usID, achKeyName );
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, MAKEULONG( VK_UP, KC_VIRTUALKEY ));
-    sIdx = LIST_ADD_STRING( hwnd, usID, "Down");
+
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEYS_DOWN,
+                         US_RES_MAXZ, achKeyName ))
+        strcpy( achKeyName, "Down");
+    sIdx = LIST_ADD_STRING( hwnd, usID, achKeyName );
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, MAKEULONG( VK_DOWN, KC_VIRTUALKEY ));
+
     sIdx = LIST_ADD_STRING( hwnd, usID, "F1");
     LIST_SET_ITEMDATA( hwnd, usID, sIdx, MAKEULONG( VK_F1, KC_VIRTUALKEY ));
     sIdx = LIST_ADD_STRING( hwnd, usID, "F2");
@@ -344,23 +369,93 @@ void SettingsPopulateKeyList( HWND hwnd, USHORT usID )
  * ------------------------------------------------------------------------- */
 void SettingsDlgPopulate( HWND hwnd )
 {
+    CHAR  achRes[ US_RES_MAXZ ];
     SHORT sIdx;
 
-    sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Remember last used");
+    // Set the static control text
+
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_WINDOW_SETTINGS,
+                        US_RES_MAXZ, achRes ))
+        WinSetWindowText( hwnd, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_SET_OPTIONS,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_OPTIONS, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_SET_HOTKEYS,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_HOTKEYS, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_OPT_MODE,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_STARTUP_MODE, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_OPT_FONT,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_FONT, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEY_ACTIVATE,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_INPUT, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEY_MODE,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_MODE, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEY_CLAUSE,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_CLAUSE, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEY_CONVERT,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_CONVERT, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEY_ACCEPT,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_ACCEPT, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEY_NEXT,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_NEXT, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEY_PREV,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, IDD_STATIC_PREV, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_COMMON_OK,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, DID_OK, achRes );
+    if ( WinLoadString( global.hab, 0, global.ulLangBase + IDS_COMMON_CANCEL,
+                        US_RES_MAXZ, achRes ))
+        WinSetDlgItemText( hwnd, DID_CANCEL, achRes );
+
+    // Populate the list controls
+
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_OPT_USELAST,
+                         US_RES_MAXZ, achRes ))
+        strcpy( achRes, "Remember last used");
+    sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, achRes );
     LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, -1 );
-    sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "None");
+
+    if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_MODE_NONE,
+                         US_RES_MAXZ, achRes ))
+        strcpy( achRes, "No conversion");
+    sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, achRes );
     LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_NONE );
 
     if ( IS_LANGUAGE( pShared->fsMode, MODE_JP )) {
-        sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Hiragana");
+
+        if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_MODE_JP_HIRAGANA,
+                             US_RES_MAXZ, achRes ))
+            strcpy( achRes, "Hiragana");
+        sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, achRes );
         LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_HIRAGANA );
-        sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Katakana");
+
+        if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_MODE_JP_KATAKANA,
+                             US_RES_MAXZ, achRes ))
+            strcpy( achRes, "Katakana");
+        sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, achRes );
         LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_KATAKANA );
-        sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Fullwidth ASCII");
+
+        if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_MODE_FULLWIDTH,
+                             US_RES_MAXZ, achRes ))
+            strcpy( achRes, "Fullwidth ASCII");
+        sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, achRes );
         LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_FULLWIDTH );
     }
     else if ( IS_LANGUAGE( pShared->fsMode, MODE_KR )) {
-        sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, "Hangul");
+        if ( !WinLoadString( global.hab, 0, global.ulLangBase + IDS_MODE_KO_HANGUL,
+                             US_RES_MAXZ, achRes ))
+            strcpy( achRes, "Hangul");
+        sIdx = LIST_ADD_STRING( hwnd, IDD_STARTUP_MODE, achRes );
         LIST_SET_ITEMDATA( hwnd, IDD_STARTUP_MODE, sIdx, MODE_HANGUL );
     }
     //LIST_SELECT_ITEM( hwnd, IDD_STARTUP_MODE, (SHORT)(global.sDefMode) + 1 );
@@ -464,7 +559,9 @@ BOOL SettingsUpdateKeys( HWND hwnd )
         for ( j = 0; j < NUM_HOTKEYS; j++ ) {
             if ( i == j ) continue;
             if (( fsKey[ i ] == fsKey[ j ] ) && ( usKey[ i ] == usKey[ j ] )) {
-                ErrorPopup( hwnd, "More than one hotkey has the same value.");
+                WinLoadString( global.hab, 0, global.ulLangBase + IDS_KEY_COLLISION,
+                               US_RES_MAXZ, achErrText );
+                ErrorPopup( hwnd, achErrText );
                 return FALSE;
             }
         }
@@ -527,7 +624,6 @@ MRESULT EXPENTRY SettingsDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
                                          PP_FONTNAMESIZE, strlen(szFontPP)+1, szFontPP );
                         WinSetDlgItemText( hwnd, IDD_INPUT_FONT, psz );
                     }
-                    else ErrorPopup( hwnd, "Error creating font dialog.");
                     return (MRESULT) FALSE;
 
                 case DID_OK:
@@ -574,7 +670,8 @@ BOOL _Optlink SelectFont( HWND hwnd, PSZ pszFace, USHORT cbBuf )
     FONTDLG     fontdlg = {0};
     FONTMETRICS fm      = {0};
     LONG        lQuery  = 0;
-    CHAR        szName[ FACESIZE ];
+    CHAR        szName[ FACESIZE ],
+                szPreview[ FONT_PREVIEW_SIZE ] = "abcdABCD";
     HWND        hwndFD;
     HPS         hps;
 
@@ -585,10 +682,16 @@ BOOL _Optlink SelectFont( HWND hwnd, PSZ pszFace, USHORT cbBuf )
     lQuery = 1;
     GpiQueryFonts( hps, QF_PUBLIC, pszFace, &lQuery, sizeof(fm), &fm );
 
+    // Get the preview string
+    WinLoadString( global.hab, 0, global.ulLangBase + IDS_FONTDLG_SAMPLE_TEXT,
+                   FONT_PREVIEW_SIZE, szPreview );
+
+    // Set up the dialog.  We use a custom dialog template from the resources
+    // - the resource ID is determined by the current UI language.
     fontdlg.cbSize         = sizeof( FONTDLG );
     fontdlg.hpsScreen      = hps;
     fontdlg.pszTitle       = NULL;
-    fontdlg.pszPreview     = NULL;
+    fontdlg.pszPreview     = szPreview;
     fontdlg.pfnDlgProc     = NULL;
     fontdlg.pszFamilyname  = szName;
     fontdlg.usFamilyBufLen = sizeof( szName );
@@ -601,12 +704,17 @@ BOOL _Optlink SelectFont( HWND hwnd, PSZ pszFace, USHORT cbBuf )
     fontdlg.fl             = FNTS_CENTER | FNTS_CUSTOM;
     fontdlg.flStyle        = 0;
     fontdlg.flType         = ( fm.fsSelection & FM_SEL_ITALIC ) ? FTYPE_ITALIC : 0;
-    fontdlg.usDlgId        = DLG_FONT;
+    fontdlg.usDlgId        = DLG_FONT_BASE + (( global.ulLangBase - 10000 ) / 100 );
     fontdlg.hMod           = NULLHANDLE;
 
     hwndFD = WinFontDlg( HWND_DESKTOP, hwnd, &fontdlg );
     WinReleasePS( hps );
-    if (( hwndFD ) && ( fontdlg.lReturn == DID_OK )) {
+    if ( !hwndFD ) {
+        WinLoadString( global.hab, 0, global.ulLangBase + IDS_ERROR_FONTDLG,
+                       US_RES_MAXZ, achErrText );
+        ErrorPopup( hwnd, achErrText );
+    }
+    else if ( fontdlg.lReturn == DID_OK ) {
         strncpy( pszFace, fontdlg.fAttrs.szFacename, cbBuf-1 );
         return TRUE;
     }

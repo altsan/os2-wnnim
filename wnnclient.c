@@ -81,10 +81,10 @@ extern int              _cdecl wnn_get_area( struct wnn_buf *buf, register int b
 
 // Internal utility functions
 //
-INT  _Optlink StrTransform( UniChar *puszString, INT iMax, XformObject xform );
-INT  _Optlink MakeKatakana( void );
-INT  _Optlink MakeHalfKana( void );
-BYTE _Optlink PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput, USHORT cbOutput );
+INT  IM_CALLCNV StrTransform( UniChar *puszString, INT iMax, XformObject xform );
+INT  IM_CALLCNV MakeKatakana( void );
+INT  IM_CALLCNV MakeHalfKana( void );
+BYTE IM_CALLCNV PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput, USHORT cbOutput );
 
 
 
@@ -176,7 +176,7 @@ int _cdecl ErrorFunc( const char *pcsz )
  * (FreeWnn romkan), this involves loading the romkan table files.           *
  *                                                                           *
  * ------------------------------------------------------------------------- */
-INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
+INT IM_CALLCNV InitInputMethod( PSZ pszPath, USHORT usLang )
 {
     USHORT cpEUC;
     CHAR   szLang[ 6 ];
@@ -226,7 +226,7 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
         cpEUC = GetEucCodepage( usLang );
         rc = CreateUconvObject( cpEUC, &uconvEUC );
         if ( rc )
-            sprintf( global.szEngineError, "Failed to create conversion object for codeoage %u (error %u). The OS/2 codepage file might not be installed.", cpEUC, rc );
+            sprintf( global.szEngineError, "Failed to create conversion object for codepage %u (error %u). The OS/2 codepage file might not be installed.", cpEUC, rc );
     }
 
     if (( rc == NO_ERROR ) && ( usLang == MODE_JP )) {
@@ -245,7 +245,7 @@ INT _Optlink InitInputMethod( PSZ pszPath, USHORT usLang )
  * Close down the input method engine and free any associated resources      *
  * (romkan doesn't utilize any cleanup functions so there's not much to do). *
  * ------------------------------------------------------------------------- */
-void _Optlink FinishInputMethod( void )
+void IM_CALLCNV FinishInputMethod( void )
 {
     if ( uconvEUC != NULL )
         UniFreeUconvObject( uconvEUC );
@@ -259,7 +259,7 @@ void _Optlink FinishInputMethod( void )
  *                                                                           *
  * Applies a ULS transformation to a UCS-2 string.                           *
  * ------------------------------------------------------------------------- */
-INT _Optlink StrTransform( UniChar *puszString, INT iMax, XformObject xform )
+INT IM_CALLCNV StrTransform( UniChar *puszString, INT iMax, XformObject xform )
 {
     int iLen,
         iOut,
@@ -287,7 +287,7 @@ INT _Optlink StrTransform( UniChar *puszString, INT iMax, XformObject xform )
  *                                                                           *
  * Transforms an already-converted kana string into fullwidth katakana.      *
  * ------------------------------------------------------------------------- */
-INT _Optlink MakeKatakana( void )
+INT IM_CALLCNV MakeKatakana( void )
 {
     StrTransform( global.uszKana, sizeof( global.uszKana ), xfKatakana );
     return 0;
@@ -299,7 +299,7 @@ INT _Optlink MakeKatakana( void )
  *                                                                           *
  * Transforms an already-converted kana string into halfwidth katakana.      *
  * ------------------------------------------------------------------------- */
-INT _Optlink MakeHalfKana( void )
+INT IM_CALLCNV MakeHalfKana( void )
 {
     // TODO
 
@@ -327,7 +327,7 @@ INT _Optlink MakeHalfKana( void )
  * (meaning we found & converted a sequence) or KANA_PENDING (in which case  *
  * the calling function will proceed to use romkan_henkan() as usual).       *
  * ------------------------------------------------------------------------- */
-BYTE _Optlink PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput, USHORT cbOutput )
+BYTE IM_CALLCNV PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ pszOutput, USHORT cbOutput )
 {
 
 #define NUM_SPEC_KATAKANA 27
@@ -402,7 +402,7 @@ BYTE _Optlink PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PSZ 
  *                  buffers), or continue to add characters (in which case   *
  *                  the caller should keep the input buffer and continue).   *
  * ------------------------------------------------------------------------- */
-BYTE _Optlink ConvertPhonetic( USHORT fsMode )
+BYTE IM_CALLCNV ConvertPhonetic( USHORT fsMode )
 {
     CHAR   szOutput[ 8 ];       // should be big enough for any known sequence
     USHORT i, j,                // index variables
@@ -541,7 +541,7 @@ INT IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSessio
         cpEUC = GetEucCodepage( usLang );
         rc = CreateUconvObject( cpEUC, &uconvEUC );
         if ( rc ) {
-            sprintf( global.szEngineError, "Failed to create conversion object for codeoage %u (error %u). The OS/2 codepage file might not be installed.", cpEUC, rc );
+            sprintf( global.szEngineError, "Failed to create conversion object for codepage %u (error %u). The OS/2 codepage file might not be installed.", cpEUC, rc );
             return CONV_CONNECT;
         }
     }

@@ -23,13 +23,191 @@
 
 ICON    ID_ICON  ime.ico
 
+/********************
+ * ENGLISH MESSAGES
+ */
+
+STRINGTABLE 850
+BEGIN
+    (ID_BASE_EN + IDS_PRODUCT_NAME)             "WnnIM for OS/2"
+    (ID_BASE_EN + IDS_PRODUCT_VERSION)          "Version %s"
+    (ID_BASE_EN + IDS_PRODUCT_COPYRIGHT)        "Copyright ｸ %s Alexander Taylor."
+    (ID_BASE_EN + IDS_PRODUCT_NOTICE1)          "WnnIM for OS/2 is free software published under the terms of the GNU General Public License, version 2.  "
+    (ID_BASE_EN + IDS_PRODUCT_NOTICE2)          "See the accompanying documentation for details."
+    (ID_BASE_EN + IDS_WINDOW_ABOUT)             "Product Information"
+    (ID_BASE_EN + IDS_COMMON_OK)                "OK"
+    (ID_BASE_EN + IDS_COMMON_CANCEL)            "Cancel"
+    (ID_BASE_EN + IDS_BTN_INPUT)                "I"
+    (ID_BASE_EN + IDS_BTN_CLAUSE)               "C"
+    (ID_BASE_EN + IDS_KEYS_SPACE)               "Space"
+    (ID_BASE_EN + IDS_KEYS_LEFT)                "Left"
+    (ID_BASE_EN + IDS_KEYS_RIGHT)               "Right"
+    (ID_BASE_EN + IDS_KEYS_UP)                  "Up"
+    (ID_BASE_EN + IDS_KEYS_DOWN)                "Down"
+END
+
+STRINGTABLE 850
+BEGIN
+    (ID_BASE_EN + IDS_WINDOW_SETTINGS)          "Settings"
+    (ID_BASE_EN + IDS_SET_OPTIONS)              "Options"
+    (ID_BASE_EN + IDS_SET_HOTKEYS)              "Hotkeys"
+    (ID_BASE_EN + IDS_OPT_MODE)                 "Startup mode:"
+    (ID_BASE_EN + IDS_OPT_USELAST)              "Remember last used"
+    (ID_BASE_EN + IDS_OPT_FONT)                 "Input font:"
+    (ID_BASE_EN + IDS_KEY_ACTIVATE)             "Toggle input conversion:"
+    (ID_BASE_EN + IDS_KEY_MODE)                 "Switch input mode:"
+    (ID_BASE_EN + IDS_KEY_CLAUSE)               "Toggle clause conversion:"
+    (ID_BASE_EN + IDS_KEY_CONVERT)              "Convert (clause mode):"
+    (ID_BASE_EN + IDS_KEY_ACCEPT)               "Accept (clause mode):"
+    (ID_BASE_EN + IDS_KEY_NEXT)                 "Next phrase (clause mode):"
+    (ID_BASE_EN + IDS_KEY_PREV)                 "Previous phrase (clause mode):"
+    (ID_BASE_EN + IDS_KEY_COLLISION)            "More than one hotkey has the same value."
+END
+
+STRINGTABLE 850
+BEGIN
+//    (ID_BASE_EN + IDS_FONTDLG_FONT)             "Font"
+//    (ID_BASE_EN + IDS_FONTDLG_NAME)             "Name:"
+//    (ID_BASE_EN + IDS_FONTDLG_STYLE)            "Style:"
+//    (ID_BASE_EN + IDS_FONTDLG_SAMPLE)           "Sample"
+    (ID_BASE_EN + IDS_FONTDLG_SAMPLE_TEXT)      "abcdABCD"
+    (ID_BASE_EN + IDS_MODE_JP_HIRAGANA)         "Hiragana"
+    (ID_BASE_EN + IDS_MODE_JP_HIRAGANAKANJI)    "Hiragana - Kanji"
+    (ID_BASE_EN + IDS_MODE_JP_KATAKANA)         "Katakana"
+    (ID_BASE_EN + IDS_MODE_JP_KATAKANAKANJI)    "Katakana - Kanji"
+    (ID_BASE_EN + IDS_MODE_JP_HANKAKU)          "Halfwidth Katakana"
+    (ID_BASE_EN + IDS_MODE_JP_HANKAKUKANJI)     "Halfwidth - Kanji"
+    (ID_BASE_EN + IDS_MODE_FULLWIDTH)           "Fullwidth ASCII"
+    (ID_BASE_EN + IDS_MODE_NONE)                "No conversion"
+END
+
+STRINGTABLE 850
+BEGIN
+    (ID_BASE_EN + IDS_ERROR_TITLE)              "Error"
+    (ID_BASE_EN + IDS_ERROR_UCONVOBJECT)        "Failed to create conversion object for selected codepage."
+    (ID_BASE_EN + IDS_ERROR_UCONV_CODEPAGE)     "Failed to create conversion object for codepage %u (error %u). The OS/2 codepage file might not be installed."
+    (ID_BASE_EN + IDS_ERROR_ROMKAN)             "Failed to initialize romkan (Wnn) library (error %u)"
+    (ID_BASE_EN + IDS_ERROR_CONNECTION)         "Lost connection to server."
+    (ID_BASE_EN + IDS_ERROR_CONVERSION)         "String conversion failed: 0x%X"
+    (ID_BASE_EN + IDS_ERROR_JLIB_CONV)          "Unknown error in jl_ren_conv. (There might be a problem with the FreeWnn server or configuration files.)"
+    (ID_BASE_EN + IDS_ERROR_JLIB_STRING)        "Failed to retrieve conversion string."
+    (ID_BASE_EN + IDS_ERROR_JLIB_PHRASE)        "Phrase not converted!"
+    (ID_BASE_EN + IDS_ERROR_JLIB_PCONV)         "Error converting text (jl_tan_conv)."
+    (ID_BASE_EN + IDS_ERROR_JLIB_PSTRING)       "Conversion string not available for phrase %d."
+    (ID_BASE_EN + IDS_ERROR_MEMORY)             "Error allocating memory."
+    (ID_BASE_EN + IDS_ERROR_FONTDLG)            "Error creating font dialog."
+END
+
+STRINGTABLE 850
+BEGIN
+    (ID_BASE_EN + IDS_MENU_HIRAGANA)            "~Hiragana"
+    (ID_BASE_EN + IDS_MENU_KATAKANA)            "~Katakana"
+    (ID_BASE_EN + IDS_MENU_FULLWIDTH)           "~Fullwidth ASCII"
+    (ID_BASE_EN + IDS_MENU_FLOAT)               "Always on ~top"
+    (ID_BASE_EN + IDS_MENU_SETTINGS)            "~Settings..."
+    (ID_BASE_EN + IDS_MENU_ABOUT)               "~About..."
+    (ID_BASE_EN + IDS_MENU_CLOSE)               "~Close"
+END
+
+
+
+/********************
+ * JAPANESE MESSAGES
+ */
+
+STRINGTABLE 932
+BEGIN
+    (ID_BASE_JA + IDS_PRODUCT_NAME)             "WnnIM for OS/2"
+    (ID_BASE_JA + IDS_PRODUCT_VERSION)          "バージョン %s"
+    (ID_BASE_JA + IDS_PRODUCT_COPYRIGHT)        "Copyright (C) %s Alexander Taylor。"
+    (ID_BASE_JA + IDS_PRODUCT_NOTICE1)          "WnnIM for OS/2 は GNU General Public License (バージョン２) が定める条件によるフリーソフトウェアである。 "
+    (ID_BASE_JA + IDS_PRODUCT_NOTICE2)          "詳細については、付属のドキュメントを参照してください。"
+    (ID_BASE_JA + IDS_WINDOW_ABOUT)             "製品情報"
+    (ID_BASE_JA + IDS_COMMON_OK)                "了解"
+    (ID_BASE_JA + IDS_COMMON_CANCEL)            "取消"
+    (ID_BASE_JA + IDS_BTN_INPUT)                "入"
+    (ID_BASE_JA + IDS_BTN_CLAUSE)               "変"
+    (ID_BASE_JA + IDS_KEYS_SPACE)               "スペース"
+    (ID_BASE_JA + IDS_KEYS_LEFT)                "左"
+    (ID_BASE_JA + IDS_KEYS_RIGHT)               "右"
+    (ID_BASE_JA + IDS_KEYS_UP)                  "上"
+    (ID_BASE_JA + IDS_KEYS_DOWN)                "下"
+END
+
+STRINGTABLE 932
+BEGIN
+    (ID_BASE_JA + IDS_WINDOW_SETTINGS)          "設定"
+    (ID_BASE_JA + IDS_SET_OPTIONS)              "オプション"
+    (ID_BASE_JA + IDS_SET_HOTKEYS)              "ホットキー"
+    (ID_BASE_JA + IDS_OPT_MODE)                 "初期モード："
+    (ID_BASE_JA + IDS_OPT_USELAST)              "前回のモードを記憶"
+    (ID_BASE_JA + IDS_OPT_FONT)                 "入力フォント："
+    (ID_BASE_JA + IDS_KEY_ACTIVATE)             "入力変換の切り替え："
+    (ID_BASE_JA + IDS_KEY_MODE)                 "入力モードの変更："
+    (ID_BASE_JA + IDS_KEY_CLAUSE)               "連文節変換の切り替え："
+    (ID_BASE_JA + IDS_KEY_CONVERT)              "変換する（連文節変換）："
+    (ID_BASE_JA + IDS_KEY_ACCEPT)               "登録する（連文節変換）："
+    (ID_BASE_JA + IDS_KEY_NEXT)                 "次の単文節（連文節変換）："
+    (ID_BASE_JA + IDS_KEY_PREV)                 "前の単文節（連文節変換）："
+    (ID_BASE_JA + IDS_KEY_COLLISION)            "複数のホットキーの値は同じです。"
+END
+
+STRINGTABLE 932
+BEGIN
+//    (ID_BASE_JA + IDS_FONTDLG_FONT)             "フォント"
+//    (ID_BASE_JA + IDS_FONTDLG_NAME)             "フォント名："
+//    (ID_BASE_JA + IDS_FONTDLG_STYLE)            "スタイル："
+//    (ID_BASE_JA + IDS_FONTDLG_SAMPLE)           "サンプル"
+    (ID_BASE_JA + IDS_FONTDLG_SAMPLE_TEXT)      "abcABCあア"
+    (ID_BASE_JA + IDS_MODE_JP_HIRAGANA)         "ひらがな"
+    (ID_BASE_JA + IDS_MODE_JP_HIRAGANAKANJI)    "ひらがな→漢字"
+    (ID_BASE_JA + IDS_MODE_JP_KATAKANA)         "カタカナ"
+    (ID_BASE_JA + IDS_MODE_JP_KATAKANAKANJI)    "カタカナ→漢字"
+    (ID_BASE_JA + IDS_MODE_JP_HANKAKU)          "半角カタカナ"
+    (ID_BASE_JA + IDS_MODE_JP_HANKAKUKANJI)     "半角→漢字"
+    (ID_BASE_JA + IDS_MODE_FULLWIDTH)           "全角ローマ字"
+    (ID_BASE_JA + IDS_MODE_NONE)                "不変換"
+END
+
+STRINGTABLE 932
+BEGIN
+    (ID_BASE_JA + IDS_ERROR_TITLE)              "エラー"
+    (ID_BASE_JA + IDS_ERROR_UCONVOBJECT)        "Failed to create conversion object for selected codepage."
+    (ID_BASE_JA + IDS_ERROR_UCONV_CODEPAGE)     "Failed to create conversion object for codepage %u (error %u). The OS/2 codepage file might not be installed."
+    (ID_BASE_JA + IDS_ERROR_ROMKAN)             "Failed to initialize romkan (Wnn) library (error %u)"
+    (ID_BASE_JA + IDS_ERROR_CONNECTION)         "Lost connection to server."
+    (ID_BASE_JA + IDS_ERROR_CONVERSION)         "String conversion failed: 0x%X"
+    (ID_BASE_JA + IDS_ERROR_JLIB_CONV)          "Unknown error in jl_ren_conv. (There might be a problem with the FreeWnn server or configuration files.)"
+    (ID_BASE_JA + IDS_ERROR_JLIB_STRING)        "Failed to retrieve conversion string."
+    (ID_BASE_JA + IDS_ERROR_JLIB_PHRASE)        "Phrase not converted!"
+    (ID_BASE_JA + IDS_ERROR_JLIB_PCONV)         "Error converting text (jl_tan_conv)."
+    (ID_BASE_JA + IDS_ERROR_JLIB_PSTRING)       "Conversion string not available for phrase %d."
+    (ID_BASE_JA + IDS_ERROR_MEMORY)             "Error allocating memory."
+    (ID_BASE_JA + IDS_ERROR_FONTDLG)            "Error creating font dialog."
+END
+
+STRINGTABLE 932
+BEGIN
+    (ID_BASE_JA + IDS_MENU_HIRAGANA)            "ひらがな (~H)"
+    (ID_BASE_JA + IDS_MENU_KATAKANA)            "カタカナ (~K)"
+    (ID_BASE_JA + IDS_MENU_FULLWIDTH)           "全角ローマ字 (~F)"
+    (ID_BASE_JA + IDS_MENU_FLOAT)               "常に手前に表示 (~T)"
+    (ID_BASE_JA + IDS_MENU_SETTINGS)            "設定 (~S)..."
+    (ID_BASE_JA + IDS_MENU_ABOUT)               "製品情報 (~A)..."
+    (ID_BASE_JA + IDS_MENU_CLOSE)               "閉じる (~C)"
+END
+
+
 MENU IDM_POPUP
 BEGIN
+    /* Don't bother translating the menu strings here, they will be
+     * substituted with the IDS_MENU_* strings above.
+     */
     MENUITEM "~Hiragana",           IDM_HIRAGANA
     MENUITEM "~Katakana",           IDM_KATAKANA
     MENUITEM "~Fullwidth ASCII",    IDM_FULLWIDTH
     MENUITEM SEPARATOR
-    MENUITEM "~Always on top",      IDM_FLOAT
+    MENUITEM "Always on ~top",      IDM_FLOAT
     MENUITEM "~Settings...",        IDM_SETTINGS
     MENUITEM SEPARATOR
     MENUITEM "~About...",           IDM_ABOUT

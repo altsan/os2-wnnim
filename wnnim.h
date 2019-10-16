@@ -28,6 +28,7 @@
 #define SZ_COPYRIGHT    "2019"
 #define MAX_VERSTRZ     32
 #define MAX_STATUSZ     64
+#define US_RES_MAXZ     256
 #define MAX_BTN_LABELZ  12
 #define MAX_CHAR_BUFZ   9
 #define MAX_KANA_BUFZ   32
@@ -51,6 +52,13 @@
 #define CLAUSE_READY        0x01  // current clause has been converted
 #define CLAUSE_PHRASE_READY 0x02  // current phrase has been converted
 
+// Indicates codepages compatible with a given language
+#define ISRUCODEPG( cp )    ( cp == 866 )
+#define ISJPCODEPG( cp )    ( cp == 932 || cp == 942 || cp == 943 )
+#define ISKOCODEPG( cp )    ( cp == 949 )
+#define ISTWCODEPG( cp )    ( cp == 950 )
+#define ISCNCODEPG( cp )    ( cp == 1381 || cp == 1386 )
+
 
 #ifndef WS_TOPMOST
 #define WS_TOPMOST      0x00200000L
@@ -65,8 +73,8 @@
 #define RECTL_HEIGHT(rcl)       (rcl.yTop - rcl.yBottom)
 #define RECTL_WIDTH(rcl)        (rcl.xRight - rcl.xLeft)
 
-#define ErrorPopup( owner, text ) \
-    WinMessageBox( HWND_DESKTOP, owner, text, "Error", 0, MB_OK | MB_ERROR )
+//#define ErrorPopup( owner, text ) \
+//    WinMessageBox( HWND_DESKTOP, owner, text, "Error", 0, MB_OK | MB_ERROR )
 
 
 // --------------------------------------------------------------------------
@@ -76,6 +84,7 @@
 // Global client data which does not have to be shared with wnnhook.dll.
 typedef struct _WnnClientData {
     HAB         hab;                    // anchor block handle
+    ULONG       ulLangBase;             // base message ID for current UI language
 
     // Window handles
     HWND        hwndFrame,              // our frame
@@ -121,4 +130,5 @@ PWNNSHARED   pShared;           // data shared with the dll
 //
 
 void CentreWindow( HWND hwndCentre, HWND hwndRelative, ULONG flFlags );
+void ErrorPopup( HWND hwnd, PSZ pszText );
 
