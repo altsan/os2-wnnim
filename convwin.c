@@ -552,7 +552,7 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
          * CWM_QUERYFONTMETRICS                                               *
          * Get the metrics of the font actually being used (this is not       *
          * necessarily the same as the current font presentation parameter,   *
-         * as the PP font may have overridden due to lack of requisite        *
+         * as the PP font may have been overridden due to lack of requisite   *
          * codepage or character set support).                                *
          *  - mp1:                                                            *
          *     PFONTMETRICS: Pointer to FONTMETRICS structure                 *
@@ -757,8 +757,9 @@ void SetTextSize( HWND hwnd, HPS hps, PCWDATA pCtl, LONG lHeight )
     LONG        lCell;                  // desired character-cell height
     double      dSizeAdjust;
 
-    // Set the character cell size.
-    lCell = lHeight - 2;
+    // Set the character cell size
+    // == height of window - 2 pixels for border and 2 pixels for padding
+    lCell = lHeight - 4;
 
     // Set up the font face
     if (( GpiCreateLogFont( hps, NULL, 1L, &(pCtl->fattrs) )) == GPI_ERROR ) return;
@@ -766,6 +767,7 @@ void SetTextSize( HWND hwnd, HPS hps, PCWDATA pCtl, LONG lHeight )
     // Set the text size
     GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
 
+#if 0
     // Adjust the cell height to take the maximum character bbox into account
     dSizeAdjust = (double)(fm.lEmHeight) / fm.lMaxBaselineExt;
     if ( dSizeAdjust > 0 ) {
@@ -773,6 +775,7 @@ void SetTextSize( HWND hwnd, HPS hps, PCWDATA pCtl, LONG lHeight )
         else if ( dSizeAdjust < 0.75 ) dSizeAdjust = 0.75;
         lCell *= dSizeAdjust;
     }
+#endif
     sfCell.cy = MAKEFIXED( lCell, 0 );
     sfCell.cx = sfCell.cy;
     GpiSetCharBox( hps, &sfCell );

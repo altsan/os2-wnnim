@@ -134,7 +134,8 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     CURSORINFO  ci;
     POINTL      ptl;
     LONG        lClr,
-                lTxtHeight;
+                lTxtHeight,
+                lYOffset;
     USHORT      usRC;
 
 
@@ -205,12 +206,24 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
             ptl.x = ci.x;
             ptl.y = ci.y;
             fGotPos = TRUE;
+#if 0
             if ( ci.cy > 4 ) {
                 lTxtHeight = ci.cy + 2;
                 fGotHeight = TRUE;
             }
+#endif
         }
     }
+
+    hps = WinGetPS( hwndSource );
+    GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm );
+    // The application's cursor position is usually at or around the
+    // underscore position, but it kind of depends.  Also, the actual
+    // font metrics can vary quite widely, so this is a bit of a fudge...
+    // basically we try and guesstimate how far the cursor position is
+    // from the text baseline; we will use this value to adjust the
+    // conversion window position by the same vertical amount.
+    lYOffset = min( fm.lLowerCaseDescent - fm.lUnderscorePosition, fm.lEmHeight / 5 );
 
     if ( fGotPos ) {
         WinMapWindowPoints( hwndSource, HWND_DESKTOP, &ptl, 1 );
@@ -218,20 +231,22 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
         // Try and set the font and window (line) height to match the source window
         // (this doesn't really work very well but in some cases it's semi-useful)
         if ( !fGotHeight ) {
-            hps = WinGetPS( hwndSource );
-            if ( GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm )) {
-                lTxtHeight = fm.lMaxBaselineExt + 2;
-                // Note: the point size here is ignored by the conversion window
-#if 0           // ALT - better to use just the user-configured font
-                sprintf( szFontPP, "%d.%s", fm.sNominalPointSize, fm.szFacename );
+            lTxtHeight = fm.lMaxBaselineExt + 2;
+            // Note: the point size here is ignored by the conversion window
+#if 0       // ALT - better to use just the user-configured font
+            sprintf( szFontPP, "%d.%s", fm.sNominalPointSize, fm.szFacename );
 #endif
-            }
-            WinReleasePS( hps );
         }
     }
+    WinReleasePS( hps );
+
+    _PmpfF(("Set conversion line height: %u", lTxtHeight ));
+
+    // Set the conversion window size; this is necessary so it sets the font size
+    WinSetWindowPos( global.hwndClause, HWND_TOP, 0, 0, 0, lTxtHeight, SWP_SIZE );
 
     // Set the conversion window font. This sets the face, but the window
-    // will set the point size itself based on the window height.
+    // sets the point size itself based on the window height.
     WinSetPresParam( global.hwndClause, PP_FONTNAMESIZE,
                      strlen( szFontPP ), szFontPP );
 
@@ -241,17 +256,14 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     if ( (BOOL)WinSendMsg( global.hwndClause, CWM_QUERYFONTMETRICS,
                            MPFROMP( &fm ), MPFROMLONG( lTxtHeight )))
     {
-        // The application's cursor position is usually at or around the
-        // underscore position, but it kind of depends.  Also, the actual
-        // font metrics can vary quite widely, so this is a bit of a fudge...
-        ptl.y -= min( fm.lLowerCaseDescent - fm.lUnderscorePosition, fm.lEmHeight / 5 );
+        ptl.y += lYOffset - ( fm.lLowerCaseDescent - fm.lUnderscorePosition );
+        //_PmpfF(("Descender: %u; Underscore: %u: Em: %u", fm.lLowerCaseDescent, fm.lUnderscorePosition, fm.lEmHeight ));
         if ( ptl.y < 0 ) ptl.y = 0;
     }
 
     // Place it over the source window at the position indicated
     WinSetWindowPos( global.hwndClause, HWND_TOP,
-                     ptl.x, ptl.y, 0, lTxtHeight,
-                     SWP_MOVE | SWP_SHOW | SWP_SIZE );
+                     ptl.x, ptl.y, 0, 0, SWP_MOVE | SWP_SHOW );
 
     pShared->fsMode |= MODE_CJK_ENTRY;
     WinSetFocus( HWND_DESKTOP, global.hwndClause );
