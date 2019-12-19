@@ -49,9 +49,9 @@ directory, and run 'wnnim.exe' to start the IME.  The actual UI is a small
 window located by default at the bottom right of your screen (you can move it
 around by dragging).  The UI consists of two small buttons and a status panel.
 
- * The button labelled 'I' toggles input conversion on or off.  You can also
+ * The button labelled 'I' (入) toggles input conversion on or off.  You can also
    toggle this setting using Ctrl+Space.
- * The button labelled 'C' toggles CJK clause conversion on or off.  You can
+ * The button labelled 'C' (変) toggles CJK clause conversion on or off.  You can
    also toggle this setting using Ctrl+Shift.
 
 There is also a popup context menu which allows you to do various things, such
@@ -68,8 +68,9 @@ When in clause conversion mode, the following hotkey commands apply:
     Esc:              Cancel conversion (this will clear the current clause text)
     Backspace or Del: Delete the last character
 
-The active mode is global, i.e. switching from one program to another will
-retain the current conversion mode.  
+The currently-active mode is system wide, i.e. switching from one program to 
+another will retain the current conversion mode.  (This may change in the 
+future.)
 
 Most of the aforementioned hotkey commands (except for Esc and Backspace) can be 
 changed via the settings dialog.
@@ -194,10 +195,13 @@ Limitations
     - Traditional Chinese: 950
 
 2. For the characters to display properly in the application, it will need to
-   use fonts that support the language in question.  For programs which use
-   standard PM controls or GPI text rendering, it may be possible to make use
-   of Presentation Manager's "font association" feature (PM_SystemFonts ->
-   PM_AssociateFont in OS2.INI), although this has certain limitations.
+   use fonts that support the language in question.  In other words, Japanese
+   text requires the target program to be using a Japanese font (in addition
+   to the Japanese codepage, as noted above).  If you would rather not change
+   a program's font to Japanese, then it may be possible to make use of
+   Presentation Manager's "font association" feature (PM_SystemFonts ->
+   PM_AssociateFont in OS2.INI), at least for programs which use standard PM
+   controls or GPI text rendering.  However, this does have certain limitations.
 
 3. Not all applications support positioning of the clause overlay window at the
    cursor.  (Qt-based applications are an example, as is OpenOffice.)  In such

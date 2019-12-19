@@ -241,6 +241,8 @@ MRESULT EXPENTRY CWinDisplayProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
         case WM_SIZE:
             pCtl = WinQueryWindowPtr( hwnd, 0 );
             WinQueryWindowRect( hwnd, &rcl );
+            SetTextSize( hwnd, hps, pCtl, rcl.yTop );
+
             //pCtl->lCursorHeight = rcl.yTop;
             break;
 
@@ -752,29 +754,32 @@ BOOL AppendText( HWND hwnd, PCWDATA pCtl, USHORT usLen, UniChar *puszText )
  * ------------------------------------------------------------------------- */
 void SetTextSize( HWND hwnd, HPS hps, PCWDATA pCtl, LONG lHeight )
 {
-    FONTMETRICS fm;                     // current font metrics
+//    FONTMETRICS fm;                     // current font metrics
     SIZEF       sfCell;                 // character cell size
     LONG        lCell;                  // desired character-cell height
-    double      dSizeAdjust;
+//    double      dSizeAdjust;
 
-    // Set the character cell size
-    // == height of window - 2 pixels for border and 2 pixels for padding
-    lCell = lHeight - 4;
 
     // Set up the font face
     if (( GpiCreateLogFont( hps, NULL, 1L, &(pCtl->fattrs) )) == GPI_ERROR ) return;
 
-    // Set the text size
-    GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
+    // Set the character cell size
+    lCell = lHeight - 2;
 
+    /* GPI sets the character cell to fit the em square; we want a bit more
+     * padding than that, since CJK characters normally fill the em completely.
+     */
 #if 0
-    // Adjust the cell height to take the maximum character bbox into account
+     // Adjust the cell height to take the maximum character bbox into account
+    GpiQueryFontMetrics( hps, sizeof(FONTMETRICS), &fm );
     dSizeAdjust = (double)(fm.lEmHeight) / fm.lMaxBaselineExt;
     if ( dSizeAdjust > 0 ) {
         if ( dSizeAdjust > 1 ) dSizeAdjust = 1;
-        else if ( dSizeAdjust < 0.75 ) dSizeAdjust = 0.75;
+        else if ( dSizeAdjust < 0.85 ) dSizeAdjust = 0.85;
         lCell *= dSizeAdjust;
     }
+#else
+    lCell *= 0.85;  // This will give us around em + 18%
 #endif
     sfCell.cy = MAKEFIXED( lCell, 0 );
     sfCell.cx = sfCell.cy;
@@ -836,7 +841,7 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
     // Draw the text
     if ( pCtl->puszText ) {
         ptl.x = 2;
-        ptl.y = 1 + max( fm.lMaxDescender, fm.lEmHeight / 5 );
+        ptl.y = 1 + min( fm.lLowerCaseDescent, lHeight / 6 );
         GpiMove( hps, &ptl );
 
         if (( pCtl->usCurrentPhrase != CWT_NONE ) && pCtl->usPhraseCount ) {
@@ -877,7 +882,8 @@ void DoPaint( HWND hwnd, HPS hps, PCWDATA pCtl )
         // Underline the text
         GpiSetLineType( hps, LINETYPE_SOLID );
         ptl.x = 0;
-        ptl.y = ptl2.y - max( 2, fm.lMaxDescender / 2 );
+        ptl.y = ptl2.y - max( abs( fm.lUnderscorePosition ), fm.lMaxDescender / 2 ) - 1;
+        if ( ptl.y < 1 ) ptl.y = 1;
         ptl2.y = ptl.y;
         GpiMove( hps, &ptl );
         GpiLine( hps, &ptl2 );

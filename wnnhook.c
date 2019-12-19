@@ -50,7 +50,7 @@ WNNSHARED global;
 //    - the character code (mc) matches the hotkey's (hc).
 #define IS_HOTKEY(mf, mv, mc, hf, hc)  \
                             ((BOOL)((( mf & hf ) == hf ) && \
-                                    ((( mf & KC_VIRTUALKEY) && ( mv  == hc )) || \
+                                    ((( mf & KC_VIRTUALKEY) && ( mv == hc )) || \
                                                                ( mc == hc ))))
 
 /* -------------------------------------------------------------------------- *
@@ -65,7 +65,7 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
 
     switch( pQmsg->msg ) {
         case WM_CHAR:
-            fsFlags = SHORT1FROMMP( pQmsg->mp1  );
+            fsFlags = SHORT1FROMMP( pQmsg->mp1 );
             if ( fsFlags & KC_KEYUP ) break;    // don't process key-up events
 
             c    = (CHAR)( SHORT1FROMMP( pQmsg->mp2 ) & 0xFF );

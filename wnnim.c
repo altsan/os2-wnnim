@@ -196,8 +196,17 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
                 lTxtHeight = ( global.pRclConv->yTop - global.pRclConv->yBottom ) + 2;
                 fGotHeight = TRUE;
             }
+            // This should have given us the baseline position
+            lYOffset = 0;
         }
     }
+
+    hps = WinGetPS( hwndSource );
+    GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm );
+
+
+    _PmpfF(("lEmHeight: %u", fm.lEmHeight ));
+    _PmpfF(("lMaxBaselineExt: %u", fm.lMaxBaselineExt ));
 
     // If the app wouldn't tell us the convert position, try & query the cursor
     if ( !fGotPos && WinQueryCursorInfo( HWND_DESKTOP, &ci )) {
@@ -207,23 +216,25 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
             ptl.y = ci.y;
             fGotPos = TRUE;
 #if 0
-            if ( ci.cy > 4 ) {
+            // ALT - probably better to always use the font metrics
+            if ( ci.cy >= fm.lEmHeight ) {
+                _PmpfF(("Setting line height from cursor"));
                 lTxtHeight = ci.cy + 2;
                 fGotHeight = TRUE;
             }
 #endif
         }
+
+        /* The cursor position is usually at or around the underscore position,
+         * but it kind of depends.  Also, the actual font metrics can vary quite
+         * widely, so this is a bit of a fudge... but we try and guess-timate
+         * how far the cursor position is from the text baseline.  We will use
+         * this value (below) in calculating how much to adjust the conversion
+         * window's vertical position.
+         */
+        lYOffset = min( fm.lUnderscorePosition, fm.lEmHeight / 5 );
     }
 
-    hps = WinGetPS( hwndSource );
-    GpiQueryFontMetrics( hps, sizeof( FONTMETRICS ), &fm );
-    // The application's cursor position is usually at or around the
-    // underscore position, but it kind of depends.  Also, the actual
-    // font metrics can vary quite widely, so this is a bit of a fudge...
-    // basically we try and guesstimate how far the cursor position is
-    // from the text baseline; we will use this value to adjust the
-    // conversion window position by the same vertical amount.
-    lYOffset = min( fm.lLowerCaseDescent - fm.lUnderscorePosition, fm.lEmHeight / 5 );
 
     if ( fGotPos ) {
         WinMapWindowPoints( hwndSource, HWND_DESKTOP, &ptl, 1 );
@@ -231,16 +242,17 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
         // Try and set the font and window (line) height to match the source window
         // (this doesn't really work very well but in some cases it's semi-useful)
         if ( !fGotHeight ) {
-            lTxtHeight = fm.lMaxBaselineExt + 2;
-            // Note: the point size here is ignored by the conversion window
+            lTxtHeight = fm.lMaxBaselineExt + 3;  // add 2px for border + 1 for underline padding
+
 #if 0       // ALT - better to use just the user-configured font
+            // Note: the point size here is ignored by the conversion window
             sprintf( szFontPP, "%d.%s", fm.sNominalPointSize, fm.szFacename );
 #endif
         }
     }
     WinReleasePS( hps );
 
-    _PmpfF(("Set conversion line height: %u", lTxtHeight ));
+    _PmpfF(("Set conversion window height: %u", lTxtHeight ));
 
     // Set the conversion window size; this is necessary so it sets the font size
     WinSetWindowPos( global.hwndClause, HWND_TOP, 0, 0, 0, lTxtHeight, SWP_SIZE );
@@ -253,13 +265,14 @@ BOOL SetConversionWindow( HWND hwnd, HWND hwndSource )
     // Now get the conversion window's actual font metrics and use to set the
     // position relative to the application cursor.  (We want it to line up so
     // that the text baselines match as closely as possible.)
-    if ( (BOOL)WinSendMsg( global.hwndClause, CWM_QUERYFONTMETRICS,
-                           MPFROMP( &fm ), MPFROMLONG( lTxtHeight )))
+    if ( fGotPos && (BOOL)WinSendMsg( global.hwndClause, CWM_QUERYFONTMETRICS,
+                                      MPFROMP( &fm ), 0L ))
     {
-        ptl.y += lYOffset - ( fm.lLowerCaseDescent - fm.lUnderscorePosition );
-        //_PmpfF(("Descender: %u; Underscore: %u: Em: %u", fm.lLowerCaseDescent, fm.lUnderscorePosition, fm.lEmHeight ));
+        ptl.y -= min( fm.lLowerCaseDescent - lYOffset, lTxtHeight / 6 ) - 1;
         if ( ptl.y < 0 ) ptl.y = 0;
     }
+
+    _PmpfF(("Set conversion window pos: %u, %u", ptl.x, ptl.y ));
 
     // Place it over the source window at the position indicated
     WinSetWindowPos( global.hwndClause, HWND_TOP,
