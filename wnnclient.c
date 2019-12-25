@@ -310,7 +310,7 @@ INT IM_CALLCNV MakeHalfKana( void )
 /* ------------------------------------------------------------------------- *
  * PreprocessKana                                                            *
  *                                                                           *
- * This function checks for and converts certain kana sequences not handled  *
+ * This function checks for and converts certain sequences not handled       *
  * by romkan_henkan()'s normal hiragana logic.  This is done before the call *
  * to romkan_henkan(), and thus also prior to the output buffer's conversion *
  * from EUC to UCS-2.  Therefore, this function generates EUC output.        *
@@ -359,8 +359,9 @@ BYTE IM_CALLCNV PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PS
     PSZ    pszInput;
     BYTE   result = KANA_PENDING;
 
+    pszInput = (PSZ)(global.szRomaji) + *pusIn;
+
     if ( IS_INPUT_MODE( fsMode, MODE_KATAKANA )) {
-        pszInput = (PSZ)(global.szRomaji) + *pusIn;
         for ( index = 0; index < NUM_SPEC_KATAKANA; index++ ) {
             if ( strcmpi( pszInput, aszSpcKataIn[ index ] ) == 0 ) {
                 strncat( pszOutput, aszSpcKataOut[ index ], cbOutput );
@@ -371,6 +372,15 @@ BYTE IM_CALLCNV PreprocessKana( USHORT fsMode, PUSHORT pusIn, PUSHORT pusOut, PS
             }
         }
     }
+
+    // Convert tilde to wavy dash (any conversion mode)
+    if (( result != KANA_COMPLETE ) && ( *pszInput == 0x7E )) {
+        strncat( pszOutput, "¡Á", cbOutput );
+        *pusIn  += 1;
+        *pusOut += 2;
+        result = KANA_COMPLETE;
+    }
+
     return result;
 }
 

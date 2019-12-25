@@ -59,16 +59,20 @@ WNNSHARED global;
  * -------------------------------------------------------------------------- */
 BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
 {
-    CHAR   c;
+    UCHAR  c;
+    UCHAR  scan;
     USHORT fsFlags;
     USHORT usVK;
 
+
     switch( pQmsg->msg ) {
         case WM_CHAR:
+
             fsFlags = SHORT1FROMMP( pQmsg->mp1 );
             if ( fsFlags & KC_KEYUP ) break;    // don't process key-up events
 
-            c    = (CHAR)( SHORT1FROMMP( pQmsg->mp2 ) & 0xFF );
+            c    = (UCHAR)( SHORT1FROMMP( pQmsg->mp2 ) & 0xFF );
+            scan = CHAR4FROMMP( pQmsg->mp2 );
             usVK = SHORT2FROMMP( pQmsg->mp2 );
 
             // Check for hotkey commands first (regardless of mode)
@@ -142,12 +146,19 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
                 }
             }
 
+
             // Check for input characters
             if ( fsFlags & KC_CHAR ) {
+
+                // Special treatment for certain Japanese keyboard scancodes
+                if ( scan == 0x7D )      c = 0x7E;  // halfwidth yen --> ASCII backslash
+                else if ( scan == 0x73 ) c = 0xFE;  // Japanese backslash --> special value 0xFE
+
                 if ( global.fsMode & 0xFF ) {           // Any conversion mode is active
-                    if ( !( usVK & VK_NUMLOCK ) && ( c > 0x20 && c < 0x7E )) {
+                    if ( !( usVK & VK_NUMLOCK ) && (( c > 0x20 && c < 0x7F ) || ( c >= 0xFE ))) {
                         // Convertible byte value
                         global.hwndSource = pQmsg->hwnd;
+                        pQmsg->mp2 = MPFROM2SHORT( SHORT1FROMMP( pQmsg->mp2 ) | c, usVK );
                         WinPostMsg( g_hwndClient, global.wmAddChar, pQmsg->mp1, pQmsg->mp2 );
                         return TRUE;
                     }

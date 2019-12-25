@@ -22,7 +22,7 @@ For Users
 
 The FreeWnn server and runtime files are required.  These are provided in the
 FreeWnn RPM packages, which should soon be available from a repository near you;
-in the meantime, you can get `FreeWnn-1.1.1-0.a023.0.i386.rpm` from
+in the meantime, you can get `FreeWnn-1.1.1-0.a023.1.i386.rpm` from
 [here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
 
 If you prefer not to install the FreeWnn server locally, you can set it up
@@ -193,6 +193,10 @@ Limitations
     - Korean: 949
     - Simplified Chinese: 1386
     - Traditional Chinese: 950
+
+   Note that running under these codepages without also using the corresponding
+   language OS version and keyboard driver may prevent you from typing certain 
+   characters like tilde (~) and backslash (\).
 
 2. For the characters to display properly in the application, it will need to
    use fonts that support the language in question.  In other words, Japanese

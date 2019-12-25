@@ -663,6 +663,8 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     UCHAR szChar[ 2 ];
     BYTE  bStatus;
 
+    _PmpfF(("Incoming character: %04X", SHORT1FROMMP( mp2 )));
+
     if (( hwndSource != global.hwndInput ) && ( hwndSource != global.hwndClause )) {
         // Source window changed, clear any existing buffers.
         global.hwndInput = hwndSource;
@@ -672,6 +674,17 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
 
     szChar[ 0 ] = (UCHAR) SHORT1FROMMP( mp2 );
     szChar[ 1 ] = 0;
+
+/* Is this actually necessary/useful?
+    if ( IS_LANGUAGE( pShared->fsMode, MODE_JP )) {
+        // Tilde and backslash don't technically exist in the Japanese codepage,
+        // but they may get reported as 0xFE and 0xFF, respectively.
+        // (This only works when using a Japanese keyboard on Japanese OS/2.)
+        if ( szChar[0] == 0xFE )        szChar[0] = 0x5C;
+        else if ( szChar[0] == 0xFF )   szChar[0] = 0x7E;
+    }
+*/
+
     strncat( global.szRomaji, szChar, sizeof(global.szRomaji) - 1 );
 
     if ( IS_INPUT_MODE( pShared->fsMode, MODE_FULLWIDTH ))

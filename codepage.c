@@ -25,9 +25,10 @@
 #include <unidef.h>
 #include <uconv.h>
 
+#include <PMPRINTF.H>
+
 #include "wnnhook.h"
 #include "codepage.h"
-
 
 /* ------------------------------------------------------------------------- *
  * IsDBCSLeadByte                                                            *
@@ -95,7 +96,7 @@ ULONG _System CreateUconvObject( ULONG ulCP, UconvObject *uconv )
         rc = UniMapCpToUcsCp( ulCP, suCP, 12 );
 
     if ( rc == ULS_SUCCESS ) {
-        UniStrcat( suCP, (UniChar *) L"@map=display,path=no");
+        UniStrcat( suCP, (UniChar *) L"@map=display,path=yes");
         rc = UniCreateUconvObject( suCP, uconv );
     }
     return rc;
@@ -184,8 +185,13 @@ USHORT _System ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax
     j = 0;
     for ( i = 0; ( j < usMax ) && ( i < usInLen ); i++ ) {
         c = pszInput[ i ];
+//        _PmpfF(("Converting %c (%02X) to fullwidth form.", c, c ));
         if ( ! (( c > 0x20 ) && ( c < 0x7F ))) continue;
-        uc = (UniChar)( c + 0xFEE0 );
+        if ( c == 0x7E )
+            uc = 0x301C;        // convert tilde to wavy dash instead of U+FF5F
+        else
+            uc = (UniChar)( c + 0xFEE0 );
+//        _PmpfF(("--> U+%04X", uc ));
         puczOutput[ j++ ] = uc;
     }
     puczOutput[ j ] = 0;
