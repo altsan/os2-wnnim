@@ -57,6 +57,10 @@ static int _etc_cs[3] = { 2, 1, 2 };
 static int _etc_cs_len[3] = { 2, 1, 2 };
 static int cs_mask[3] = { 0x8080, 0x0080, 0x8000 };
 
+int ieuc_to_eeuc( unsigned char *eeuc, w_char *ieuc, int iesiz );
+int eeuc_to_ieuc( w_char *ieuc, unsigned char *eeuc, register int eesiz );
+
+
 
 int
 ieuc_to_eeuc (eeuc, ieuc, iesiz)

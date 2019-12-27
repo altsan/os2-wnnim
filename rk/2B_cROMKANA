@@ -1,0 +1,286 @@
+;
+;   $Id: ./rk/2B_ROMKANA $
+;
+
+;
+; FreeWnn is a network-extensible Kana-to-Kanji conversion system.
+; This file is part of FreeWnn.
+; 
+; Copyright Kyoto University Research Institute for Mathematical Sciences
+;                 1987, 1988, 1989, 1990, 1991, 1992
+; Copyright OMRON Corporation. 1987, 1988, 1989, 1990, 1991, 1992, 1999
+; Copyright ASTEC, Inc. 1987, 1988, 1989, 1990, 1991, 1992
+; Copyright FreeWnn Project 1999, 2000
+; 
+; Maintainer:  FreeWnn Project   <freewnn@tomo.gr.jp>
+; 
+; This program is free software; you can redistribute it and/or modify
+; it under the terms of the GNU General Public License as published by
+; the Free Software Foundation; either version 2 of the License, or
+; (at your option) any later version.
+; 
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+; 
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, write to the Free Software
+; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+;
+
+A	丐
+I	中
+U	丹
+E	尹
+O	云
+KA	井
+KI	五
+KU	仁
+KE	仃
+KO	仇
+KYA	五扎
+KYU	五文
+KYE	五之
+KYO	五斤
+SA	今
+SI	仄
+SU	允
+SE	六
+SO	公
+SYA	仄扎
+SYU	仄文
+SYE	仄之
+SYO	仄斤
+SHA	仄扎
+SHI	仄
+SHU	仄文
+SHE	仄之
+SHO	仄斤
+TA	凶
+;TI	切
+(unless katakana)TI	切
+(    if katakana)TI	氾不
+;TU	勾
+(unless katakana)TU	勾
+(    if katakana)TU	玄丰
+TE	化
+TO	午
+TYA	切扎
+TYI	化不
+TYU	切文
+TYE	切之
+TYO	切斤
+TSU	勾
+CHA	切扎
+CHI	切
+CHU	切文
+CHE	切之
+CHO	切斤
+NA	卅
+NI	卞
+NU	厄
+NE	友
+NO	及
+NYA	卞扎
+NYU	卞文
+NYE	卞之
+NYO	卞斤
+HA	反
+HI	夫
+HU	孔
+HE	尺
+HO	幻
+HYA	夫扎
+HYU	夫文
+HYE	夫之
+HYO	夫斤
+FA	孔丑
+FI	孔不
+FU	孔
+FE	孔之
+FO	孔予
+MA	引
+MI	心
+MU	戈
+ME	戶
+MO	手
+MYA	心扎
+MYU	心文
+MYE	心之
+MYO	心斤
+YA	支
+YI	中
+YU	斗
+YE	中之
+YO	方
+RA	日
+RI	曰
+RU	月
+RE	木
+RO	欠
+LA	日
+LI	曰
+LU	月
+LE	木
+LO	欠
+RYA	曰扎
+RYU	曰文
+RYE	曰之
+RYO	曰斤
+LYA	曰扎
+LYU	曰文
+LYE	曰之
+LYO	曰斤
+WA	歹
+WI	毋
+WU	丹
+WE	比
+WO	毛
+GA	互
+GI	亢
+GU	什
+GE	仆
+GO	仍
+GYA	亢扎
+GYU	亢文
+GYE	亢之
+GYO	亢斤
+ZA	介
+ZI	元
+ZU	內
+ZE	兮
+ZO	冗
+ZYA	元扎
+ZYU	元文
+ZYE	元之
+ZYO	元斤
+JA	元扎
+JI	元
+JU	元文
+JE	元之
+JO	元斤
+DA	分
+;DI	刈
+(unless katakana)DI	刈
+(    if katakana)DI	犯不
+;DU	勿
+(unless katakana)DU	勿
+(    if katakana)DU	玉丰
+DE	匹
+DO	升
+DYA	刈扎
+DYI	匹不
+DYU	刈文
+DYE	刈之
+DYO	刈斤
+BA	壬
+BI	太
+BU	少
+BE	屯
+BO	廿
+BYA	太扎
+BYU	太文
+BYE	太之
+BYO	太斤
+PA	天
+PI	夭
+PU	尤
+PE	巴
+PO	弔
+PYA	夭扎
+PYU	夭文
+PYE	夭之
+PYO	夭斤
+(    if katakana)VA	任丑
+(    if katakana)VI	任不
+(    if katakana)VU	任
+(    if katakana)VE	任之
+(    if katakana)VO	任予
+(unless katakana)VA	少丑
+(unless katakana)VI	少不
+(unless katakana)VU	少
+(unless katakana)VE	少之
+(unless katakana)VO	少予
+
+KWA	仁止
+KWI	仁不
+KWU	仁
+KWE	仁之
+KWO	仁予
+GWA	什止
+GWI	什不
+GWU	什
+GWE	什之
+GWO	什予
+TSA	勾丑
+TSI	勾不
+TSE	勾之
+TSO	勾予
+;QA	仁丑
+;QI	仁不
+;QU	仁
+;QE	仁之
+;QO	仁予
+
+N	氏
+N'\''	氏
+;NN	氏
+
+(defvar q1 (list B M P))
+M(q1)	氏 (q1)
+
+(defvar aa (list K S T H Y R W G Z D B P C F J V))
+(aa)(aa) 勻 (aa)
+TCH	勻 CH
+
+;(defvar small (list X '\\'))
+(defvar small (list X))
+(small)A	丑
+(small)I	不
+(small)U	丰
+(small)E	之
+(small)O	予
+(small)YA	扎
+(small)YU	文
+(small)YO	斤
+(small)TU	勻
+(small)TSU	勻
+(small)WA	止
+(if katakana)(small)KA	仰
+(if katakana)(small)KE	仳
+
+XTI	化不
+XDI	匹不
+XDU	升丰
+XDE	匹之
+XDO	升予
+XWI	丹不
+XWE	丹之
+XWO	丹予
+
+-	□
+;\	□
+,	﹜
+.	﹝
+/	’
+[	＞
+]	＝
+
+Z.	＿
+Z-	℅
+Z/	㊣
+
+
+(defvar escd (list - , . / '\;' : [ '\\' ] '\^' '\~'))
+X(escd)	(escd)  
+
+(defvar chouon (list '\^' '\~'))
+(last= A)(chouon)	丐
+(last= I)(chouon)	中
+(last= U)(chouon)	丹
+(last= E)(chouon)	中
+(last= O)(chouon)	丹
+
+(defvar alpha (between A Z))
+(alpha)	(error)

@@ -217,7 +217,7 @@ TSO	つぉ
 
 N	ん
 N'\''	ん
-;NN	ん
+NN	ん
 
 (defvar q1 (list B M P))
 M(q1)	ん (q1)

@@ -663,7 +663,8 @@ void ProcessCharacter( HWND hwnd, HWND hwndSource, MPARAM mp1, MPARAM mp2 )
     UCHAR szChar[ 2 ];
     BYTE  bStatus;
 
-    _PmpfF(("Incoming character: %04X", SHORT1FROMMP( mp2 )));
+//    _PmpfF(("Incoming character: %04X", SHORT1FROMMP( mp2 )));
+//    _PmpfF(("0x%04X %02X %02X : 0x%04X 0x%04X", SHORT1FROMMP(mp1), CHAR3FROMMP(mp1), CHAR4FROMMP(mp1), SHORT1FROMMP(mp2), SHORT2FROMMP(mp2) ));
 
     if (( hwndSource != global.hwndInput ) && ( hwndSource != global.hwndClause )) {
         // Source window changed, clear any existing buffers.
@@ -718,6 +719,8 @@ void AcceptClause( HWND hwnd )
     USHORT   usLen;
 
     if ( !global.hwndClause || !global.hwndInput ) return;
+
+    FinishPhoneticInput( hwnd );
 
     usLen = (USHORT) WinSendMsg( global.hwndClause, CWM_QUERYTEXTLENGTH,
                                  MPFROMSHORT( CWT_ALL ), 0 );

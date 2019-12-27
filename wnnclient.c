@@ -182,6 +182,7 @@ INT IM_CALLCNV InitInputMethod( PSZ pszPath, USHORT usLang )
     CHAR   szLang[ 6 ];
     CHAR   szModeHyo[ CCHMAXPATH ];
     int    rc;
+    CHAR   *c;
 
 
     switch ( usLang ) {
@@ -203,6 +204,7 @@ INT IM_CALLCNV InitInputMethod( PSZ pszPath, USHORT usLang )
                 sprintf( szModeHyo, "/@unixroot/usr/lib/wnn/%.5s/rk/mode", szLang );
         }
         pszPath = szModeHyo;
+        while (( c = strchr( pszPath, '\\')) != NULL ) *c = '/';
     }
 
     _PmpfF(("Initializing romkan engine using configuration %s", pszPath ));
@@ -582,12 +584,14 @@ INT IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSessio
 
     if ( pszPath == NULL ) {
         CHAR szPathBuf[ CCHMAXPATH ];
+        CHAR *c;
 
         pszPath = getenv("WNNLIB");
         if ( pszPath )
             strncpy( szPathBuf, pszPath, CCHMAXPATH - 16 );
         else
             strcpy( szPathBuf, "/@unixroot/usr/lib/wnn");
+        while (( c = strchr( szPathBuf, '\\')) != NULL ) *c = '/';
         sprintf( szEnvRC, "%.240s/%.5s/wnnenvrc", szPathBuf, szLang );
     }
 
