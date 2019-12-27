@@ -35,4 +35,5 @@ USHORT _System GetEucCodepage( USHORT usLang );
 ULONG  _System CreateUconvObject( ULONG ulCP, UconvObject *uconv );
 ULONG  _System StrConvert( PCH pchInput, PCH pchOutput, UconvObject uconvFrom, UconvObject uconvTo );
 USHORT _System ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax );
+USHORT _System ConvertHankaku( UniChar *puczInput, UniChar *puczOutput, USHORT usMax );
 

@@ -30,6 +30,36 @@
 #include "wnnhook.h"
 #include "codepage.h"
 
+
+// Fullwidth codepoints
+#define CHOUON  (0x30FC)        // long vowel modifier
+#define DAKUTN  (0x309B)        // voiced modifier
+#define HNDAKU  (0x309C)        // semivoiced modifier
+#define MNMARU  (0x3002)        // CJK period
+#define HRKKAG  (0x300C)        // CJK left quote
+#define TJIKAG  (0x300D)        // CJK right quote
+#define TOUTEN  (0x3001)        // CJK comma
+#define NKPOTU  (0x30FB)        // middot
+
+// Halfwidth codepoints
+#define HKCHOU  (0xFF70)
+#define HKDKTN  (0xFF9E)
+#define HKHNDK  (0xFF9F)
+#define HKMARU  (0xFF61)
+#define HKHRKG  (0xFF62)
+#define HKTJKG  (0xFF63)
+#define HKTTEN  (0xFF64)
+#define HKNKPT  (0xFF65)
+
+#define HIRBGN  (0x3041)        // first hiragana character in UCS-2
+#define HIREND  (0x3093)        // last hiragana character in UCS-2
+#define KATBGN  (0x30A1)        // first katakana character in UCS-2
+#define KATEND  (0x30F6)        // last katakana character in UCS-2
+
+#define is_hira( l )    ( HIRBGN <= (l) && (l) <= HIREND )
+#define is_kata( l )    ( KATBGN <= (l) && (l) <= KATEND )
+
+
 /* ------------------------------------------------------------------------- *
  * IsDBCSLeadByte                                                            *
  *                                                                           *
@@ -196,6 +226,102 @@ USHORT _System ConvertFullWidth( PSZ pszInput, UniChar *puczOutput, USHORT usMax
     }
     puczOutput[ j ] = 0;
 
-    return ( j );
+    return j;
 }
+
+
+/* ------------------------------------------------------------------------- *
+ * ConvertHankaku                                                            *
+ *                                                                           *
+ * Convert all kana in the input string to halfwidth ('hankaku') katakana.   *
+ *                                                                           *
+ * ARGUMENTS:                                                                *
+ *   UniChar *puczInput : Input string (UCS-2 encoded)                       *
+ *   UniChar *puczOutput: UCS-2 output buffer (already allocated)            *
+ *   USHORT   usMax     : Size of output buffer                              *
+ *                                                                           *
+ * RETURNS: USHORT                                                           *
+ *   Number of characters converted.                                         *
+ * ------------------------------------------------------------------------- */
+USHORT _System ConvertHankaku( UniChar *puczInput, UniChar *puczOutput, USHORT usMax )
+{
+    // Lookup table of halfwidth katakana characters in UCS-2 encoding
+    static UniChar ucHankata[][3] = {
+        {0xFF67,0x0000,0}, {0xFF71,0x0000,0}, {0xFF68,0x0000,0}, {0xFF72,0x0000,0}, {0xFF69,0x0000,0}, {0xFF73,0x0000,0}, {0xFF6A,0x0000,0}, {0xFF74,0x0000,0}, {0xFF6B,0x0000,0}, {0xFF75,0x0000,0},
+        {0xFF76,0x0000,0}, {0xFF76,0xFF9E,0}, {0xFF77,0x0000,0}, {0xFF77,0xFF9E,0}, {0xFF78,0x0000,0}, {0xFF78,0xFF9E,0}, {0xFF79,0x0000,0}, {0xFF79,0xFF9E,0}, {0xFF7A,0x0000,0}, {0xFF7A,0xFF9E,0},
+        {0xFF7B,0x0000,0}, {0xFF7B,0xFF9E,0}, {0xFF7C,0x0000,0}, {0xFF7C,0xFF9E,0}, {0xFF7D,0x0000,0}, {0xFF7D,0xFF9E,0}, {0xFF7E,0x0000,0}, {0xFF7E,0xFF9E,0}, {0xFF7F,0x0000,0}, {0xFF7F,0xFF9E,0},
+        {0xFF80,0x0000,0}, {0xFF80,0xFF9E,0}, {0xFF81,0x0000,0}, {0xFF81,0xFF9E,0}, {0xFF6F,0x0000,0}, {0xFF82,0x0000,0}, {0xFF82,0xFF9E,0}, {0xFF83,0x0000,0}, {0xFF83,0xFF9E,0}, {0xFF84,0x0000,0}, {0xFF84,0xFF9E,0},
+        {0xFF85,0x0000,0}, {0xFF86,0x0000,0}, {0xFF87,0x0000,0}, {0xFF88,0x0000,0}, {0xFF89,0x0000,0},
+        {0xFF8A,0x0000,0}, {0xFF8A,0xFF9E,0}, {0xFF8A,0xFF9F,0}, {0xFF8B,0x0000,0}, {0xFF8B,0xFF9E,0}, {0xFF8B,0xFF9F,0}, {0xFF8C,0x0000,0}, {0xFF8C,0xFF9E,0}, {0xFF8C,0xFF9F,0},
+        {0xFF8D,0x0000,0}, {0xFF8D,0xFF9E,0}, {0xFF8D,0xFF9F,0}, {0xFF8E,0x0000,0}, {0xFF8E,0xFF9E,0}, {0xFF8E,0xFF9F,0},
+        {0xFF8F,0x0000,0}, {0xFF90,0x0000,0}, {0xFF91,0x0000,0}, {0xFF92,0x0000,0}, {0xFF93,0x0000,0},
+        {0xFF6C,0x0000,0}, {0xFF94,0x0000,0}, {0xFF6D,0x0000,0}, {0xFF95,0x0000,0}, {0xFF6E,0x0000,0}, {0xFF96,0x0000,0},
+        {0xFF97,0x0000,0}, {0xFF98,0x0000,0}, {0xFF99,0x0000,0}, {0xFF9A,0x0000,0}, {0xFF9B,0x0000,0},
+        {0x30EF,0x0000,0}, {0xFF9C,0x0000,0}, {0x30F0,0x0000,0}, {0x30F1,0x0000,0}, {0xFF66,0x0000,0}, {0xFF9D,0x0000,0},
+        {0xFF73,0xFF9E,0}, {0x30F5,0x0000,0}, {0x30F6,0x0000,0}
+    };
+
+    UniChar in, *out, *p;
+    USHORT  usCount;
+
+    in = *puczInput;
+    out = puczOutput;
+    usCount = 0;
+    while ( in && (( out - puczOutput) <= usMax )) {
+        switch ( in ) {
+            case CHOUON:
+                *out++ = HKCHOU;
+                usCount++;
+                break;
+            case DAKUTN:
+                *out++ = HKDKTN;
+                usCount++;
+                break;
+            case HNDAKU:
+                *out++ = HKHNDK;
+                usCount++;
+                break;
+            case MNMARU:
+                *out++ = HKMARU;
+                usCount++;
+                break;
+            case HRKKAG:
+                *out++ = HKHRKG;
+                usCount++;
+                break;
+            case TJIKAG:
+                *out++ = HKTJKG;
+                usCount++;
+                break;
+            case TOUTEN:
+                *out++ = HKTTEN;
+                usCount++;
+                break;
+            case NKPOTU:
+                *out++ = HKNKPT;
+                usCount++;
+                break;
+
+            default:
+                if ( is_kata( in )) {
+                    p = ucHankata[ in - KATBGN ];
+                    UniStrcat( out, p );
+                    out += UniStrlen( p );
+                    usCount++;
+                }
+                else if ( is_hira( in )) {
+                    p = ucHankata[ in - HIRBGN ];
+                    UniStrcat( out, p );
+                    out += UniStrlen( p );
+                    usCount++;
+                }
+                else
+                    *out++ = in;
+        }
+    }
+    *out = 0;
+
+    return usCount;
+}
+
 
