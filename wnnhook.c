@@ -79,7 +79,7 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
 
 //          if ((( fsFlags & global.fsVKInput ) == global.fsVKInput ) && ( c == global.usKeyInput )) {
             if ( IS_HOTKEY( fsFlags, usVK, c, global.fsVKInput, global.usKeyInput )) {
-                // toggle input hotkey
+                // Toggle input hotkey
                 WinPostMsg( g_hwndClient, WM_COMMAND,
                             MPFROMSHORT( ID_HOTKEY_INPUT ),
                             MPFROM2SHORT( CMDSRC_OTHER, FALSE ));
@@ -151,8 +151,10 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
             if ( fsFlags & KC_CHAR ) {
 
                 // Special treatment for certain Japanese keyboard scancodes
-                if ( scan == 0x7D )      c = 0x7E;  // halfwidth yen --> ASCII backslash
-                else if ( scan == 0x73 ) c = 0xFE;  // Japanese backslash --> special value 0xFE
+                if ( !( usVK & VK_SHIFT ) && !( usVK & VK_ALT ) && !( usVK & VK_CTRL )) {
+                    if ( scan == 0x7D )      c = 0x7E;  // halfwidth yen --> ASCII backslash
+                    else if ( scan == 0x73 ) c = 0xFE;  // Japanese backslash --> special value 0xFE
+                }
 
                 if ( global.fsMode & 0xFF ) {           // Any conversion mode is active
                     if ( !( usVK & VK_NUMLOCK ) && (( c > 0x20 && c < 0x7F ) || ( c >= 0xFE ))) {
@@ -169,7 +171,7 @@ BOOL EXPENTRY WnnHookInput( HAB hab, PQMSG pQmsg, USHORT fs )
             if ( global.fsMode & MODE_CJK_ENTRY )
                 return TRUE;
 
-            // Otherwise pass everything else through to the source window
+            // Otherwise leave everything else for to the source window to handle
             break;
 
     }
