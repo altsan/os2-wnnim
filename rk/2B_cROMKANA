@@ -162,6 +162,7 @@ JE	元之
 JO	元斤
 DA	分
 ;DI	刈
+DZI	刈
 (unless katakana)DI	刈
 (    if katakana)DI	犯不
 ;DU	勿

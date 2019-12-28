@@ -20,15 +20,21 @@ is planned for future releases.
 For Users
 ---------
 
+### Installing FreeWnn (prerequisite)
+
 The FreeWnn server and runtime files are required.  These are provided in the
 FreeWnn RPM packages, which should soon be available from a repository near you;
 in the meantime, you can get `FreeWnn-1.1.1-0.a023.1.i386.rpm` from
 [here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
 
+Reboot after installing the FreeWnn RPM.
+
+#### Running FreeWnn remotely (optional)
+
 If you prefer not to install the FreeWnn server locally, you can set it up
 to use an installation of FreeWnn anywhere on your network (for example, on
-a Linux box).  In this case, you will still need to install the runtime files
-locally, which you can do by following these steps:
+a separate Linux box).  In this case, you will still need to install the 
+runtime files locally, which you can do by following these steps:
 
 1. Extract `wnn0.dll` from the RPM and place it in a directory on your LIBPATH.
 2. Extract the contents of `usr\lib\wnn` (including all subdirectories); 
@@ -41,18 +47,54 @@ locally, which you can do by following these steps:
    (e.g. `SET JSERVER=localhost:1`).  (The instance number is usually 1,
    at least for the Japanese FreeWnn server; it corresponds to the `-N` 
    parameter specified on the server command line.)
+5. Shut down and reboot.
 
 The above steps are not needed if you installed the FreeWnn RPM.
 
-To run WnnIM itself, make sure `wnnhook.dll` and `wnnim.exe` are in the same
-directory, and run 'wnnim.exe' to start the IME.  The actual UI is a small
-window located by default at the bottom right of your screen (you can move it
-around by dragging).  The UI consists of two small buttons and a status panel.
+### Installing WnnIM
 
- * The button labelled 'I' (入) toggles input conversion on or off.  You can also
-   toggle this setting using Ctrl+Space.
- * The button labelled 'C' (変) toggles CJK clause conversion on or off.  You can
-   also toggle this setting using Ctrl+Shift.
+Make sure FreeWnn is available (using either method described above).  
+
+You can install WnnIM from RPM using the rpm command line or a program like 
+ANPM.  Alternatively, you can install it manually using the following steps:
+
+1. Place `wnnhook.dll` and `wnnim.exe` together in a directory of your choice.
+2. Place the `rk` directory and its contents somewhere.  Edit your CONFIG.SYS
+   file and define the environment variable `ROMKAN_TABLE` as the fully-
+   qualified path to either the `modew` or `modec` file (see below for the
+   difference) in this directory.  (Reboot after updating CONFIG.SYS.)
+3. Create a program object for `wnnim.exe` if you desire.
+
+Two different configuration files for romaji-to-kanji input conversion are
+provided.  You can choose which one to use, according to your preference:
+
+ * `modew` is designed to work similarly to the Japanese IME on Windows.
+   Of note is that in order to enter a 'ん' or 'ン' kana, you must type 'NN'.
+   (Thus, to enter the word 'みんな', you type 'MINNNA'.)
+
+ * `modec` is a custom configuration file with a few key differences from
+   `modew`.  First, you enter 'ん' or 'ン' by typing 'N' _once_, followed by
+   either an apostrophe ('), a punctuation character, or any letter other than
+   a vowel -- or, in clause conversion mode, activating clause conversion or
+   accepting the current clause.  (Thus, to enter the word 'みんな', you type
+   'MINNA'.)  This behaviour is more like that of older non-Windows IMEs.
+
+   Second, with this configuration file, typing 'TU' or 'DU' while in katakana
+   input mode will produce トゥ or ドゥ, respectively (type 'TSU'/'TZU' to 
+   produce 'ツ'/'ヅ'); and typing 'TI/DI' will similarly produce 'ティ'/'ディ' 
+   (type 'CHI'/'DZI' for 'チ'/'ヂ').  These special sequences apply _only_ when
+   typing in katakana (not hiragana).
+
+### Using WnnIM
+
+Run `wnnim.exe` to start the IME.  The WnnIM user interface consists of a small
+window located (by default) at the bottom right of your screen (you can move it
+around by dragging).  This UI consists of two small buttons and a status panel.
+
+ * The button labelled 'I' (or '入') toggles input conversion on or off.  You 
+   can also toggle this setting using Ctrl+Space.
+ * The button labelled 'C' (or '変') toggles CJK clause conversion on or off.  
+   You can also toggle this setting using Ctrl+Shift.
 
 There is also a popup context menu which allows you to do various things, such
 as select the input conversion mode (currently hiragana, katakana and fullwidth
@@ -74,6 +116,24 @@ future.)
 
 Most of the aforementioned hotkey commands (except for Esc and Backspace) can be 
 changed via the settings dialog.
+
+Romaji input works much the same way as it does in other IMEs (subject to the
+differences between the `modew` and `modec` configuration files noted above).
+However, some possibly non-obvious input sequences include:
+
+	TYA	ちゃ		DYA	ぢゃ
+	TYI	てぃ		DYI	でぃ
+	TYU	ちゅ		DYU	ぢゅ
+	TYE	ちぇ		DYE	ぢぇ
+	TYO	ちょ		DYO	ぢょ
+	XTI	てぃ		XDI	でぃ
+	XDU	どぅ		XDE	でぇ
+	XDO	どぉ		XWI	うぃ
+	XWE	うぇ		XWO	うぉ
+	Z.	…		Z-	〜
+	Z/	＼
+
+(The above apply to both hiragana and katakana input.)
 
 
 For Developers
