@@ -180,10 +180,11 @@ INT IM_CALLCNV InitInputMethod( PSZ pszPath, USHORT usLang )
 {
     USHORT cpEUC;
     CHAR   szLang[ 6 ];
-    CHAR   szModeHyo[ CCHMAXPATH ];
+    CHAR   szModeHyo[ CCHMAXPATH ] = {0};
     int    rc;
     CHAR   *c;
-
+    PSZ    pszFile = NULL;
+    USHORT cbFile;
 
     switch ( usLang ) {
         case MODE_CN: strcpy( szLang, "zh_CN"); break;
@@ -193,26 +194,40 @@ INT IM_CALLCNV InitInputMethod( PSZ pszPath, USHORT usLang )
     }
 
     if ( pszPath == NULL ) {
+        /* If ROMKAN_TABLE is defined and includes a directory specifier, use
+         * it as the full path to the romkan config file.  If it is defined but
+         * doesn't contain a directory specifier, treat it as a filename only,
+         * and append it to the directory path as determined below.
+         */
         pszPath = getenv("ROMKAN_TABLE");
-        if ( pszPath )
-            strncpy( szModeHyo, pszPath, CCHMAXPATH - 1 );
-        else {
-            pszPath = getenv("WNNLIB");
-            if ( pszPath )
-                sprintf( szModeHyo, "%.240s/%.5s/rk/mode", pszPath, szLang );
+        if ( pszPath ) {
+            if ( strpbrk( pszPath, ":/\\") == NULL )
+                pszFile = strdup( pszPath );
             else
-                sprintf( szModeHyo, "/@unixroot/usr/lib/wnn/%.5s/rk/mode", szLang );
+                strncpy( szModeHyo, pszPath, CCHMAXPATH - 1 );
+        }
+        if ( !szModeHyo[0] ) {
+            pszPath = getenv("WNNLIB");
+            if ( !pszFile )
+                pszFile = strdup("mode");
+            if ( pszPath )
+                sprintf( szModeHyo, "%.200s/%.5s/rk/%.49s", pszPath, szLang, pszFile );
+            else
+                sprintf( szModeHyo, "/@unixroot/usr/lib/wnn/%.5s/rk/%.49s", szLang, pszFile );
         }
         pszPath = szModeHyo;
+        if ( pszFile ) free( pszFile );
         while (( c = strchr( pszPath, '\\')) != NULL ) *c = '/';
     }
 
     _PmpfF(("Initializing romkan engine using configuration %s", pszPath ));
 
+    // TODO make sure the config file actually exists
+
     romkan_set_lang( szLang );     // This may not actually be needed (?)
 
     // romkan_init() parameters:
-    //   pszPath                Filespec of the main 'mode' table
+    //   pszPath                Filespec of the main romkan config table ('mode')
     //   0x08                   Value of the 'delete' character code
     //   *NextCharacter         Pointer to character-read function
     //   *CharacterByteCount    Pointer to character byte-count function
@@ -303,8 +318,18 @@ INT IM_CALLCNV MakeKatakana( void )
  * ------------------------------------------------------------------------- */
 INT IM_CALLCNV MakeHalfKana( void )
 {
-    // TODO
+    USHORT   iMax;
+    UniChar *puszTemp;
 
+    iMax = sizeof( global.uszKana );
+
+    puszTemp = (UniChar *) calloc( iMax, sizeof( UniChar ));
+    if ( !puszTemp ) return ERROR_NOT_ENOUGH_MEMORY;
+
+    if ( ConvertHankaku( global.uszKana, *puszTemp, iMax ) > 0 )
+        UniStrcpy( global.uszKana, puszTemp );
+
+    free( puszTemp );
     return 0;
 }
 
@@ -910,7 +935,9 @@ done:
 
 
 /* ------------------------------------------------------------------------- *
+ * GetPhraseCount                                                            *
  *                                                                           *
+ * Returns the number of word-phrases in the current clause buffer.          *
  * ------------------------------------------------------------------------- */
 INT IM_CALLCNV GetPhraseCount( PVOID pSession )
 {
@@ -927,7 +954,11 @@ INT IM_CALLCNV GetPhraseCount( PVOID pSession )
 
 
 /* ------------------------------------------------------------------------- *
+ * PrepareCandidates                                                         *
  *                                                                           *
+ * Generate the possible conversion candidates for the current data.  Once   *
+ * this function has been called, the candidates can be enumerated using     *
+ * GetPhraseCount, or selected using SetCandidate.                           *
  * ------------------------------------------------------------------------- */
 INT IM_CALLCNV PrepareCandidates( PVOID pSession )
 {
@@ -951,7 +982,9 @@ INT IM_CALLCNV PrepareCandidates( PVOID pSession )
 
 
 /* ------------------------------------------------------------------------- *
+ * GetCandidateCount                                                         *
  *                                                                           *
+ * Get the number of available conversion candidates in the data buffer.     *
  * ------------------------------------------------------------------------- */
 INT IM_CALLCNV GetCandidateCount( PVOID pSession )
 {

@@ -1130,6 +1130,47 @@ MRESULT EXPENTRY AboutDlgProc( HWND hwnd, ULONG msg, MPARAM mp1, MPARAM mp2 )
 
 
 /* ------------------------------------------------------------------------- *
+ * ResolvePathSpec                                                           *
+ *                                                                           *
+ * Fix up a path specifier by normalizing backslashes and resolving any      *
+ * references to @unixroot.                                                  *
+ * ------------------------------------------------------------------------- */
+/*
+void ResolvePathSpec( PSZ *pszPath )
+{
+    PSZ pszUxRoot,
+        pszTemp,
+        pPos;
+    int iLen,
+        iULen;
+
+    if ( *pszPath == NULL ) return;
+
+    iLen = strlen( *pszPath );
+    pPos = strstr( *pszPath, "/@unixroot");
+    if ( pPos != NULL ) {
+        pszUxRoot = getenv("UNIXROOT");
+        if ( !pszUxRoot ) return;       // nothing we can do here
+
+        iLen -= 10;
+        iULen = strlen( pszUxRoot );
+        iLen += iULen;
+
+        pszTemp = (PSZ) calloc( iLen, sizeof( char ));
+        if ( !pszTemp ) return;         // or here
+
+        sprintf( pszTemp, "%s", pszUxRoot );
+        strcat( pszTemp, *pszPath + iULen );
+
+        free( *pszPath );
+        *pszPath = pszTemp;
+    }
+    while (( c = strchr( *pszPath, '/')) != NULL ) *c = '\\';
+}
+*/
+
+
+/* ------------------------------------------------------------------------- *
  * Handle certain events in a subclassed control that we want to pass up to  *
  * that control's owner.  The main purpose of this is to make sure drag and  *
  * context-menu events on the control are handled by the dialog, rather than *

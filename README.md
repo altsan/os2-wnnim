@@ -38,7 +38,8 @@ runtime files locally, which you can do by following these steps:
 
 1. Extract `wnn0.dll` from the RPM and place it in a directory on your LIBPATH.
 2. Extract the contents of `usr\lib\wnn` (including all subdirectories); 
-   place them somewhere convenient (e.g. `E:\usr\local\lib\wnn`).
+   place them somewhere convenient (e.g. `E:\usr\local\lib\wnn`).  (Note: The
+   maximum allowed length of this path is 200 characters.)
 3. Set the environment variable `WNNLIB` to the fully-qualified path of
    the directory in step (2) (e.g. `SET WNNLIB=E:\usr\local\lib\wnn`).
    This allows WnnIM to locate the Wnn configuration files.
@@ -240,6 +241,25 @@ exported by the library and so were simply lifted from the sources.
 `ids.h` defines various resource and message IDs used by both the client and the
 PM hook.
 
+### Environment variables
+
+The following environment variables affect the operation of WnnIM/2:
+
+ * `JSERVER`: Indicates the host and instance number where the FreeWnn server
+   is running.  For most local installations this will be `localhost:1`.
+
+ * `WNNLIB`: Indicates the path to the FreeWnn configuration files.  (This path
+    may be no more than 200 characters long.)  If not defined, WnnIM/2 will look
+    for them under the directory `%UNIXROOT%\usr\lib\wnn`.  
+
+ * `ROMKAN_TABLE`: Indicates a custom romaji input conversion table to be used.
+    If this value includes a path specifier, it is taken as the fully-qualified
+    name of the conversion table file.  If it contains a filename only (maximum
+    allowed length 49 characters), that file is assumed to be located under the
+    usual FreeWnn configuration file directory (determined as described above),
+    in the subdirectory `<lang>\rk`.  If not defined, the default FreeWnn romaji
+    conversion table (`mode` in the aforementioned directory) will be used.
+
 
 Limitations
 -----------
@@ -263,8 +283,8 @@ Limitations
    text requires the target program to be using a Japanese font (in addition
    to the Japanese codepage, as noted above).  If you would rather not change
    a program's font to Japanese, then it may be possible to make use of
-   Presentation Manager's "font association" feature (PM_SystemFonts ->
-   PM_AssociateFont in OS2.INI), at least for programs which use standard PM
+   Presentation Manager's "font association" feature (`PM_SystemFonts` ->
+   `PM_AssociateFont` in OS2.INI), at least for programs which use standard PM
    controls or GPI text rendering.  However, this does have certain limitations.
 
 3. Not all applications support positioning of the clause overlay window at the

@@ -9,7 +9,7 @@ LINK       = ilink
 WNNINCLUDE = e:\usr\local\include\wnn
 
 # Uncomment to enable PMPrintf support (for tracing & diagnostics)
-# PMPF       = 1
+PMPF       = 1
 
 BL_NAME    = "WnnIM/2 IME client (Japanese)"
 BL_VEND    = "Alexander Taylor"
