@@ -85,7 +85,7 @@ ANPM.  Alternatively, you can install it manually using the following steps:
 
 #### `modew` vs `modec`
 
-Two different configuration files for romaji-to-kanji input conversion are
+Two different configuration files for romaji-to-kana input conversion are
 provided.  You can choose which one to use, according to your preference:
 
  * `modew` is designed to work similarly to the Japanese IME on Windows.
