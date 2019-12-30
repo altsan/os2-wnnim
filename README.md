@@ -25,7 +25,7 @@ For Users
 The FreeWnn server and runtime files are required.  These are provided in the
 FreeWnn RPM packages, which should soon be available from a repository near you;
 in the meantime, you can get `FreeWnn-1.1.1-0.a023.1.i386.rpm` from
-[here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).
+[here](https://drive.google.com/file/d/1JmNSX-I38-6eaGrbLewF9kiKDB_UixyL/view?usp=sharing).
 
 Reboot after installing the FreeWnn RPM.
 
@@ -168,7 +168,7 @@ GCC or another compiler would probably require some changes to this approach.
 
 Building the client application requires the FreeWnn library and header files;
 these are included in the `FreeWnn-devel` RPM (provisionally available from
-[here](https://drive.google.com/drive/folders/0B_CmLQmhb3PzelRpakJ6OXl3YnM).)
+[here](https://drive.google.com/file/d/1kkFA7U91gejOzuY16-U6Jsdm6Ncxwnl1/view?usp=sharing).)
 
 All the FreeWnn-specific code is isolated in one or two source files.  In
 principle, the rest of the WnnIM code could probably be used to implement an IME
@@ -265,7 +265,7 @@ PM hook.
 The following environment variables affect the operation of WnnIM/2:
 
  * `JSERVER`: Indicates the host and instance number where the FreeWnn server
-   is running.  For most local installations this will be `localhost:1`.
+    is running.  For most local installations this will be `localhost:1`.
 
  * `WNNLIB`: Indicates the path to the FreeWnn configuration files.  (This path
     may be no more than 200 characters long.)  If not defined, WnnIM/2 will look
@@ -273,11 +273,13 @@ The following environment variables affect the operation of WnnIM/2:
 
  * `ROMKAN_TABLE`: Indicates a custom romaji input conversion table to be used.
     If this value includes a path specifier, it is taken as the fully-qualified
-    name of the conversion table file.  If it contains a filename only (maximum
-    allowed length 49 characters), that file is assumed to be located under the
-    usual FreeWnn configuration file directory (determined as described above),
-    in the subdirectory `<lang>\rk`.  If not defined, the default FreeWnn romaji
-    conversion table (`mode` in the aforementioned directory) will be used.
+    name of the conversion table file.  If it contains a filename only, that 
+    file is assumed to be located under the usual FreeWnn configuration file 
+    directory (determined as described above), in the subdirectory `<lang>\rk`
+    (in this case the name of the file without the path cannot be longer than
+    49 characters).  If this environment variable is not defined, the default 
+    FreeWnn romaji conversion table (`mode` in the aforementioned directory) 
+    will be used.
 
 
 Limitations
@@ -285,8 +287,9 @@ Limitations
 
 1. In general, an application must be running under the corresponding DBCS
    codepage in order for WnnIM text entry to work.  This is especially true
-   for applications that try to interpret text intelligently (e.g. by
-   converting into Unicode).  For reference, the relevant codepages are:
+   for applications that try to interpret text intelligently based on the
+   codepage (e.g. by converting into Unicode).  For reference, the relevant
+   codepages are:
 
     - Japanese: 932
     - Korean: 949
@@ -295,7 +298,7 @@ Limitations
 
    Note that running under these codepages without also using the corresponding
    language OS version and keyboard driver may prevent you from typing certain 
-   characters like tilde (~) and backslash (\).
+   characters (mainly tilde and backslash).
 
 2. For the characters to display properly in the application, it will need to
    use fonts that support the language in question.  In other words, Japanese
