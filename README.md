@@ -60,11 +60,30 @@ You can install WnnIM from RPM using the rpm command line or a program like
 ANPM.  Alternatively, you can install it manually using the following steps:
 
 1. Place `wnnhook.dll` and `wnnim.exe` together in a directory of your choice.
-2. Place the `rk` directory and its contents somewhere.  Edit your CONFIG.SYS
-   file and define the environment variable `ROMKAN_TABLE` as the fully-
-   qualified path to either the `modew` or `modec` file (see below for the
-   difference) in this directory.  (Reboot after updating CONFIG.SYS.)
+
+2. Place the `rk` directory and its contents somewhere.  
+
+   You can put these files into `%UNIXROOT%\usr\lib\wnn\ja_JP\rk`, which is 
+   created by the FreeWnn installer (or in `ja_JP\rk` under whatever path is
+   defined by the environment variable %WNNLIB%, if set).  If you do this, 
+   note that the file `1B_TOUPPER` is identical to the one included with
+   FreeWnn, and can be omitted in this case (the other files, however, are 
+   required).  If you put the files in this location, then edit your CONFIG.SYS
+   file and add the line `SET ROMKAN_TABLE=modew`.  
+
+   If you put these files in any location other than the above, then edit 
+   CONFIG.SYS and add the line `SET ROMKAN_TABLE=<rk_path>\modew`, where
+   `<rk_path>` is the fully-qualified path to the files.
+
+   *Note:* In either case, you can specify `modec` instead of `modew` in the
+   aforementioned ROMKAN_TABLE value.  Doing so will change the romaji input
+   configuration slightly -- see below for the differences.  
+
+   Reboot after updating CONFIG.SYS.
+
 3. Create a program object for `wnnim.exe` if you desire.
+
+#### `modew` vs `modec`
 
 Two different configuration files for romaji-to-kanji input conversion are
 provided.  You can choose which one to use, according to your preference:
