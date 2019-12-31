@@ -24,7 +24,7 @@
 // CONSTANTS
 //
 
-#define SZ_VERSION      "0.2.0"
+#define SZ_VERSION      "0.3.0"
 #define SZ_COPYRIGHT    "2019"
 #define MAX_VERSTRZ     32
 #define MAX_STATUSZ     64

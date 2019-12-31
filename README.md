@@ -61,6 +61,9 @@ ANPM.  Alternatively, you can install it manually using the following steps:
 
 1. Place `wnnhook.dll` and `wnnim.exe` together in a directory of your choice.
 
+   (Optionally, put the files with names ending in `.xqs` in the same directory;
+   these are used for debugging but are not required for normal use.)
+
 2. Place the `rk` directory and its contents somewhere.  
 
    You can put these files into `%UNIXROOT%\usr\lib\wnn\ja_JP\rk`, which is 
@@ -82,6 +85,7 @@ ANPM.  Alternatively, you can install it manually using the following steps:
    Reboot after updating CONFIG.SYS.
 
 3. Create a program object for `wnnim.exe` if you desire.
+
 
 #### `modew` vs `modec`
 

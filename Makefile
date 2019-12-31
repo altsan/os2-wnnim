@@ -88,6 +88,7 @@ $(DLL).lib: $(DLL).dll $(DLL).def
 
 $(DLL).dll:  $(OBJS_DLL)
         $(LINK) $(LFLAGS_DLL) $(DLL).obj $(DLL).def /OUT:$@
+        mapxqs $(DLL).map
 
 $(DLL).obj: $(DLL).c $(HEADERS_ALL)
         $(CC) /c $(CFLAGS_DLL) $<
