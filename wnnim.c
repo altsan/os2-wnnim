@@ -731,6 +731,7 @@ void AcceptClause( HWND hwnd )
                              MPFROM2SHORT( CWT_ALL, usLen+1 ),
                              MPFROMP( puszClause )))
             {
+                UpdateFrequency( global.pSession, 0, -1 );
                 DismissConversionWindow( hwnd );
                 usLen *= 4;
                 pszClause = (PSZ) calloc( usLen + 1, sizeof( char ));

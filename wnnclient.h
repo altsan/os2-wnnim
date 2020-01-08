@@ -39,9 +39,11 @@ BYTE IM_CALLCNV ConvertClause( PVOID pSession, UniChar *puszClause );
 BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase );
 void IM_CALLCNV FinishConversionMethod( PVOID pSession );
 INT  IM_CALLCNV GetCandidateCount( PVOID pSession );
-BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOOL fReading, UniChar **ppuszString );
+BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iLast, BOOL fReading, UniChar **ppuszString );
 INT  IM_CALLCNV GetPhraseCount( PVOID pSession );
 INT  IM_CALLCNV InitConversionMethod( PSZ pszPath, USHORT usLang, PVOID *ppSession );
 INT  IM_CALLCNV PrepareCandidates( PVOID pSession );
 INT  IM_CALLCNV SetCandidate( PVOID pSession, BOOL fNext );
+INT  IM_CALLCNV UpdateFrequency( PVOID pSession, INT iPhrase, INT iLast );
+
 

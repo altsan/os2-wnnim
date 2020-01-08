@@ -76,6 +76,9 @@ extern int              _cdecl jl_yomi_len( struct wnn_buf *buf, register int bu
 extern int              _cdecl jl_set_jikouho( register struct wnn_buf *buf, register int offset );
 extern int              _cdecl jl_zenkouho( register struct wnn_buf *buf, int bun_no, int use_maep, int uniq_level );
 extern int              _cdecl jl_zenkouho_dai( register struct wnn_buf *buf, int bun_no, int bun_no2, int use_maep, int uniq_level );
+extern int              _cdecl jl_update_hindo( register struct wnn_buf *buf, int bun_no, int bun_no2 );
+extern int              _cdecl jl_word_add_e( struct wnn_env *env, int dic_no, w_char *yomi, w_char *kanji, w_char *comment, int hinsi, int init_hindo );
+extern int              _cdecl jl_dic_save_all_e( struct wnn_env *env );
 extern int              _cdecl wnn_get_area( struct wnn_buf *buf, register int bun_no, register int bun_no2, w_char *area, int kanjip );
 
 
@@ -682,9 +685,14 @@ void IM_CALLCNV FinishConversionMethod( PVOID pSession )
         if ( jl_bun_suu( bdata ))
             jl_kill( bdata, 0, -1 );
 
-        // Now close the connection (also frees the buffer)
-        if ( jl_isconnect( bdata ))
+        if ( jl_isconnect( bdata )) {
+#if 0
+            // Update all dictionaries and frequency files
+            jl_dic_save_all( bdata );
+#endif
+            // Now close the connection (also frees the buffer)
             jl_close( bdata );
+        }
     }
 }
 
@@ -859,7 +867,7 @@ BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
  * PARAMETERS:                                                               *
  *   PVOID pSession: Pointer to Wnn data buffer.                             *
  *   INT   iPhrase : First phrase in the clause to retrieve (first = 0)      *
- *   INT   iCount  : Number of phrases to retrieve (-1 for rest of clause)   *
+ *   INT   iLast  : Last phrase to retrieve (-1 for rest of clause)         *
  *                   (If retrieving a candidate for a phrase, then -1 can be *
  *                   used, since the candidate has only the one phrase.)     *
  *   BOOL  fReading: If TRUE, return unconverted reading instead of kanji.   *
@@ -873,7 +881,7 @@ BYTE IM_CALLCNV ConvertPhrase( PVOID pSession, UniChar *puszPhrase )
  *   CONV_FAILED   Failed to retrieve string.                                *
  *   CONV_OK       String retrieved successfully.                            *
  * ------------------------------------------------------------------------- */
-BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOOL fReading, UniChar **ppuszString )
+BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iLast, BOOL fReading, UniChar **ppuszString )
 {
     INT     iLen;                       // Buffer length
     BYTE    bResult = CONV_FAILED;      // Return code from this function
@@ -889,8 +897,8 @@ BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOO
     }
 
     // Get the requested string length
-    iLen = fReading? jl_yomi_len( bdata, iPhrase, iCount ) :
-                     jl_kanji_len( bdata, iPhrase, iCount );
+    iLen = fReading? jl_yomi_len( bdata, iPhrase, iLast ) :
+                     jl_kanji_len( bdata, iPhrase, iLast );
     if ( !iLen ) {
         if ( !global.szEngineError[0] )
             // Set a generic error message if FreeWnn didn't provide one
@@ -906,8 +914,8 @@ BYTE IM_CALLCNV GetConvertedString( PVOID pSession, INT iPhrase, INT iCount, BOO
     }
 
     // Now retrieve the requested string or substring(s)
-    iLen = fReading? jl_get_yomi( bdata, iPhrase, iCount, kanji ) :
-                     jl_get_kanji( bdata, iPhrase, iCount, kanji );
+    iLen = fReading? jl_get_yomi( bdata, iPhrase, iLast, kanji ) :
+                     jl_get_kanji( bdata, iPhrase, iLast, kanji );
     if ( iLen > 0 ) {
         // Convert to standard EUC, allowing up to 3 bytes per input character
         iLen *= 3;
@@ -1031,6 +1039,33 @@ INT IM_CALLCNV SetCandidate( PVOID pSession, BOOL fNext )
         rc = jl_next( bdata );
     else
         rc = jl_previous( bdata );
+
+    return rc;
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * UpdateFrequency                                                           *
+ *                                                                           *
+ * Update the frequency (candidate weighting) for the indicated phrases.     *
+ *                                                                           *
+ * PARAMETERS:                                                               *
+ *   PVOID pSession: Pointer to Wnn data buffer.                             *
+ *   INT   iPhrase : First phrase in the clause to update (first = 0)        *
+ *   INT   iLast   : Last phrase to update (-1 for rest of clause)           *
+ * ------------------------------------------------------------------------- */
+INT IM_CALLCNV UpdateFrequency( PVOID pSession, INT iPhrase, INT iLast )
+{
+    struct wnn_buf *bdata = pSession;   // Wnn session buffer
+    INT rc;
+
+    // Double-check we are connected to the server
+    if ( !bdata || !jl_isconnect( bdata )) {
+        strcpy( global.szEngineError, "Lost connection to server.");
+        return CONV_CONNECT;
+    }
+
+    rc = jl_update_hindo( bdata, iPhrase, iLast );
 
     return rc;
 }
